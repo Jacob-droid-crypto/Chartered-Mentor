@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/admin/:match*",
+      "destination": "https://chartered-mentor.onrender.com/admin/:match*"
+    },
+    {
+      "source": "/student/:match*",
+      "destination": "https://chartered-mentor.onrender.com/student/:match*"
+    }
+  ]
+}
