@@ -9,5 +9,8 @@ export default defineConfig({
       '/admin': 'http://localhost:5000',
       '/student': 'http://localhost:5000'
     }
+  },
+  build: {
+    chunkSizeWarningLimit: 1600,
   }
 })
