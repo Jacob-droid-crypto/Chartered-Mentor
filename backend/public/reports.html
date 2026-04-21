@@ -1,0 +1,124 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Reports Dashboard</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <meta charset="UTF-8" />
+    <style>
+      .chart-container {
+        width: 80%;
+        margin: 20px auto;
+        background: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      }
+      .filters {
+        text-align: center;
+        margin-bottom: 20px;
+      }
+      .filters input, .filters button {
+        padding: 10px;
+        margin: 5px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- NAVBAR -->
+    <nav class="navbar">
+      <h2>Chartered Mentor</h2>
+      <button onclick="goBack()">Back</button>
+    </nav>
+
+    <!-- MAIN DASHBOARD -->
+    <div class="dashboard-container" style="max-width: 1000px;">
+      <header class="dashboard-header">
+        <h1>Reports & Analytics</h1>
+        <p>Student Attendance and Study Hours</p>
+      </header>
+      
+      <div class="filters">
+        <label for="studentId">Student ID Filter: </label>
+        <input type="text" id="studentId" placeholder="e.g. 24BCA101" />
+        <button onclick="loadDailySummaryChart()">Load Summary</button>
+      </div>
+
+      <div class="chart-container">
+        <h2>Daily Attendance Summary</h2>
+        <canvas id="attendanceChart"></canvas>
+      </div>
+      
+    </div>
+
+    <script>
+      function goBack() {
+        window.location.href = "admin-dashboard.html";
+      }
+
+      let chartInstance = null;
+
+      async function loadDailySummaryChart() {
+         const studentFilter = document.getElementById("studentId").value.trim();
+          try {
+             const res = await fetch("http://localhost:5000/admin/daily-summary");
+             const data = await res.json();
+             
+             let filteredData = data;
+             if (studentFilter) {
+               filteredData = data.filter(d => d.studentId === studentFilter);
+             }
+
+             // Count status
+             let presentCount = 0;
+             let partialCount = 0;
+             let absentCount = 0;
+             
+             filteredData.forEach(d => {
+               if (d.status === "Present") presentCount++;
+               else if (d.status === "Partial") partialCount++;
+               else if (d.status === "Absent") absentCount++;
+             });
+
+             const ctx = document.getElementById('attendanceChart').getContext('2d');
+             
+             if (chartInstance) {
+                chartInstance.destroy();
+             }
+
+             chartInstance = new Chart(ctx, {
+                 type: 'pie',
+                 data: {
+                     labels: ['Present', 'Partial', 'Absent'],
+                     datasets: [{
+                         label: 'Number of Records',
+                         data: [presentCount, partialCount, absentCount],
+                         backgroundColor: [
+                             '#28a745',
+                             '#ffc107',
+                             '#dc3545'
+                         ],
+                         borderWidth: 1
+                     }]
+                 },
+                 options: {
+                     responsive: true,
+                     plugins: {
+                       legend: {
+                           position: 'bottom',
+                       }
+                     }
+                 }
+             });
+          } catch (err) {
+             console.error("Error loading summary:", err);
+             alert("Failed to load chart data");
+          }
+      }
+      
+      // Load initial chart
+      loadDailySummaryChart();
+    </script>
+  </body>
+</html>
