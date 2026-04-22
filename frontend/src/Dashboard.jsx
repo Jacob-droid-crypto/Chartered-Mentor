@@ -24,6 +24,15 @@ function Dashboard({ user, onLogout }) {
   // QR Scanning State
   const [scanning, setScanning] = useState(false);
 
+  // Attendance Filters
+  const [attendanceView, setAttendanceView] = useState('daily'); // daily, weekly, monthly
+  const [attendanceSearch, setAttendanceSearch] = useState('');
+  const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Profile State
+  const [profileForm, setProfileForm] = useState({ name: '', email: '', phone: '', course: '', profilePhoto: '' });
+  const [profileData, setProfileData] = useState(null);
+
   // Reusable submit logic for attendance
   const submitAttendance = async (qrData) => {
     try {
@@ -76,15 +85,139 @@ function Dashboard({ user, onLogout }) {
   useEffect(() => {
     if (activeTab === 'dashboard') {
       fetchDashboardData();
-      if (user.role === 'admin') fetchStudentsData(); // fetch students to build charts
+      if (user.role === 'admin') fetchStudentsData();
     }
     if (activeTab === 'students' && user.role === 'admin') {
       fetchStudentsData();
     }
-    if (activeTab === 'attendance' && user.role === 'admin') {
-      fetchDashboardData(); // For today's attendance data currently mapped
+    if (activeTab === 'attendance') {
+      fetchDashboardData(); // Fetches daily-summary (admin) or dashboard (student)
+    }
+    if (activeTab === 'profile') {
+      fetchProfileData();
     }
   }, [user, activeTab]);
+
+  const fetchProfileData = async () => {
+    try {
+      setLoading(true);
+      const url = user.role === 'admin' ? '/admin/profile' : `/student/dashboard/${user.userId}`;
+      const res = await fetch(url, { headers: { 'Authorization': `Bearer ${user.token}` }});
+      const resData = await res.json();
+      if (!res.ok) throw new Error(resData.message);
+      setProfileData(resData);
+      setProfileForm({
+        name: resData.name || '',
+        email: resData.email || '',
+        phone: resData.phone || '',
+        course: resData.course || '',
+        profilePhoto: resData.profilePhoto || ''
+      });
+    } catch (e) { setError(e.message); } finally { setLoading(false); }
+  };
+
+  const handleProfileSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const endpoint = user.role === 'admin' ? '/admin/profile' : '/student/profile';
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.userId, ...profileForm })
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text);
+      }
+      alert('Profile updated successfully!');
+      fetchProfileData();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handlePhotoUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfileForm({ ...profileForm, profilePhoto: reader.result });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const formatStudyTime = (hrs) => {
+    if (!hrs || hrs === 0) return '0 min';
+    const totalMins = Math.round(parseFloat(hrs) * 60);
+    const h = Math.floor(totalMins / 60);
+    const m = totalMins % 60;
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
+  };
+
+  // Attendance Aggregation Logic
+  const getAggregatedAttendance = () => {
+    const sourceData = Array.isArray(data) ? data : (data?.attendanceSummary || []);
+    if (!Array.isArray(sourceData)) return [];
+
+    // Filter by search
+    let filtered = sourceData;
+    if (attendanceSearch.trim() !== '') {
+      const q = attendanceSearch.toLowerCase();
+      filtered = filtered.filter(item => 
+        (item.studentId && item.studentId.toLowerCase().includes(q))
+      );
+    }
+
+    if (attendanceView === 'daily') {
+      // Show exact attendances on `attendanceDate`
+      return filtered.filter(item => item.date === attendanceDate);
+    }
+
+    // Weekly and Monthly: aggregate totals
+    const aggregatedMap = {};
+    filtered.forEach(item => {
+      const d = new Date(item.date);
+      if (isNaN(d.getTime())) return;
+
+      let keyToMatch = false;
+      if (attendanceView === 'monthly') {
+        // match YYYY-MM
+        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const targetMonthKey = attendanceDate.substring(0, 7);
+        if (monthKey === targetMonthKey) keyToMatch = true;
+      } else if (attendanceView === 'weekly') {
+        // match target week based on the selected date
+        // Note: simple naive week check for +/- 3 days from the chosen date or same week number
+        // A better approach is same week (Sunday-Saturday)
+        const targetDate = new Date(attendanceDate);
+        const startOfWeek = new Date(targetDate);
+        startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+        
+        if (d >= startOfWeek && d <= endOfWeek) keyToMatch = true;
+      }
+
+      if (keyToMatch) {
+        if (!aggregatedMap[item.studentId]) {
+          aggregatedMap[item.studentId] = { studentId: item.studentId, course: item.course, totalPresent: 0, totalPartial: 0, totalAbsent: 0, presentDates: [], totalHours: 0 };
+        }
+        if (item.status === 'Present') aggregatedMap[item.studentId].totalPresent++;
+        else if (item.status === 'Partial') aggregatedMap[item.studentId].totalPartial++;
+        else aggregatedMap[item.studentId].totalAbsent++;
+        
+        aggregatedMap[item.studentId].totalHours += parseFloat(item.totalHours || 0);
+
+        if (item.status === 'Present' || item.status === 'Partial') {
+           aggregatedMap[item.studentId].presentDates.push(item.date);
+        }
+      }
+    });
+
+    return Object.values(aggregatedMap).sort((a,b) => b.totalPresent - a.totalPresent);
+  };
 
   useEffect(() => {
     let scanner = null;
@@ -181,8 +314,11 @@ function Dashboard({ user, onLogout }) {
           <li className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
             <span>📊</span> Dashboard
           </li>
-          {user.role === 'admin' && (
+          {user.role === 'admin' ? (
             <>
+              <li className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
+                <span>👤</span> Profile
+              </li>
               <li className={`nav-item ${activeTab === 'students' ? 'active' : ''}`} onClick={() => setActiveTab('students')}>
                 <span>🎓</span> Students
               </li>
@@ -193,9 +329,18 @@ function Dashboard({ user, onLogout }) {
                 <span>🔲</span> Campus QR
               </li>
             </>
+          ) : (
+            <>
+              <li className={`nav-item ${activeTab === 'attendance' ? 'active' : ''}`} onClick={() => setActiveTab('attendance')}>
+                <span>📅</span> Attendance Records
+              </li>
+              <li className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
+                <span>👤</span> Profile
+              </li>
+            </>
           )}
         </ul>
-        <div style={{ marginTop: 'auto' }}>
+        <div className="logout-container" style={{ marginTop: 'auto' }}>
           <button onClick={onLogout} style={{ width: '100%', padding: '0.75rem', background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Logout</button>
         </div>
       </aside>
@@ -204,14 +349,33 @@ function Dashboard({ user, onLogout }) {
       <main className="main-content">
         <header className="top-header">
           <div className="welcome-text">
-            <h1>{activeTab === 'dashboard' ? `Welcome back, ${user.name} 👋` : 'Manage Students'}</h1>
-            <p>{activeTab === 'dashboard' 
-              ? `Role: ${user.role === 'admin' ? 'Administrator' : 'Student (ID: ' + user.userId + ')'}` 
-              : 'Add new students or remove existing ones from the system.'}</p>
+            <h1>
+              {activeTab === 'dashboard' ? `Welcome back, ${user.name} 👋` 
+               : activeTab === 'students' ? 'Manage Students' 
+               : activeTab === 'attendance' ? 'Attendance Records' 
+               : activeTab === 'profile' ? 'My Profile' 
+               : 'Campus QR'}
+            </h1>
+            <p>
+              {activeTab === 'dashboard' ? `Role: ${user.role === 'admin' ? 'Administrator' : 'Student (ID: ' + user.userId + ')'}` 
+               : activeTab === 'students' ? 'Add new students or remove existing ones from the system.'
+               : activeTab === 'attendance' ? 'View and track your attendance logs.'
+               : activeTab === 'profile' ? 'Update your personal details and photo.'
+               : 'Display the active QR code for students to scan.'}
+            </p>
           </div>
-          <div className="profile-section">
+          <div className="profile-section" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <span>{user.name}</span>
-            <div className="avatar"></div>
+            {profileData?.profilePhoto || user.profilePhoto ? (
+              <img src={profileData?.profilePhoto || user.profilePhoto} alt="Profile" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid white' }} />
+            ) : (
+              <div className="avatar" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold' }}>
+                {user.name ? user.name.charAt(0).toUpperCase() : '?'}
+              </div>
+            )}
+          </div>
+          <div className="mobile-header-logout" onClick={onLogout} title="Logout">
+            <span>🚪</span>
           </div>
         </header>
 
@@ -345,29 +509,122 @@ function Dashboard({ user, onLogout }) {
               </div>
             </section>
           </>
-        ) : activeTab === 'attendance' ? (
+        ) : activeTab === 'profile' ? (
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h2>Attendance Records</h2>
+              <h2>Your Profile</h2>
             </div>
+            <div className="card" style={{ maxWidth: '600px' }}>
+              <form onSubmit={handleProfileSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Profile Photo</label>
+                  <label style={{ display: 'inline-block', padding: '0.6rem 1.2rem', background: '#eef2ff', color: 'var(--primary-color)', border: '1px solid var(--primary-color)', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                    Choose Image / Take Photo
+                    <input type="file" accept="image/*" onChange={handlePhotoUpload} style={{ display: 'none' }} />
+                  </label>
+                  {profileForm.profilePhoto && (
+                    <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <img src={profileForm.profilePhoto} alt="Preview" style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--primary-color)' }} />
+                      <button type="button" onClick={() => setProfileForm({ ...profileForm, profilePhoto: '' })} style={{ padding: '0.4rem 0.8rem', background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '6px', cursor: 'pointer' }}>Remove</button>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Full Name</label>
+                  <input type="text" required value={profileForm.name} onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Email ID</label>
+                  <input type="email" value={profileForm.email} onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Phone Number</label>
+                  <input type="tel" value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                </div>
+                <div style={{ opacity: user.role === 'admin' ? 1 : 0.6 }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Enrolled Course</label>
+                  <input type="text" readOnly={user.role === 'student'} value={profileForm.course} onChange={(e) => setProfileForm({ ...profileForm, course: e.target.value })} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                </div>
+                <button type="submit" style={{ marginTop: '1rem', padding: '0.75rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Update Profile</button>
+              </form>
+            </div>
+          </>
+        ) : activeTab === 'attendance' ? (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+              <h2>Attendance Records</h2>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                {user.role === 'admin' && (
+                  <input 
+                    type="text" 
+                    placeholder="Search Student ID..." 
+                    value={attendanceSearch}
+                    onChange={(e) => setAttendanceSearch(e.target.value)}
+                    style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }}
+                  />
+                )}
+                <select 
+                  value={attendanceView} 
+                  onChange={(e) => setAttendanceView(e.target.value)}
+                  style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }}
+                >
+                  <option value="daily">Daily View</option>
+                  <option value="weekly">Weekly Total</option>
+                  <option value="monthly">Monthly Total</option>
+                </select>
+                {attendanceView === 'monthly' ? (
+                  <input 
+                    type="month" 
+                    value={attendanceDate.substring(0, 7)}
+                    onChange={(e) => setAttendanceDate(e.target.value + '-01')}
+                    style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }}
+                  />
+                ) : (
+                  <input 
+                    type="date" 
+                    value={attendanceDate}
+                    onChange={(e) => setAttendanceDate(e.target.value)}
+                    style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }}
+                  />
+                )}
+              </div>
+            </div>
+
             <div className="card">
-               <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>Detailed historical tracking and export features will go here!</p>
+               <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+                 {attendanceView === 'daily' ? 'Showing attendance details for selected date.' : `Showing aggregated ${attendanceView} attendance for the selected period.`}
+               </p>
                <div className="activity-list">
-                 {Array.isArray(data) && data.map((record, idx) => (
-                    <div key={idx} className="activity-item">
+                 {(() => {
+                   // Render aggregated data
+                   const aggregatedData = getAggregatedAttendance();
+                   if (aggregatedData.length === 0) return <p style={{ color: 'var(--text-muted)' }}>No records found for the selected criteria.</p>;
+
+                   return aggregatedData.map((record, idx) => (
+                    <div key={idx} className="activity-item" style={{ flexWrap: 'wrap' }}>
                       <div className="activity-info">
-                        <div className="activity-dot" style={{ background: record.status === 'Present' ? '#10b981' : record.status === 'Partial' ? '#f59e0b' : '#ef4444' }}></div>
+                        <div className="activity-dot" style={{ background: attendanceView === 'daily' ? (record.status === 'Present' ? '#10b981' : record.status === 'Partial' ? '#f59e0b' : '#ef4444') : '#3b82f6' }}></div>
                         <div>
                           <strong>{record.studentId}</strong>
                           <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Course: {record.course || '-'}</div>
                         </div>
                       </div>
-                      <div className="activity-date" style={{ fontWeight: 'bold', color: record.status === 'Present' ? '#10b981' : record.status === 'Partial' ? '#f59e0b' : '#ef4444' }}>{record.status} • {record.date}</div>
+                      
+                      {attendanceView === 'daily' ? (
+                        <div className="activity-date" style={{ fontWeight: 'bold', color: record.status === 'Present' ? '#10b981' : record.status === 'Partial' ? '#f59e0b' : '#ef4444' }}>
+                          {record.status} ({formatStudyTime(record.totalHours)}) • {record.date}
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                           <span style={{ color: '#10b981', fontWeight: 'bold' }}>Present: {record.totalPresent}</span>
+                           <span style={{ color: '#f59e0b', fontWeight: 'bold' }}>Partial: {record.totalPartial}</span>
+                           <span style={{ color: '#ef4444', fontWeight: 'bold' }}>Absent: {record.totalAbsent}</span>
+                           <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>Study: {formatStudyTime(record.totalHours)}</span>
+                        </div>
+                      )}
                     </div>
-                 ))}
-                 {(!data || (Array.isArray(data) && data.length === 0)) && (
-                   <p style={{ color: 'var(--text-muted)' }}>No historical records currently available.</p>
-                 )}
+                   ));
+                 })()}
                </div>
             </div>
           </>
@@ -455,7 +712,16 @@ function Dashboard({ user, onLogout }) {
                             #{student.userId}
                           </span>
                         </strong>
-                        <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '2px' }}>{student.age || 'N/A'} years old • {student.email || 'No email'}</div>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>
+                          <span style={{ 
+                            background: student.currentStatus === 'Inside' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', 
+                            color: student.currentStatus === 'Inside' ? '#10b981' : '#ef4444', 
+                            padding: '2px 8px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold', marginRight: '0.5rem' 
+                          }}>
+                            {student.currentStatus === 'Inside' ? '🟢 Inside' : '🔴 Outside'}
+                          </span>
+                          {student.age || 'N/A'} years old • {student.email || 'No email'}
+                        </div>
                       </div>
                     </div>
                     

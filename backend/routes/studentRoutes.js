@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { loginStudent, changePassword, getDashboard, scanQr, getDailyHours } = require("../controllers/studentController");
+const { loginStudent, changePassword, getDashboard, scanQr, getDailyHours, updateProfile } = require("../controllers/studentController");
 const { protect, studentOnly } = require("../middleware/authMiddleware");
 
 router.post("/login", loginStudent);
@@ -9,5 +9,6 @@ router.post("/change-password", changePassword); // Allow without protect to cha
 router.get("/dashboard/:studentId", protect, studentOnly, getDashboard);
 router.post("/scan-qr", protect, studentOnly, scanQr);
 router.get("/daily-hours/:studentId/:date", protect, studentOnly, getDailyHours);
+router.post("/profile", protect, studentOnly, updateProfile);
 
 module.exports = router;

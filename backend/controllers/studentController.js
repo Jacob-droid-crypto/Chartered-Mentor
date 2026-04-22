@@ -75,11 +75,51 @@ const getDashboard = async (req, res) => {
       date: today,
     }).sort({ createdAt: 1 });
 
+    const allLogs = await Attendance.find({ studentId }).sort({ timestamp: 1 });
+    const summary = {};
+    allLogs.forEach((r) => {
+      const key = r.date;
+      if (!summary[key]) {
+        summary[key] = {
+          studentId: r.studentId,
+          course: r.course,
+          date: r.date,
+          hasIN: false,
+          hasOUT: false,
+          totalMs: 0,
+          lastIn: null
+        };
+      }
+      const time = r.timestamp ? new Date(r.timestamp).getTime() : (r.createdAt ? new Date(r.createdAt).getTime() : 0);
+      if (r.type === "IN") {
+        summary[key].hasIN = true;
+        summary[key].lastIn = time;
+      } else if (r.type === "OUT") {
+        summary[key].hasOUT = true;
+        if (summary[key].lastIn) {
+            summary[key].totalMs += (time - summary[key].lastIn);
+            summary[key].lastIn = null;
+        }
+      }
+    });
+
+    const attendanceSummary = Object.values(summary).map((s) => ({
+      studentId: s.studentId,
+      course: s.course,
+      date: s.date,
+      totalHours: (s.totalMs / (1000 * 60 * 60)).toFixed(2),
+      status: s.hasIN && s.hasOUT ? "Present" : s.hasIN ? "Partial" : "Absent",
+    }));
+
     res.json({
       studentId: student.userId,
       name: student.name,
       email: student.email,
+      phone: student.phone,
+      course: student.course,
+      profilePhoto: student.profilePhoto,
       todayLogs: logs,
+      attendanceSummary
     });
   } catch (err) {
     console.error(err);
@@ -129,6 +169,18 @@ const scanQr = async (req, res) => {
     const course = studentId.substring(2, 5);
     const today = new Date().toISOString().split("T")[0];
 
+    const lastRecord = await Attendance.findOne({ studentId, date: today }).sort({ createdAt: -1 });
+
+    if (type === "IN") {
+      if (lastRecord && lastRecord.type === "IN") {
+        return res.status(400).json({ message: "You are already Checked IN!" });
+      }
+    } else if (type === "OUT") {
+      if (!lastRecord || lastRecord.type === "OUT") {
+        return res.status(400).json({ message: "You must Check IN first before Checking OUT!" });
+      }
+    }
+
     await Attendance.create({
       studentId,
       course,
@@ -177,10 +229,34 @@ const getDailyHours = async (req, res) => {
   }
 };
 
+/* ================= UPDATE PROFILE ================= */
+const updateProfile = async (req, res) => {
+  try {
+    const user = req.user;
+    if (!user) return res.status(404).json({ message: "User not found" });
+    
+    const { name, email, phone, course, profilePhoto } = req.body;
+
+    if (name) user.name = name;
+    if (email) user.email = email;
+    if (phone) user.phone = phone;
+    if (course) user.course = course;
+    if (profilePhoto) user.profilePhoto = profilePhoto;
+
+    await user.save();
+    
+    res.json({ message: "Profile updated successfully", user });
+  } catch (error) {
+    console.error("Update profile error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   loginStudent,
   changePassword,
   getDashboard,
   scanQr,
-  getDailyHours
+  getDailyHours,
+  updateProfile
 };

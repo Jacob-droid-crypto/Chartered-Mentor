@@ -12,6 +12,12 @@ const userSchema = new mongoose.Schema({
   email: {
     type: String,
   },
+  phone: {
+    type: String,
+  },
+  profilePhoto: {
+    type: String,
+  },
   age: {
     type: Number,
   },

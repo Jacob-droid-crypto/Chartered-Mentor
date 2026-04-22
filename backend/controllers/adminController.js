@@ -89,15 +89,18 @@ const addStudent = async (req, res) => {
 /* ================= ADMIN VIEW ATTENDANCE ================= */
 const getAttendance = async (req, res) => {
   try {
-    const records = await Attendance.find().sort({ date: -1, time: -1 });
+    const records = await Attendance.find().sort({ timestamp: -1 });
 
-    const cleaned = records.map((r) => ({
-      studentId: r.studentId,
-      course: r.course || "-",
-      date: r.date,
-      time: r.time || "-",
-      type: r.type || (r.status ? "PRESENT" : "-"),
-    }));
+    const cleaned = records.map((r) => {
+      const d = new Date(r.timestamp);
+      return {
+        studentId: r.studentId,
+        course: r.course || "-",
+        date: r.date,
+        time: isNaN(d.getTime()) ? "-" : d.toLocaleTimeString(),
+        type: r.type || "-",
+      };
+    });
 
     res.json(cleaned);
   } catch (err) {
@@ -109,7 +112,7 @@ const getAttendance = async (req, res) => {
 /* ================= ADMIN - DAILY SUMMARY ================= */
 const getDailySummary = async (req, res) => {
   try {
-    const records = await Attendance.find();
+    const records = await Attendance.find().sort({ timestamp: 1 });
     const summary = {};
 
     records.forEach((r) => {
@@ -121,16 +124,31 @@ const getDailySummary = async (req, res) => {
           date: r.date,
           hasIN: false,
           hasOUT: false,
+          totalMs: 0,
+          lastIn: null
         };
       }
-      if (r.type === "IN") summary[key].hasIN = true;
-      if (r.type === "OUT") summary[key].hasOUT = true;
+      
+      const time = r.timestamp ? new Date(r.timestamp).getTime() : (r.createdAt ? new Date(r.createdAt).getTime() : 0);
+
+      if (r.type === "IN") {
+        summary[key].hasIN = true;
+        summary[key].lastIn = time;
+      }
+      else if (r.type === "OUT") {
+        summary[key].hasOUT = true;
+        if (summary[key].lastIn) {
+            summary[key].totalMs += (time - summary[key].lastIn);
+            summary[key].lastIn = null;
+        }
+      }
     });
 
     const result = Object.values(summary).map((s) => ({
       studentId: s.studentId,
       course: s.course,
       date: s.date,
+      totalHours: (s.totalMs / (1000 * 60 * 60)).toFixed(2),
       status: s.hasIN && s.hasOUT ? "Present" : s.hasIN ? "Partial" : "Absent",
     }));
 
@@ -145,7 +163,20 @@ const getDailySummary = async (req, res) => {
 const getStudents = async (req, res) => {
   try {
     const students = await User.find({ role: "student" }, { password: 0 });
-    res.json(students);
+    
+    const today = new Date().toISOString().split("T")[0];
+    const studentData = [];
+
+    for (let s of students) {
+       const lastRecord = await Attendance.findOne({ studentId: s.userId, date: today }).sort({ createdAt: -1 });
+       let currentStatus = "Outside"; // Default
+       if (lastRecord && lastRecord.type === "IN") {
+         currentStatus = "Inside"; // They haven't checked out yet
+       }
+       studentData.push({ ...s.toObject(), currentStatus });
+    }
+
+    res.json(studentData);
   } catch (err) {
     console.error("Get students error:", err);
     res.status(500).json({ message: "Server error" });
@@ -196,6 +227,24 @@ const resetPassword = async (req, res) => {
   }
 };
 
+/* ================= GET PROFILE ================= */
+const getProfile = async (req, res) => {
+  try {
+    const { userId } = req.user || req.query; // If token has userId
+    let idToFind = userId;
+    if (!idToFind && req.headers.authorization) {
+      const token = req.headers.authorization.split(" ")[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret");
+      idToFind = decoded.userId;
+    }
+    const user = await User.findOne({ userId: idToFind }, { password: 0 });
+    if (!user) return res.status(404).json({ message: "Admin not found" });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   loginAdmin,
   addStudent,
@@ -203,5 +252,6 @@ module.exports = {
   getDailySummary,
   getStudents,
   deleteStudent,
-  resetPassword
+  resetPassword,
+  getProfile
 };
