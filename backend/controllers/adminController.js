@@ -165,16 +165,26 @@ const getStudents = async (req, res) => {
     const students = await User.find({ role: "student" }, { password: 0 });
     
     const today = new Date().toISOString().split("T")[0];
-    const studentData = [];
+    const studentIds = students.map(s => s.userId);
 
-    for (let s of students) {
-       const lastRecord = await Attendance.findOne({ studentId: s.userId, date: today }).sort({ createdAt: -1 });
-       let currentStatus = "Outside"; // Default
-       if (lastRecord && lastRecord.type === "IN") {
-         currentStatus = "Inside"; // They haven't checked out yet
-       }
-       studentData.push({ ...s.toObject(), currentStatus });
+    // Bulk query attendance to radically reduce server lag (fixing N+1 bottleneck)
+    const todaysLogs = await Attendance.find({ 
+      studentId: { $in: studentIds }, 
+      date: today 
+    }).sort({ createdAt: 1 }); // Sort oldest to newest
+
+    // Build map of the most recent activity type for each student
+    const statusMap = {};
+    for (const log of todaysLogs) {
+       statusMap[log.studentId] = log.type; // since it's sorted 1, the later records overwrite older ones accurately
     }
+
+    const studentData = students.map(s => {
+       return {
+         ...s.toObject(),
+         currentStatus: statusMap[s.userId] === "IN" ? "Inside" : "Outside"
+       };
+    });
 
     res.json(studentData);
   } catch (err) {
