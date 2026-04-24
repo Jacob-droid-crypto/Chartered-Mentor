@@ -133,6 +133,11 @@
   background: var(--primary-color);
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+}
+
 .dashboard-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -473,6 +478,11 @@
   
   .welcome-text h1 {
     font-size: 1.75rem;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .mobile-header-logout {

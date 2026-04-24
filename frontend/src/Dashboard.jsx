@@ -445,18 +445,20 @@ function Dashboard({ user, onLogout }) {
                : 'Display the active QR code for students to scan.'}
             </p>
           </div>
-          <div className="profile-section" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <span>{user.name}</span>
-            {profileData?.profilePhoto || user.profilePhoto ? (
-              <img src={profileData?.profilePhoto || user.profilePhoto} alt="Profile" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid white' }} />
-            ) : (
-              <div className="avatar" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold' }}>
-                {user.name ? user.name.charAt(0).toUpperCase() : '?'}
-              </div>
-            )}
-          </div>
-          <div className="mobile-header-logout" onClick={onLogout} title="Logout">
-            <span>🚪</span>
+          <div className="header-actions">
+            <div className="mobile-header-logout" onClick={onLogout} title="Logout">
+              <span>🚪</span>
+            </div>
+            <div className="profile-section" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <span>{user.name}</span>
+              {profileData?.profilePhoto || user.profilePhoto ? (
+                <img src={profileData?.profilePhoto || user.profilePhoto} alt="Profile" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid white' }} />
+              ) : (
+                <div className="avatar" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold' }}>
+                  {user.name ? user.name.charAt(0).toUpperCase() : '?'}
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
