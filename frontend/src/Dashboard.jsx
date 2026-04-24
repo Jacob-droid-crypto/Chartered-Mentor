@@ -3,6 +3,7 @@ import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement
 import { Bar, Doughnut } from 'react-chartjs-2';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { QRCodeSVG } from 'qrcode.react';
+import * as XLSX from 'xlsx';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, ArcElement);
 
@@ -161,8 +162,45 @@ function Dashboard({ user, onLogout }) {
     const sourceData = Array.isArray(data) ? data : (data?.attendanceSummary || []);
     if (!Array.isArray(sourceData)) return [];
 
-    // Filter by search
     let filtered = sourceData;
+
+    if (attendanceView === 'daily') {
+      // Get attendance records for the specific date
+      let dailyRecords = filtered.filter(item => item.date === attendanceDate);
+
+      // If admin, merge with the full student list to show completely absent students
+      if (user.role === 'admin' && Array.isArray(students) && students.length > 0) {
+        const attendedMap = {};
+        dailyRecords.forEach(r => attendedMap[r.studentId] = r);
+
+        dailyRecords = students.map(student => {
+          if (attendedMap[student.userId]) {
+            return attendedMap[student.userId];
+          } else {
+            // Student has no logs for today, so they are genuinely absent
+            return {
+              studentId: student.userId,
+              course: student.course,
+              date: attendanceDate,
+              status: 'Absent',
+              totalHours: 0
+            };
+          }
+        });
+      }
+
+      // Apply search filter if any
+      if (attendanceSearch.trim() !== '') {
+        const q = attendanceSearch.toLowerCase();
+        dailyRecords = dailyRecords.filter(item => 
+          (item.studentId && item.studentId.toLowerCase().includes(q))
+        );
+      }
+
+      return dailyRecords;
+    }
+
+    // Apply search filter for weekly/monthly
     if (attendanceSearch.trim() !== '') {
       const q = attendanceSearch.toLowerCase();
       filtered = filtered.filter(item => 
@@ -170,27 +208,38 @@ function Dashboard({ user, onLogout }) {
       );
     }
 
-    if (attendanceView === 'daily') {
-      // Show exact attendances on `attendanceDate`
-      return filtered.filter(item => item.date === attendanceDate);
-    }
-
     // Weekly and Monthly: aggregate totals
     const aggregatedMap = {};
+
+    // Pre-populate with all students so even those with 0 attendance show up
+    if (user.role === 'admin' && Array.isArray(students)) {
+      students.forEach(student => {
+        // Apply search filter if any
+        if (attendanceSearch.trim() !== '' && !student.userId.toLowerCase().includes(attendanceSearch.toLowerCase())) {
+          return; // Skip if it doesn't match search
+        }
+        aggregatedMap[student.userId] = { 
+          studentId: student.userId, 
+          course: student.course, 
+          totalPresent: 0, 
+          totalPartial: 0, 
+          totalAbsent: 0, 
+          presentDates: [], 
+          totalHours: 0 
+        };
+      });
+    }
+
     filtered.forEach(item => {
       const d = new Date(item.date);
       if (isNaN(d.getTime())) return;
 
       let keyToMatch = false;
       if (attendanceView === 'monthly') {
-        // match YYYY-MM
         const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
         const targetMonthKey = attendanceDate.substring(0, 7);
         if (monthKey === targetMonthKey) keyToMatch = true;
       } else if (attendanceView === 'weekly') {
-        // match target week based on the selected date
-        // Note: simple naive week check for +/- 3 days from the chosen date or same week number
-        // A better approach is same week (Sunday-Saturday)
         const targetDate = new Date(attendanceDate);
         const startOfWeek = new Date(targetDate);
         startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
@@ -217,6 +266,39 @@ function Dashboard({ user, onLogout }) {
     });
 
     return Object.values(aggregatedMap).sort((a,b) => b.totalPresent - a.totalPresent);
+  };
+
+  const handleExportExcel = () => {
+    const aggregatedData = getAggregatedAttendance();
+    if (aggregatedData.length === 0) {
+      alert("No data available to export.");
+      return;
+    }
+
+    let exportData = [];
+    if (attendanceView === 'daily') {
+      exportData = aggregatedData.map(record => ({
+        "Student ID": record.studentId,
+        "Course": record.course || "-",
+        "Status": record.status,
+        "Total Hours": formatStudyTime(record.totalHours),
+        "Date": record.date
+      }));
+    } else {
+      exportData = aggregatedData.map(record => ({
+        "Student ID": record.studentId,
+        "Course": record.course || "-",
+        "Total Present": record.totalPresent,
+        "Total Partial": record.totalPartial,
+        "Total Absent": record.totalAbsent,
+        "Study Hours": formatStudyTime(record.totalHours)
+      }));
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance");
+    XLSX.writeFile(workbook, `Attendance_${attendanceView}_${attendanceDate.substring(0,10)}.xlsx`);
   };
 
   useEffect(() => {
@@ -306,9 +388,8 @@ function Dashboard({ user, onLogout }) {
     <div className="app-container">
       {/* Sidebar */}
       <aside className="sidebar">
-        <div className="logo-section">
-          <div className="logo-icon">CM</div>
-          <div className="logo-text">Chartered Mentor</div>
+        <div className="logo-section" style={{ textAlign: 'center', padding: '1rem 0' }}>
+          <img src="/logo.png" alt="Chartered Mentor Logo" style={{ width: '80%', maxWidth: '160px', height: 'auto', margin: '0 auto', display: 'block' }} />
         </div>
         <ul className="nav-links">
           <li className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
@@ -541,10 +622,12 @@ function Dashboard({ user, onLogout }) {
                   <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Phone Number</label>
                   <input type="tel" value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
                 </div>
-                <div style={{ opacity: user.role === 'admin' ? 1 : 0.6 }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Enrolled Course</label>
-                  <input type="text" readOnly={user.role === 'student'} value={profileForm.course} onChange={(e) => setProfileForm({ ...profileForm, course: e.target.value })} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
-                </div>
+                {user.role === 'student' && (
+                  <div style={{ opacity: 0.6 }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Enrolled Course</label>
+                    <input type="text" readOnly value={profileForm.course} onChange={(e) => setProfileForm({ ...profileForm, course: e.target.value })} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                  </div>
+                )}
                 <button type="submit" style={{ marginTop: '1rem', padding: '0.75rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Update Profile</button>
               </form>
             </div>
@@ -586,6 +669,11 @@ function Dashboard({ user, onLogout }) {
                     onChange={(e) => setAttendanceDate(e.target.value)}
                     style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }}
                   />
+                )}
+                {user.role === 'admin' && (
+                  <button onClick={handleExportExcel} style={{ padding: '0.6rem 1rem', borderRadius: '8px', border: 'none', background: '#10b981', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}>
+                    📥 Export Excel
+                  </button>
                 )}
               </div>
             </div>

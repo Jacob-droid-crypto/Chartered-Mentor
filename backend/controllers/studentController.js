@@ -1,5 +1,7 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
+const nodemailer = require("nodemailer");
 const User = require("../models/User");
 const Attendance = require("../models/Attendance");
 
@@ -252,11 +254,92 @@ const updateProfile = async (req, res) => {
   }
 };
 
+/* ================= FORGOT PASSWORD ================= */
+const forgotPassword = async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const user = await User.findOne({ userId, role: "student" });
+    if (!user) return res.status(404).json({ message: "No student found with that User ID" });
+    if (!user.email) return res.status(400).json({ message: "No email associated with this account. Contact Admin." });
+
+    // Generate 6 digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const hashedOtp = await bcrypt.hash(otp, 10);
+
+    user.resetPasswordOtp = hashedOtp;
+    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
+    await user.save();
+
+    const transporter = nodemailer.createTransport({
+      service: "Gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    const message = `
+      <h1>Password Reset Request</h1>
+      <p>Your OTP for password reset is: <strong>${otp}</strong></p>
+      <p>This OTP is valid for 10 minutes. If you did not request this, please ignore this email.</p>
+    `;
+
+    await transporter.sendMail({
+      to: user.email,
+      subject: "Chartered Mentor - Password Reset OTP",
+      html: message,
+    });
+
+    res.json({ message: "OTP sent to your registered email" });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    res.status(500).json({ message: "Error sending email. Check backend configuration." });
+  }
+};
+
+/* ================= RESET PASSWORD WITH OTP ================= */
+const resetPassword = async (req, res) => {
+  try {
+    const { userId, otp, newPassword } = req.body;
+
+    if (!userId || !otp || !newPassword) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    const user = await User.findOne({
+      userId,
+      role: "student",
+      resetPasswordExpire: { $gt: Date.now() },
+    });
+
+    if (!user || !user.resetPasswordOtp) {
+      return res.status(400).json({ message: "Invalid or expired OTP" });
+    }
+
+    const isMatch = await bcrypt.compare(otp, user.resetPasswordOtp);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Incorrect OTP" });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.resetPasswordOtp = undefined;
+    user.resetPasswordExpire = undefined;
+    await user.save();
+
+    res.json({ message: "Password reset successfully. You can now login." });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   loginStudent,
   changePassword,
   getDashboard,
   scanQr,
   getDailyHours,
-  updateProfile
+  updateProfile,
+  forgotPassword,
+  resetPassword
 };
