@@ -582,17 +582,7 @@ function Dashboard({ user, onLogout }) {
                   <div className="card" style={{ marginBottom: '2rem' }}>
                     <div id="reader" style={{ width: '100%', maxWidth: '400px', margin: '0 auto', overflow: 'hidden', borderRadius: '12px' }}></div>
 
-                    <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--glass-border)', textAlign: 'center' }}>
-                      <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>Laptop / Test Mode (No Camera Required):</p>
-                      <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-                        <button onClick={() => { setScanning(false); submitAttendance('CM-ATTENDANCE-IN'); }} style={{ padding: '0.6rem 1.2rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-                          Simulate LOG IN
-                        </button>
-                        <button onClick={() => { setScanning(false); submitAttendance('CM-ATTENDANCE-OUT'); }} style={{ padding: '0.6rem 1.2rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-                          Simulate LOG OUT
-                        </button>
-                      </div>
-                    </div>
+
                   </div>
                 )}
               </>
