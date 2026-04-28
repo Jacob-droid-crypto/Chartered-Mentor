@@ -150,7 +150,7 @@ const scanQr = async (req, res) => {
     }
 
     // --- 1. IP RESTRICTION ---
-    const ALLOWED_PUBLIC_IP = "103.182.166.212";
+    const ALLOWED_PUBLIC_IP = "103.182.166.218";
     let requestIP = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "";
     if (requestIP.includes(",")) {
        requestIP = requestIP.split(",")[0];
@@ -174,9 +174,9 @@ const scanQr = async (req, res) => {
 
     // Set your Institute's exact Latitude and Longitude here:
     // Update these values to the precise GPS coordinates of the institute
-    const INST_LAT = 10.0000; 
-    const INST_LNG = 76.0000;
-    const ALLOWED_RADIUS_METERS = 100; // Allowed radius in meters
+    const INST_LAT = 9.9667; 
+    const INST_LNG = 76.2667;
+    const ALLOWED_RADIUS_METERS = 50; // Allowed radius in meters
     
     const getDistance = (lat1, lon1, lat2, lon2) => {
       const R = 6371e3; 
@@ -191,8 +191,7 @@ const scanQr = async (req, res) => {
 
     const distance = getDistance(lat, lng, INST_LAT, INST_LNG);
 
-    // Skip GPS check for localhost/development to avoid locking you out during testing
-    if (cleanIP !== "127.0.0.1" && cleanIP !== "localhost" && distance > ALLOWED_RADIUS_METERS) {
+    if (distance > ALLOWED_RADIUS_METERS) {
        return res.status(403).json({ 
          message: `You are out of campus radius. Distance: ${Math.round(distance)}m` 
        });
