@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 function Login({ onLoginSuccess }) {
   const [userId, setUserId] = useState('');
@@ -12,6 +12,19 @@ function Login({ onLoginSuccess }) {
   const [view, setView] = useState('login'); // login, forgot, reset
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tokenParam = params.get('resetToken');
+    const userParam = params.get('userId');
+
+    if (tokenParam && userParam) {
+      setUserId(userParam);
+      setOtp(tokenParam);
+      setView('reset');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -65,7 +78,6 @@ function Login({ onLoginSuccess }) {
       if (!response.ok) throw new Error(data.message || 'Failed to request password reset');
 
       setMsg(data.message);
-      setView('reset');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -83,7 +95,7 @@ function Login({ onLoginSuccess }) {
       const response = await fetch('/student/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, otp, newPassword }),
+        body: JSON.stringify({ userId, token: otp, newPassword }),
       });
 
       const data = await response.json();
@@ -110,10 +122,10 @@ function Login({ onLoginSuccess }) {
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <img src="/logo.png" alt="Chartered Mentor Logo" style={{ width: '180px', height: 'auto', margin: '0 auto 1rem auto', display: 'block' }} />
           <h2 style={{ color: 'var(--text-main)', fontSize: '1.5rem', marginBottom: '0.5rem' }}>
-            {view === 'login' ? 'Welcome Back' : view === 'forgot' ? 'Reset Password' : 'Enter OTP'}
+            {view === 'login' ? 'Welcome Back' : view === 'forgot' ? 'Reset Password' : 'Set New Password'}
           </h2>
           <p style={{ color: 'var(--text-muted)' }}>
-            {view === 'login' ? 'Login to access your dashboard' : view === 'forgot' ? 'Enter your User ID to receive an OTP' : 'Enter the OTP sent to your email'}
+            {view === 'login' ? 'Login to access your dashboard' : view === 'forgot' ? 'Enter your User ID to receive a reset link' : 'Enter your new password below'}
           </p>
         </div>
 
@@ -195,7 +207,7 @@ function Login({ onLoginSuccess }) {
               disabled={loading}
               style={{ width: '100%', padding: '0.875rem', background: 'linear-gradient(135deg, var(--primary-color), var(--primary-hover))', color: 'white', border: 'none', borderRadius: '8px', fontSize: '1rem', fontWeight: '600', cursor: loading ? 'not-allowed' : 'pointer', boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)', transition: 'all 0.3s' }}
             >
-              {loading ? 'Sending OTP...' : 'Send OTP'}
+              {loading ? 'Sending Link...' : 'Send Reset Link'}
             </button>
             <div style={{ textAlign: 'center' }}>
               <button type="button" onClick={() => setView('login')} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '0.9rem', cursor: 'pointer' }}>
@@ -207,19 +219,6 @@ function Login({ onLoginSuccess }) {
 
         {view === 'reset' && (
           <form onSubmit={handleResetPassword} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Enter 6-digit OTP</label>
-              <input 
-                type="text" 
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                placeholder="123456"
-                maxLength={6}
-                style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.5)', outline: 'none', color: 'var(--text-main)', fontSize: '1rem', letterSpacing: '0.2rem', textAlign: 'center' }}
-                required
-              />
-            </div>
-
             <div>
               <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>New Password</label>
               <input 

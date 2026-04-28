@@ -296,12 +296,12 @@ const forgotPassword = async (req, res) => {
     if (!user) return res.status(404).json({ message: "No student found with that User ID" });
     if (!user.email) return res.status(400).json({ message: "No email associated with this account. Contact Admin." });
 
-    // Generate 6 digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const hashedOtp = await bcrypt.hash(otp, 10);
+    // Generate a secure reset token
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const hashedToken = await bcrypt.hash(resetToken, 10);
 
-    user.resetPasswordOtp = hashedOtp;
-    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
+    user.resetPasswordOtp = hashedToken; // using existing field
+    user.resetPasswordExpire = Date.now() + 15 * 60 * 1000; // 15 minutes
     await user.save();
 
     const transporter = nodemailer.createTransport({
@@ -312,19 +312,30 @@ const forgotPassword = async (req, res) => {
       },
     });
 
+    const frontendUrl = req.headers.origin || "https://chartered-mentor.vercel.app";
+    const resetUrl = `${frontendUrl}/?resetToken=${resetToken}&userId=${user.userId}`;
+
     const message = `
-      <h1>Password Reset Request</h1>
-      <p>Your OTP for password reset is: <strong>${otp}</strong></p>
-      <p>This OTP is valid for 10 minutes. If you did not request this, please ignore this email.</p>
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+        <h2 style="color: #4f46e5; text-align: center;">Password Reset Request</h2>
+        <p>Hello,</p>
+        <p>You requested to reset your password for your Chartered Mentor account.</p>
+        <p style="text-align: center; margin: 30px 0;">
+          <a href="${resetUrl}" style="display: inline-block; padding: 12px 24px; background: #4f46e5; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">Reset My Password</a>
+        </p>
+        <p>This link is valid for 15 minutes. If you did not request this, please ignore this email.</p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+        <p style="font-size: 12px; color: #888; text-align: center;">Chartered Mentor Support</p>
+      </div>
     `;
 
     await transporter.sendMail({
       to: user.email,
-      subject: "Chartered Mentor - Password Reset OTP",
+      subject: "Chartered Mentor - Password Reset Link",
       html: message,
     });
 
-    res.json({ message: "OTP sent to your registered email" });
+    res.json({ message: "A password reset link has been sent to your registered email" });
   } catch (error) {
     console.error("Forgot password error:", error);
     res.status(500).json({ message: "Error sending email. Check backend configuration." });
@@ -334,9 +345,9 @@ const forgotPassword = async (req, res) => {
 /* ================= RESET PASSWORD WITH OTP ================= */
 const resetPassword = async (req, res) => {
   try {
-    const { userId, otp, newPassword } = req.body;
+    const { userId, token, newPassword } = req.body;
 
-    if (!userId || !otp || !newPassword) {
+    if (!userId || !token || !newPassword) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
@@ -347,12 +358,12 @@ const resetPassword = async (req, res) => {
     });
 
     if (!user || !user.resetPasswordOtp) {
-      return res.status(400).json({ message: "Invalid or expired OTP" });
+      return res.status(400).json({ message: "Invalid or expired reset link" });
     }
 
-    const isMatch = await bcrypt.compare(otp, user.resetPasswordOtp);
+    const isMatch = await bcrypt.compare(token, user.resetPasswordOtp);
     if (!isMatch) {
-      return res.status(400).json({ message: "Incorrect OTP" });
+      return res.status(400).json({ message: "Invalid reset link" });
     }
 
     user.password = await bcrypt.hash(newPassword, 10);
