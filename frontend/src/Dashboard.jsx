@@ -18,7 +18,7 @@ function Dashboard({ user, onLogout }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newStudent, setNewStudent] = useState({ name: '', email: '', age: '', course: 'INTER' });
   const [newStudentDetails, setNewStudentDetails] = useState(null);
-  
+
   // Student options dropdown state
   const [openMenuId, setOpenMenuId] = useState(null);
 
@@ -103,7 +103,7 @@ function Dashboard({ user, onLogout }) {
     try {
       setLoading(true);
       const url = user.role === 'admin' ? '/admin/profile' : `/student/dashboard/${user.userId}`;
-      const res = await fetch(url, { headers: { 'Authorization': `Bearer ${user.token}` }});
+      const res = await fetch(url, { headers: { 'Authorization': `Bearer ${user.token}` } });
       const resData = await res.json();
       if (!res.ok) throw new Error(resData.message);
       setProfileData(resData);
@@ -192,7 +192,7 @@ function Dashboard({ user, onLogout }) {
       // Apply search filter if any
       if (attendanceSearch.trim() !== '') {
         const q = attendanceSearch.toLowerCase();
-        dailyRecords = dailyRecords.filter(item => 
+        dailyRecords = dailyRecords.filter(item =>
           (item.studentId && item.studentId.toLowerCase().includes(q))
         );
       }
@@ -203,7 +203,7 @@ function Dashboard({ user, onLogout }) {
     // Apply search filter for weekly/monthly
     if (attendanceSearch.trim() !== '') {
       const q = attendanceSearch.toLowerCase();
-      filtered = filtered.filter(item => 
+      filtered = filtered.filter(item =>
         (item.studentId && item.studentId.toLowerCase().includes(q))
       );
     }
@@ -218,14 +218,14 @@ function Dashboard({ user, onLogout }) {
         if (attendanceSearch.trim() !== '' && !student.userId.toLowerCase().includes(attendanceSearch.toLowerCase())) {
           return; // Skip if it doesn't match search
         }
-        aggregatedMap[student.userId] = { 
-          studentId: student.userId, 
-          course: student.course, 
-          totalPresent: 0, 
-          totalPartial: 0, 
-          totalAbsent: 0, 
-          presentDates: [], 
-          totalHours: 0 
+        aggregatedMap[student.userId] = {
+          studentId: student.userId,
+          course: student.course,
+          totalPresent: 0,
+          totalPartial: 0,
+          totalAbsent: 0,
+          presentDates: [],
+          totalHours: 0
         };
       });
     }
@@ -245,7 +245,7 @@ function Dashboard({ user, onLogout }) {
         startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
         const endOfWeek = new Date(startOfWeek);
         endOfWeek.setDate(startOfWeek.getDate() + 6);
-        
+
         if (d >= startOfWeek && d <= endOfWeek) keyToMatch = true;
       }
 
@@ -256,16 +256,28 @@ function Dashboard({ user, onLogout }) {
         if (item.status === 'Present') aggregatedMap[item.studentId].totalPresent++;
         else if (item.status === 'Partial') aggregatedMap[item.studentId].totalPartial++;
         else aggregatedMap[item.studentId].totalAbsent++;
-        
+
         aggregatedMap[item.studentId].totalHours += parseFloat(item.totalHours || 0);
 
         if (item.status === 'Present' || item.status === 'Partial') {
-           aggregatedMap[item.studentId].presentDates.push(item.date);
+          aggregatedMap[item.studentId].presentDates.push(item.date);
         }
       }
     });
 
-    return Object.values(aggregatedMap).sort((a,b) => b.totalPresent - a.totalPresent);
+    return Object.values(aggregatedMap).map(record => {
+      let expectedDays = 0;
+      if (attendanceView === 'weekly') {
+        expectedDays = 7;
+      } else if (attendanceView === 'monthly') {
+        const [year, month] = attendanceDate.split('-');
+        expectedDays = new Date(year, parseInt(month), 0).getDate();
+      }
+      if (expectedDays > 0) {
+        record.totalAbsent = Math.max(0, expectedDays - record.totalPresent - record.totalPartial);
+      }
+      return record;
+    }).sort((a, b) => b.totalPresent - a.totalPresent);
   };
 
   const handleExportExcel = () => {
@@ -298,14 +310,14 @@ function Dashboard({ user, onLogout }) {
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance");
-    XLSX.writeFile(workbook, `Attendance_${attendanceView}_${attendanceDate.substring(0,10)}.xlsx`);
+    XLSX.writeFile(workbook, `Attendance_${attendanceView}_${attendanceDate.substring(0, 10)}.xlsx`);
   };
 
   useEffect(() => {
     let scanner = null;
     if (scanning) {
       scanner = new Html5QrcodeScanner("reader", { qrbox: { width: 250, height: 250 }, fps: 5 });
-      
+
       const success = async (result) => {
         scanner.clear();
         setScanning(false);
@@ -317,7 +329,7 @@ function Dashboard({ user, onLogout }) {
 
     return () => {
       if (scanner) {
-        try { scanner.clear(); } catch(e) {}
+        try { scanner.clear(); } catch (e) { }
       }
     };
   }, [scanning, user]);
@@ -331,7 +343,7 @@ function Dashboard({ user, onLogout }) {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message);
-      
+
       // Refresh list
       fetchStudentsData();
     } catch (err) {
@@ -344,7 +356,7 @@ function Dashboard({ user, onLogout }) {
     try {
       const response = await fetch(`/admin/add-student`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${user.token}`
         },
@@ -377,7 +389,7 @@ function Dashboard({ user, onLogout }) {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message);
-      
+
       alert(`Password has been reset!\nNew Password: ${result.newPassword}`);
     } catch (err) {
       alert("Error resetting password: " + err.message);
@@ -431,18 +443,18 @@ function Dashboard({ user, onLogout }) {
         <header className="top-header">
           <div className="welcome-text">
             <h1>
-              {activeTab === 'dashboard' ? `Welcome back, ${user.name} 👋` 
-               : activeTab === 'students' ? 'Manage Students' 
-               : activeTab === 'attendance' ? 'Attendance Records' 
-               : activeTab === 'profile' ? 'My Profile' 
-               : 'Campus QR'}
+              {activeTab === 'dashboard' ? `Welcome back, ${user.name} 👋`
+                : activeTab === 'students' ? 'Manage Students'
+                  : activeTab === 'attendance' ? 'Attendance Records'
+                    : activeTab === 'profile' ? 'My Profile'
+                      : 'Campus QR'}
             </h1>
             <p>
-              {activeTab === 'dashboard' ? `Role: ${user.role === 'admin' ? 'Administrator' : 'Student (ID: ' + user.userId + ')'}` 
-               : activeTab === 'students' ? 'Add new students or remove existing ones from the system.'
-               : activeTab === 'attendance' ? 'View and track your attendance logs.'
-               : activeTab === 'profile' ? 'Update your personal details and photo.'
-               : 'Display the active QR code for students to scan.'}
+              {activeTab === 'dashboard' ? `Role: ${user.role === 'admin' ? 'Administrator' : 'Student (ID: ' + user.userId + ')'}`
+                : activeTab === 'students' ? 'Add new students or remove existing ones from the system.'
+                  : activeTab === 'attendance' ? 'View and track your attendance logs.'
+                    : activeTab === 'profile' ? 'Update your personal details and photo.'
+                      : 'Display the active QR code for students to scan.'}
             </p>
           </div>
           <div className="header-actions">
@@ -491,12 +503,12 @@ function Dashboard({ user, onLogout }) {
                     {Array.isArray(data) && data.length > 0 ? (() => {
                       const present = data.filter(d => d.status === 'Present').length;
                       const partial = data.filter(d => d.status === 'Partial').length;
-                      return <Doughnut 
+                      return <Doughnut
                         data={{
                           labels: ['Present', 'Partial'],
                           datasets: [{ data: [present, partial], backgroundColor: ['#10b981', '#f59e0b'], borderWidth: 0, cutout: '75%' }]
-                        }} 
-                        options={{ maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }} 
+                        }}
+                        options={{ maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }}
                       />;
                     })() : <p style={{ color: 'var(--text-muted)', margin: 'auto' }}>No attendance logged today.</p>}
                   </div>
@@ -508,12 +520,12 @@ function Dashboard({ user, onLogout }) {
                     {Array.isArray(students) && students.length > 0 ? (() => {
                       const interCount = students.filter(s => s.course === 'INTER').length;
                       const finalCount = students.filter(s => s.course === 'FINAL').length;
-                      return <Bar 
+                      return <Bar
                         data={{
                           labels: ['INTER', 'FINAL'],
                           datasets: [{ label: 'Students', data: [interCount, finalCount], backgroundColor: ['var(--primary-color)', 'var(--secondary-color)'], borderRadius: 6 }]
-                        }} 
-                        options={{ maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } } }} 
+                        }}
+                        options={{ maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } } }}
                       />;
                     })() : <p style={{ color: 'var(--text-muted)', margin: 'auto', textAlign: 'center' }}>No students found.</p>}
                   </div>
@@ -542,7 +554,7 @@ function Dashboard({ user, onLogout }) {
                 {scanning && (
                   <div className="card" style={{ marginBottom: '2rem' }}>
                     <div id="reader" style={{ width: '100%', maxWidth: '400px', margin: '0 auto', overflow: 'hidden', borderRadius: '12px' }}></div>
-                    
+
                     <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--glass-border)', textAlign: 'center' }}>
                       <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>Laptop / Test Mode (No Camera Required):</p>
                       <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -587,7 +599,7 @@ function Dashboard({ user, onLogout }) {
                   ))
                 )}
                 {(!data || (Array.isArray(data) && data.length === 0) || (data.todayLogs && data.todayLogs.length === 0)) && (
-                   <p style={{ color: 'var(--text-muted)' }}>No records found for today.</p>
+                  <p style={{ color: 'var(--text-muted)' }}>No records found for today.</p>
                 )}
               </div>
             </section>
@@ -640,16 +652,16 @@ function Dashboard({ user, onLogout }) {
               <h2>Attendance Records</h2>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 {user.role === 'admin' && (
-                  <input 
-                    type="text" 
-                    placeholder="Search Student ID..." 
+                  <input
+                    type="text"
+                    placeholder="Search Student ID..."
                     value={attendanceSearch}
                     onChange={(e) => setAttendanceSearch(e.target.value)}
                     style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }}
                   />
                 )}
-                <select 
-                  value={attendanceView} 
+                <select
+                  value={attendanceView}
                   onChange={(e) => setAttendanceView(e.target.value)}
                   style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }}
                 >
@@ -658,15 +670,15 @@ function Dashboard({ user, onLogout }) {
                   <option value="monthly">Monthly Total</option>
                 </select>
                 {attendanceView === 'monthly' ? (
-                  <input 
-                    type="month" 
+                  <input
+                    type="month"
                     value={attendanceDate.substring(0, 7)}
                     onChange={(e) => setAttendanceDate(e.target.value + '-01')}
                     style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }}
                   />
                 ) : (
-                  <input 
-                    type="date" 
+                  <input
+                    type="date"
                     value={attendanceDate}
                     onChange={(e) => setAttendanceDate(e.target.value)}
                     style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }}
@@ -681,16 +693,16 @@ function Dashboard({ user, onLogout }) {
             </div>
 
             <div className="card">
-               <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
-                 {attendanceView === 'daily' ? 'Showing attendance details for selected date.' : `Showing aggregated ${attendanceView} attendance for the selected period.`}
-               </p>
-               <div className="activity-list">
-                 {(() => {
-                   // Render aggregated data
-                   const aggregatedData = getAggregatedAttendance();
-                   if (aggregatedData.length === 0) return <p style={{ color: 'var(--text-muted)' }}>No records found for the selected criteria.</p>;
+              <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+                {attendanceView === 'daily' ? 'Showing attendance details for selected date.' : `Showing aggregated ${attendanceView} attendance for the selected period.`}
+              </p>
+              <div className="activity-list">
+                {(() => {
+                  // Render aggregated data
+                  const aggregatedData = getAggregatedAttendance();
+                  if (aggregatedData.length === 0) return <p style={{ color: 'var(--text-muted)' }}>No records found for the selected criteria.</p>;
 
-                   return aggregatedData.map((record, idx) => (
+                  return aggregatedData.map((record, idx) => (
                     <div key={idx} className="activity-item" style={{ flexWrap: 'wrap' }}>
                       <div className="activity-info">
                         <div className="activity-dot" style={{ background: attendanceView === 'daily' ? (record.status === 'Present' ? '#10b981' : record.status === 'Partial' ? '#f59e0b' : '#ef4444') : '#3b82f6' }}></div>
@@ -699,23 +711,23 @@ function Dashboard({ user, onLogout }) {
                           <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Course: {record.course || '-'}</div>
                         </div>
                       </div>
-                      
+
                       {attendanceView === 'daily' ? (
                         <div className="activity-date" style={{ fontWeight: 'bold', color: record.status === 'Present' ? '#10b981' : record.status === 'Partial' ? '#f59e0b' : '#ef4444' }}>
                           {record.status} ({formatStudyTime(record.totalHours)}) • {record.date}
                         </div>
                       ) : (
                         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                           <span style={{ color: '#10b981', fontWeight: 'bold' }}>Present: {record.totalPresent}</span>
-                           <span style={{ color: '#f59e0b', fontWeight: 'bold' }}>Partial: {record.totalPartial}</span>
-                           <span style={{ color: '#ef4444', fontWeight: 'bold' }}>Absent: {record.totalAbsent}</span>
-                           <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>Study: {formatStudyTime(record.totalHours)}</span>
+                          <span style={{ color: '#10b981', fontWeight: 'bold' }}>Present: {record.totalPresent}</span>
+                          <span style={{ color: '#f59e0b', fontWeight: 'bold' }}>Partial: {record.totalPartial}</span>
+                          <span style={{ color: '#ef4444', fontWeight: 'bold' }}>Absent: {record.totalAbsent}</span>
+                          <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>Study: {formatStudyTime(record.totalHours)}</span>
                         </div>
                       )}
                     </div>
-                   ));
-                 })()}
-               </div>
+                  ));
+                })()}
+              </div>
             </div>
           </>
         ) : activeTab === 'campus_qr' ? (
@@ -726,7 +738,7 @@ function Dashboard({ user, onLogout }) {
                 <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>Full-screen these codes at the front desk or reception area for students to scan.</p>
               </div>
             </div>
-            
+
             <div style={{ display: 'flex', gap: '3rem', flexWrap: 'wrap', justifyContent: 'center', marginTop: '3rem' }}>
               <div className="card" style={{ textAlign: 'center', padding: '3rem', width: '100%', maxWidth: '380px' }}>
                 <h3 style={{ color: '#10b981', fontSize: '2rem', marginBottom: '2rem', fontWeight: 'bold' }}>LOG IN</h3>
@@ -750,8 +762,8 @@ function Dashboard({ user, onLogout }) {
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h2>All Students</h2>
-              <button 
-                onClick={() => {setShowAddForm(!showAddForm); setAddMsg('');}}
+              <button
+                onClick={() => { setShowAddForm(!showAddForm); setAddMsg(''); }}
                 style={{ padding: '0.5rem 1rem', background: 'var(--primary-color)', color: 'white', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
                 {showAddForm ? 'Close Form' : '+ Add Student'}
               </button>
@@ -763,19 +775,19 @@ function Dashboard({ user, onLogout }) {
                 <form onSubmit={handleAddSubmit} style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: '150px' }}>
                     <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Name</label>
-                    <input type="text" required value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                    <input type="text" required value={newStudent.name} onChange={e => setNewStudent({ ...newStudent, name: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
                   </div>
                   <div style={{ flex: 1, minWidth: '180px' }}>
                     <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Email</label>
-                    <input type="email" required value={newStudent.email} onChange={e => setNewStudent({...newStudent, email: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                    <input type="email" required value={newStudent.email} onChange={e => setNewStudent({ ...newStudent, email: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
                   </div>
                   <div style={{ flex: 0.5, minWidth: '80px' }}>
                     <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Age</label>
-                    <input type="number" required value={newStudent.age} onChange={e => setNewStudent({...newStudent, age: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                    <input type="number" required value={newStudent.age} onChange={e => setNewStudent({ ...newStudent, age: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
                   </div>
                   <div style={{ flex: 0.8, minWidth: '120px' }}>
                     <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Course</label>
-                    <select value={newStudent.course} onChange={e => setNewStudent({...newStudent, course: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'rgba(255, 255, 255, 0.8)', color: 'var(--text-main)', outline: 'none' }}>
+                    <select value={newStudent.course} onChange={e => setNewStudent({ ...newStudent, course: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'rgba(255, 255, 255, 0.8)', color: 'var(--text-main)', outline: 'none' }}>
                       <option value="INTER">INTER</option>
                       <option value="FINAL">FINAL</option>
                     </select>
@@ -797,16 +809,16 @@ function Dashboard({ user, onLogout }) {
                       </div>
                       <div>
                         <strong>
-                          {student.name || 'Unknown Student'} 
+                          {student.name || 'Unknown Student'}
                           <span style={{ color: 'var(--text-muted)', fontWeight: 'normal', fontSize: '0.85rem', marginLeft: '0.5rem' }}>
                             #{student.userId}
                           </span>
                         </strong>
                         <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>
-                          <span style={{ 
-                            background: student.currentStatus === 'Inside' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', 
-                            color: student.currentStatus === 'Inside' ? '#10b981' : '#ef4444', 
-                            padding: '2px 8px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold', marginRight: '0.5rem' 
+                          <span style={{
+                            background: student.currentStatus === 'Inside' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                            color: student.currentStatus === 'Inside' ? '#10b981' : '#ef4444',
+                            padding: '2px 8px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold', marginRight: '0.5rem'
                           }}>
                             {student.currentStatus === 'Inside' ? '🟢 Inside' : '🔴 Outside'}
                           </span>
@@ -814,14 +826,14 @@ function Dashboard({ user, onLogout }) {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div style={{ position: 'relative' }}>
-                      <button 
+                      <button
                         onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === student.userId ? null : student.userId); }}
                         style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '1.5rem', cursor: 'pointer', padding: '0 0.5rem' }}>
                         ⋮
                       </button>
-                      
+
                       {openMenuId === student.userId && (
                         <div className="options-dropdown" onClick={(e) => e.stopPropagation()}>
                           <button onClick={() => { handleResetPassword(student.userId); setOpenMenuId(null); }} className="dropdown-item">
@@ -849,7 +861,7 @@ function Dashboard({ user, onLogout }) {
           <div className="modal-content">
             <h2>🎉 Student Added!</h2>
             <p className="subtitle">The account has been created successfully.</p>
-            
+
             <div className="student-details-card">
               <div className="detail-row">
                 <span className="detail-label">Name</span>

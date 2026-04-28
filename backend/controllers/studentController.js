@@ -110,7 +110,7 @@ const getDashboard = async (req, res) => {
       course: s.course,
       date: s.date,
       totalHours: (s.totalMs / (1000 * 60 * 60)).toFixed(2),
-      status: s.hasIN && s.hasOUT ? "Present" : s.hasIN ? "Partial" : "Absent",
+      status: s.hasIN && s.hasOUT ? "Present" : (s.hasIN || s.hasOUT) ? "Partial" : "Absent",
     }));
 
     res.json({
