@@ -176,7 +176,7 @@ const scanQr = async (req, res) => {
     // Update these values to the precise GPS coordinates of the institute
     const INST_LAT = 9.9667; 
     const INST_LNG = 76.2667;
-    const ALLOWED_RADIUS_METERS = 50; // Allowed radius in meters
+    const ALLOWED_RADIUS_METERS = 50000; // Expanded to 50km for testing due to imprecise ISP coordinates
     
     const getDistance = (lat1, lon1, lat2, lon2) => {
       const R = 6371e3; 
