@@ -536,7 +536,7 @@ function Dashboard({ user, onLogout }) {
                 <div className="card">
                   <div className="card-icon" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>📊</div>
                   <h3>Active Check-ins Today</h3>
-                  <div className="value">{Array.isArray(data) ? data.length : 0}</div>
+                  <div className="value">{Array.isArray(data) ? data.filter(d => d.date === new Date().toISOString().split('T')[0]).length : 0}</div>
                 </div>
               )}
             </div>
@@ -547,8 +547,11 @@ function Dashboard({ user, onLogout }) {
                   <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-main)', fontSize: '1.2rem', fontWeight: '600' }}>Attendance Distribution</h3>
                   <div style={{ position: 'relative', height: '220px', display: 'flex', justifyContent: 'center' }}>
                     {Array.isArray(data) && data.length > 0 ? (() => {
-                      const present = data.filter(d => d.status === 'Present').length;
-                      const partial = data.filter(d => d.status === 'Partial').length;
+                      const todayDate = new Date().toISOString().split('T')[0];
+                      const todayData = data.filter(d => d.date === todayDate);
+                      if (todayData.length === 0) return <p style={{ color: 'var(--text-muted)', margin: 'auto' }}>No attendance logged today.</p>;
+                      const present = todayData.filter(d => d.status === 'Present').length;
+                      const partial = todayData.filter(d => d.status === 'Partial').length;
                       return <Doughnut
                         data={{
                           labels: ['Present', 'Partial'],
@@ -611,7 +614,7 @@ function Dashboard({ user, onLogout }) {
               <h2>{user.role === 'admin' ? 'Today\'s Attendance Summary' : 'Your Check-ins'}</h2>
               <div className="activity-list">
                 {user.role === 'admin' && Array.isArray(data) ? (
-                  data.map((record, idx) => (
+                  data.filter(d => d.date === new Date().toISOString().split('T')[0]).map((record, idx) => (
                     <div key={idx} className="activity-item">
                       <div className="activity-info">
                         <div className="activity-dot" style={{ background: record.status === 'Present' ? '#10b981' : record.status === 'Partial' ? '#f59e0b' : '#ef4444' }}></div>
