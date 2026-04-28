@@ -267,14 +267,41 @@ function Dashboard({ user, onLogout }) {
 
     return Object.values(aggregatedMap).map(record => {
       let expectedDays = 0;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
       if (attendanceView === 'weekly') {
-        expectedDays = 7;
+        const targetDate = new Date(attendanceDate);
+        const startOfWeek = new Date(targetDate);
+        startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+        if (today > endOfWeek) {
+          expectedDays = 7;
+        } else if (today < startOfWeek) {
+          expectedDays = 0;
+        } else {
+          expectedDays = today.getDay() + 1; // days elapsed in current week
+        }
       } else if (attendanceView === 'monthly') {
         const [year, month] = attendanceDate.split('-');
-        expectedDays = new Date(year, parseInt(month), 0).getDate();
+        const y = parseInt(year);
+        const m = parseInt(month) - 1;
+
+        if (today.getFullYear() > y || (today.getFullYear() === y && today.getMonth() > m)) {
+          expectedDays = new Date(y, m + 1, 0).getDate();
+        } else if (today.getFullYear() < y || (today.getFullYear() === y && today.getMonth() < m)) {
+          expectedDays = 0;
+        } else {
+          expectedDays = today.getDate(); // days elapsed in current month
+        }
       }
+
       if (expectedDays > 0) {
         record.totalAbsent = Math.max(0, expectedDays - record.totalPresent - record.totalPartial);
+      } else {
+        record.totalAbsent = 0;
       }
       return record;
     }).sort((a, b) => b.totalPresent - a.totalPresent);
