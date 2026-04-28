@@ -36,18 +36,37 @@ function Dashboard({ user, onLogout }) {
 
   // Reusable submit logic for attendance
   const submitAttendance = async (qrData) => {
-    try {
-      const response = await fetch(`/student/scan-qr`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId: user.userId, qrValue: qrData })
-      });
-      const d = await response.json();
-      alert(d.message);
-      fetchDashboardData(); // Refresh their dashboard
-    } catch (err) {
-      alert('Failed to log attendance');
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser");
+      return;
     }
+
+    navigator.geolocation.getCurrentPosition(async (position) => {
+      const { latitude, longitude } = position.coords;
+      try {
+        const response = await fetch(`/student/scan-qr`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            studentId: user.userId, 
+            qrValue: qrData,
+            lat: latitude,
+            lng: longitude
+          })
+        });
+        const d = await response.json();
+        alert(d.message);
+        fetchDashboardData(); // Refresh their dashboard
+      } catch (err) {
+        alert('Failed to log attendance');
+      }
+    }, (error) => {
+      alert("Please allow location access to mark attendance.");
+    }, {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
+    });
   };
 
   const fetchDashboardData = async () => {

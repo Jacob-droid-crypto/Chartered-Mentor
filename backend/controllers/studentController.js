@@ -132,7 +132,7 @@ const getDashboard = async (req, res) => {
 /* ================= MARK ATTENDANCE ================= */
 const scanQr = async (req, res) => {
   try {
-    const { studentId, qrValue } = req.body;
+    const { studentId, qrValue, lat, lng } = req.body;
 
     if (!studentId || !qrValue) {
       return res.status(400).json({ message: "Missing data" });
@@ -149,18 +149,53 @@ const scanQr = async (req, res) => {
       });
     }
 
+    // --- 1. IP RESTRICTION ---
     const ALLOWED_PUBLIC_IP = "103.182.166.212";
-    const requestIP = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "";
-    const cleanIP = requestIP.replace("::ffff:", "");
+    let requestIP = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "";
+    if (requestIP.includes(",")) {
+       requestIP = requestIP.split(",")[0];
+    }
+    const cleanIP = requestIP.trim().replace("::ffff:", "");
     
     console.log("Debug IP Check:", cleanIP);
 
-    const isAllowed = true; // Bypassed for local development testing
+    const isIpAllowed = cleanIP === ALLOWED_PUBLIC_IP || cleanIP === "127.0.0.1" || cleanIP === "localhost";
 
-    if (!isAllowed) {
+    if (!isIpAllowed) {
       return res.status(403).json({
-        message: "Attendance allowed only inside institution network",
+        message: "Network Error: You must be connected to the Institute's WiFi to mark attendance.",
       });
+    }
+
+    // --- 2. GPS RADIUS RESTRICTION ---
+    if (!lat || !lng) {
+      return res.status(400).json({ message: "Location data is required to verify campus radius." });
+    }
+
+    // Set your Institute's exact Latitude and Longitude here:
+    // Update these values to the precise GPS coordinates of the institute
+    const INST_LAT = 10.0000; 
+    const INST_LNG = 76.0000;
+    const ALLOWED_RADIUS_METERS = 100; // Allowed radius in meters
+    
+    const getDistance = (lat1, lon1, lat2, lon2) => {
+      const R = 6371e3; 
+      const dLat = (lat2 - lat1) * (Math.PI / 180);
+      const dLon = (lon2 - lon1) * (Math.PI / 180); 
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * 
+                Math.sin(dLon / 2) * Math.sin(dLon / 2); 
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
+      return R * c; 
+    };
+
+    const distance = getDistance(lat, lng, INST_LAT, INST_LNG);
+
+    // Skip GPS check for localhost/development to avoid locking you out during testing
+    if (cleanIP !== "127.0.0.1" && cleanIP !== "localhost" && distance > ALLOWED_RADIUS_METERS) {
+       return res.status(403).json({ 
+         message: `You are out of campus radius. Distance: ${Math.round(distance)}m` 
+       });
     }
 
     let type;
