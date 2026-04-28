@@ -338,7 +338,7 @@ const forgotPassword = async (req, res) => {
     res.json({ message: "A password reset link has been sent to your registered email" });
   } catch (error) {
     console.error("Forgot password error:", error);
-    res.status(500).json({ message: "Error sending email. Check backend configuration." });
+    res.status(500).json({ message: "Email Error: " + (error.message || "Check backend configuration.") });
   }
 };
 
