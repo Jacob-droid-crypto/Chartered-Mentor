@@ -25,7 +25,7 @@ body {
   min-height: 100vh;
   margin: 0;
   display: flex;
-  background-image: linear-gradient(135deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.4) 100%), url('/anime_bg.png');
+  background-image: linear-gradient(135deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.4) 100%), url('/abstract_bg.png');
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
