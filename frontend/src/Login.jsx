@@ -33,6 +33,11 @@ function Login({ onLoginSuccess }) {
     setMsg('');
     setLoading(true);
 
+    // If it takes more than 3 seconds, it's likely a Render cold start. Let's tell the user.
+    const slowLoadingTimer = setTimeout(() => {
+      setMsg('Waking up the server... This might take up to 30 seconds on the first login. Please wait.');
+    }, 3000);
+
     try {
       const endpoint = role === 'admin' ? '/admin/login' : '/student/login';
       const response = await fetch(`${endpoint}`, {
@@ -41,12 +46,19 @@ function Login({ onLoginSuccess }) {
         body: JSON.stringify({ userId, password }),
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (err) {
+        throw new Error('Server took too long to respond. The backend may be waking up, please try again.');
+      }
 
       if (!response.ok) {
         throw new Error(data.message || 'Login failed');
       }
 
+      clearTimeout(slowLoadingTimer);
+      
       // Pass token and user data back to App
       onLoginSuccess({
         token: data.token,
@@ -56,8 +68,11 @@ function Login({ onLoginSuccess }) {
       });
       
     } catch (err) {
+      clearTimeout(slowLoadingTimer);
       setError(err.message);
+      setMsg('');
     } finally {
+      clearTimeout(slowLoadingTimer);
       setLoading(false);
     }
   };
