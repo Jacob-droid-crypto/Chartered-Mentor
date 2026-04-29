@@ -74,7 +74,13 @@ function Login({ onLoginSuccess }) {
         body: JSON.stringify({ userId }),
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (e) {
+        throw new Error('Server took too long to respond. The backend may be waking up, please try again.');
+      }
+      
       if (!response.ok) throw new Error(data.message || 'Failed to request password reset');
 
       setMsg(data.message);
@@ -98,7 +104,12 @@ function Login({ onLoginSuccess }) {
         body: JSON.stringify({ userId, token: otp, newPassword }),
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (e) {
+        throw new Error('Server took too long to respond. The backend may be waking up, please try again.');
+      }
       if (!response.ok) throw new Error(data.message || 'Failed to reset password');
 
       setMsg(data.message);

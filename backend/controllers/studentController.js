@@ -304,6 +304,10 @@ const forgotPassword = async (req, res) => {
     user.resetPasswordExpire = Date.now() + 15 * 60 * 1000; // 15 minutes
     await user.save();
 
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      return res.status(500).json({ message: "Email credentials are not configured on the server. Please contact Administrator." });
+    }
+
     const transporter = nodemailer.createTransport({
       service: "Gmail",
       auth: {
