@@ -309,11 +309,16 @@ const forgotPassword = async (req, res) => {
     }
 
     const transporter = nodemailer.createTransport({
-      service: "Gmail",
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true, // use SSL
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
+      connectionTimeout: 10000, // 10 seconds
+      greetingTimeout: 5000, // 5 seconds
+      socketTimeout: 10000 // 10 seconds
     });
 
     const frontendUrl = req.headers.origin || "https://chartered-mentor.vercel.app";
