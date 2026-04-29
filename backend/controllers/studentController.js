@@ -304,22 +304,12 @@ const forgotPassword = async (req, res) => {
     user.resetPasswordExpire = Date.now() + 15 * 60 * 1000; // 15 minutes
     await user.save();
 
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      return res.status(500).json({ message: "Email credentials are not configured on the server. Please contact Administrator." });
+    if (!process.env.RESEND_API_KEY) {
+      return res.status(500).json({ message: "Resend API Key is not configured on the server. Please add RESEND_API_KEY." });
     }
 
-    const transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 465,
-      secure: true, // use SSL
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-      connectionTimeout: 10000, // 10 seconds
-      greetingTimeout: 5000, // 5 seconds
-      socketTimeout: 10000 // 10 seconds
-    });
+    const { Resend } = require("resend");
+    const resend = new Resend(process.env.RESEND_API_KEY);
 
     const frontendUrl = req.headers.origin || "https://chartered-mentor.vercel.app";
     const resetUrl = `${frontendUrl}/?resetToken=${resetToken}&userId=${user.userId}`;
@@ -338,11 +328,16 @@ const forgotPassword = async (req, res) => {
       </div>
     `;
 
-    await transporter.sendMail({
+    const { error } = await resend.emails.send({
+      from: "Chartered Mentor <onboarding@resend.dev>",
       to: user.email,
       subject: "Chartered Mentor - Password Reset Link",
       html: message,
     });
+
+    if (error) {
+      throw new Error(error.message);
+    }
 
     res.json({ message: "A password reset link has been sent to your registered email" });
   } catch (error) {
