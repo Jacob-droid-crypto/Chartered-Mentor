@@ -444,6 +444,12 @@ function Dashboard({ user, onLogout }) {
 
   return (
     <div className="app-container">
+      {/* Aesthetic Sparkles */}
+      <div className="sparkle" style={{ top: '15%', left: '10%', animationDelay: '0.2s' }}></div>
+      <div className="sparkle" style={{ top: '65%', left: '5%', animationDelay: '1.7s' }}></div>
+      <div className="sparkle" style={{ top: '25%', right: '10%', animationDelay: '0.8s' }}></div>
+      <div className="sparkle" style={{ top: '80%', right: '8%', animationDelay: '2.5s' }}></div>
+
       {/* Sidebar */}
       <aside className="sidebar">
         <div className="logo-section" style={{ textAlign: 'center', padding: '1rem 0' }}>

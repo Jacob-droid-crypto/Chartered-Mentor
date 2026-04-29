@@ -20,15 +20,21 @@
 }
 
 body {
-  background-color: var(--bg-color);
+  background-color: #f8fafc;
   color: var(--text-main);
   min-height: 100vh;
   margin: 0;
   display: flex;
-  background-image: 
-    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.08) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.08) 0px, transparent 50%);
+  background-image: linear-gradient(135deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.4) 100%), url('/anime_bg.png');
+  background-size: cover;
+  background-position: center;
   background-attachment: fixed;
+  animation: bgPan 60s linear infinite alternate;
+}
+
+@keyframes bgPan {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
 }
 
 ::-webkit-scrollbar {

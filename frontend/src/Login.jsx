@@ -130,8 +130,6 @@ function Login({ onLoginSuccess }) {
 
   return (
     <div className="login-container">
-      <div className="anime-background"></div>
-      
       {/* Aesthetic Sparkles */}
       <div className="sparkle" style={{ top: '20%', left: '15%', animationDelay: '0s' }}></div>
       <div className="sparkle" style={{ top: '60%', left: '10%', animationDelay: '1.5s' }}></div>
