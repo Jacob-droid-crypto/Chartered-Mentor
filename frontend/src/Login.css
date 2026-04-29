@@ -4,21 +4,35 @@
   align-items: center;
   min-height: 100vh;
   width: 100vw;
-  background-color: #050505;
-  background-image: 
-    radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
-    radial-gradient(circle at 85% 30%, rgba(236, 72, 153, 0.15) 0%, transparent 50%);
+  background-color: #f8fafc;
   position: relative;
   overflow: hidden;
   font-family: 'Outfit', sans-serif;
 }
 
-.login-container::before {
+/* Anime Aesthetic Background with slow pan animation */
+.anime-background {
+  position: absolute;
+  top: -10%;
+  left: -10%;
+  width: 120%;
+  height: 120%;
+  background-image: url('/anime_bg.png');
+  background-size: cover;
+  background-position: center;
+  z-index: 0;
+  animation: slowPan 30s linear infinite alternate;
+  filter: brightness(1.05) saturate(1.1);
+}
+
+/* Soft white overlay to ensure text readability while keeping anime bg visible */
+.login-container::after {
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMDUiLz4KPC9zdmc+') repeat;
-  opacity: 0.3;
+  background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 100%);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   z-index: 1;
 }
 
@@ -26,61 +40,58 @@
   max-width: 420px;
   width: 100%;
   padding: 2.5rem;
-  background: rgba(10, 10, 15, 0.8);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(99, 102, 241, 0.3);
-  border-radius: 20px;
-  box-shadow: 0 0 40px rgba(0, 0, 0, 0.8), 
-              0 0 20px rgba(99, 102, 241, 0.2), 
-              inset 0 0 20px rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 24px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08), 
+              0 0 0 1px rgba(255, 255, 255, 0.5) inset;
   z-index: 10;
   position: relative;
-  animation: cardEntrance 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: cardEntrance 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .login-card h2 {
-  color: #ffffff;
+  color: #1e293b;
   font-size: 1.8rem;
   font-weight: 700;
   margin-bottom: 0.5rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: -0.5px;
 }
 
 .login-card p {
-  color: #94a3b8;
+  color: #64748b;
   font-size: 0.95rem;
+  font-weight: 400;
 }
 
 .role-toggle {
   display: flex;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
+  background: rgba(241, 245, 249, 0.8);
+  border-radius: 14px;
   padding: 0.35rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
   margin-bottom: 1.5rem;
+  border: 1px solid rgba(0,0,0,0.03);
 }
 
 .role-btn {
   flex: 1;
-  padding: 0.6rem;
+  padding: 0.7rem;
   border: none;
   background: transparent;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
-  color: #94a3b8;
+  color: #64748b;
   font-weight: 600;
-  font-size: 0.9rem;
-  transition: all 0.3s ease;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  font-size: 0.95rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .role-btn.active {
-  background: linear-gradient(135deg, #4f46e5, #ec4899);
-  color: white;
-  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+  background: white;
+  color: #4f46e5;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
 }
 
 .input-group {
@@ -91,74 +102,59 @@
 .input-group label {
   display: block;
   margin-bottom: 0.5rem;
-  color: #cbd5e1;
-  font-size: 0.85rem;
+  color: #475569;
+  font-size: 0.9rem;
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 1px;
 }
 
 .input-group input {
   width: 100%;
-  padding: 0.85rem 1rem;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.4);
-  color: #ffffff;
+  padding: 0.9rem 1.2rem;
+  border-radius: 12px;
+  border: 1.5px solid #e2e8f0;
+  background: rgba(255, 255, 255, 0.9);
+  color: #1e293b;
   font-size: 1rem;
   outline: none;
   transition: all 0.3s ease;
 }
 
 .input-group input:focus {
-  border-color: #4f46e5;
-  box-shadow: 0 0 15px rgba(99, 102, 241, 0.3), inset 0 0 5px rgba(99, 102, 241, 0.2);
-  background: rgba(0, 0, 0, 0.6);
+  border-color: #818cf8;
+  box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.15);
+  background: white;
 }
 
 .submit-btn {
   width: 100%;
   padding: 1rem;
-  background: linear-gradient(135deg, #4f46e5, #3b82f6);
+  background: linear-gradient(135deg, #6366f1, #ec4899);
   color: white;
   border: none;
-  border-radius: 10px;
+  border-radius: 12px;
   font-size: 1.05rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
+  font-weight: 600;
   cursor: pointer;
   margin-top: 1rem;
-  box-shadow: 0 8px 25px rgba(79, 70, 229, 0.4);
-  transition: all 0.3s ease;
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.25);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
 }
 
 .submit-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 12px 30px rgba(79, 70, 229, 0.6);
+  box-shadow: 0 12px 25px rgba(99, 102, 241, 0.35);
+  background: linear-gradient(135deg, #4f46e5, #db2777);
 }
 
 .submit-btn:active:not(:disabled) {
   transform: translateY(1px);
 }
 
-.submit-btn::after {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0) 100%);
-  transform: rotate(30deg);
-  animation: shine 3s infinite;
-}
-
 .submit-btn:disabled {
-  background: #334155;
-  color: #94a3b8;
+  background: #cbd5e1;
+  color: #f8fafc;
   cursor: not-allowed;
   box-shadow: none;
 }
@@ -168,75 +164,70 @@
   border: none;
   color: #ec4899;
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   padding: 0;
   transition: color 0.2s;
 }
 
 .forgot-link:hover {
-  color: #f472b6;
-  text-shadow: 0 0 8px rgba(236, 72, 153, 0.5);
+  color: #db2777;
+  text-decoration: underline;
 }
 
 .error-msg {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #fca5a5;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #ef4444;
   padding: 0.85rem;
-  border-radius: 10px;
+  border-radius: 12px;
   margin-bottom: 1.5rem;
   font-size: 0.9rem;
   text-align: left;
+  animation: shake 0.5s ease-in-out;
 }
 
 .success-msg {
-  background: rgba(16, 185, 129, 0.1);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  color: #6ee7b7;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #10b981;
   padding: 0.85rem;
-  border-radius: 10px;
+  border-radius: 12px;
   margin-bottom: 1.5rem;
   font-size: 0.9rem;
   text-align: left;
 }
 
+/* Animations */
 @keyframes cardEntrance {
-  0% { opacity: 0; transform: translateY(40px) scale(0.95); }
+  0% { opacity: 0; transform: translateY(30px) scale(0.98); }
   100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-@keyframes shine {
-  0% { left: -100%; transition-property: left; }
-  20%, 100% { left: 100%; transition-property: left; }
+@keyframes slowPan {
+  0% { transform: scale(1) translate(0, 0); }
+  100% { transform: scale(1.05) translate(-2%, -2%); }
 }
 
-.floating-orb {
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+/* Decorative sparkles/stars for the aesthetic anime feel */
+.sparkle {
   position: absolute;
+  width: 4px;
+  height: 4px;
+  background: white;
   border-radius: 50%;
-  filter: blur(60px);
-  z-index: 0;
-  animation: float 10s infinite alternate ease-in-out;
+  box-shadow: 0 0 10px 2px rgba(255,255,255,0.8);
+  animation: twinkle 3s infinite alternate;
+  z-index: 2;
 }
 
-.orb-1 {
-  width: 300px;
-  height: 300px;
-  background: rgba(79, 70, 229, 0.4);
-  top: -100px;
-  right: -50px;
-}
-
-.orb-2 {
-  width: 250px;
-  height: 250px;
-  background: rgba(236, 72, 153, 0.3);
-  bottom: -50px;
-  left: -100px;
-  animation-delay: -5s;
-}
-
-@keyframes float {
-  0% { transform: translate(0, 0) rotate(0deg); }
-  100% { transform: translate(-30px, 50px) rotate(10deg); }
+@keyframes twinkle {
+  0% { opacity: 0.2; transform: scale(0.8); }
+  100% { opacity: 1; transform: scale(1.2); }
 }
