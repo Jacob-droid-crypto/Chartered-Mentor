@@ -150,20 +150,23 @@ const scanQr = async (req, res) => {
     }
 
     // --- 1. IP RESTRICTION ---
-    const ALLOWED_PUBLIC_IP = "103.182.166.218";
+    // Read allowed IPs from env (comma-separated list). Fallback to old hardcoded IP.
+    const allowedIPsRaw = process.env.ALLOWED_IP || "103.182.166.218";
+    const ALLOWED_IPS = allowedIPsRaw.split(",").map(ip => ip.trim()).filter(Boolean);
+
     let requestIP = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "";
     if (requestIP.includes(",")) {
        requestIP = requestIP.split(",")[0];
     }
     const cleanIP = requestIP.trim().replace("::ffff:", "");
     
-    console.log("Debug IP Check:", cleanIP);
+    console.log("Debug IP Check:", cleanIP, "| Allowed:", ALLOWED_IPS);
 
-    const isIpAllowed = cleanIP === ALLOWED_PUBLIC_IP || cleanIP === "127.0.0.1" || cleanIP === "localhost";
+    const isIpAllowed = ALLOWED_IPS.includes(cleanIP) || cleanIP === "127.0.0.1" || cleanIP === "localhost";
 
     if (!isIpAllowed) {
       return res.status(403).json({
-        message: "Network Error: You must be connected to the Institute's WiFi to mark attendance.",
+        message: `Network Error: You must be connected to the Institute's WiFi to mark attendance. (Your IP: ${cleanIP})`,
       });
     }
 
