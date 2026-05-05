@@ -360,25 +360,40 @@ function Dashboard({ user, onLogout }) {
   };
 
   useEffect(() => {
-    let scanner = null;
+    let html5QrCode;
+
     if (scanning) {
-      scanner = new Html5QrcodeScanner("reader", { qrbox: { width: 250, height: 250 }, fps: 5 });
-
-      const success = async (result) => {
-        scanner.clear();
-        setScanning(false);
-        await submitAttendance(result);
-      };
-
-      scanner.render(success, (err) => { /* ignore normal scanning errors */ });
+      import('html5-qrcode').then(({ Html5Qrcode }) => {
+        html5QrCode = new Html5Qrcode("reader");
+        html5QrCode.start(
+          { facingMode: "environment" },
+          {
+            fps: 15,
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.0
+          },
+          async (decodedText) => {
+            html5QrCode.stop().then(() => {
+              setScanning(false);
+            });
+            await submitAttendance(decodedText);
+          },
+          (errorMessage) => {
+            // ignore normal frame errors
+          }
+        ).catch((err) => {
+          alert("Camera Permission Denied or Not Available. Please allow camera access in your browser settings.");
+          setScanning(false);
+        });
+      });
     }
 
     return () => {
-      if (scanner) {
-        try { scanner.clear(); } catch (e) { }
+      if (html5QrCode && html5QrCode.isScanning) {
+        html5QrCode.stop().catch(e => console.error(e));
       }
     };
-  }, [scanning, user]);
+  }, [scanning]);
 
   const handleDelete = async (studentId) => {
     if (!window.confirm(`Are you sure you want to delete student ${studentId}?`)) return;
