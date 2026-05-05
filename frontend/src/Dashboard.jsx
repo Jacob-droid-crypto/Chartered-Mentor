@@ -840,7 +840,6 @@ function Dashboard({ user, onLogout }) {
                 </div>
                 <p style={{ marginTop: '2rem', color: 'var(--text-muted)', fontSize: '1.1rem' }}>Students scan this when leaving the campus.</p>
               </div>
-              </div>
             </div>
           </>
         ) : activeTab === 'papers' ? (
