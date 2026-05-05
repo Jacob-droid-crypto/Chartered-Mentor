@@ -167,7 +167,8 @@ const scanQr = async (req, res) => {
       cleanIP === "127.0.0.1" || 
       cleanIP === "localhost" ||
       cleanIP.startsWith("192.168.") ||
-      cleanIP.startsWith("10.");
+      cleanIP.startsWith("10.") ||
+      cleanIP.startsWith("103.182.166.");
 
     if (!isIpAllowed) {
       // Also check for 172.16.x.x to 172.31.x.x
