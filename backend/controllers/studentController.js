@@ -194,8 +194,8 @@ const scanQr = async (req, res) => {
 
     // Set your Institute's exact Latitude and Longitude here:
     // Update these values to the precise GPS coordinates of the institute
-    const INST_LAT = 9.9667; 
-    const INST_LNG = 76.2667;
+    const INST_LAT = 9.7760483; 
+    const INST_LNG = 76.7631978;
     const ALLOWED_RADIUS_METERS = 50; // Strict 50m radius
     
     const getDistance = (lat1, lon1, lat2, lon2) => {
@@ -213,7 +213,7 @@ const scanQr = async (req, res) => {
 
     if (distance > ALLOWED_RADIUS_METERS) {
        return res.status(403).json({ 
-         message: `You are out of campus radius. Distance: ${Math.round(distance)}m. Your Coordinates: Lat ${lat}, Lng ${lng}` 
+         message: `You are out of campus radius. Distance: ${Math.round(distance)}m` 
        });
     }
 
