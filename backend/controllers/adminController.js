@@ -270,16 +270,20 @@ const uploadQuestionPaper = async (req, res) => {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    const fileUrl = req.file.path; // Cloudinary returns the URL in req.file.path
+    const fileData = req.file.buffer.toString("base64");
+    const fileName = req.file.originalname;
+    const fileType = req.file.mimetype;
 
     const paper = await QuestionPaper.create({
       title,
       target,
-      fileUrl,
+      fileName,
+      fileType,
+      fileData,
       scheduledTime: new Date(scheduledTime),
     });
 
-    res.json({ message: "Paper scheduled successfully!", paper });
+    res.json({ message: "Paper scheduled successfully!" });
   } catch (error) {
     console.error("Upload paper error:", error);
     res.status(500).json({ message: "Server error" });
@@ -289,7 +293,7 @@ const uploadQuestionPaper = async (req, res) => {
 /* ================= GET ADMIN PAPERS ================= */
 const getAdminPapers = async (req, res) => {
   try {
-    const papers = await QuestionPaper.find().sort({ scheduledTime: -1 });
+    const papers = await QuestionPaper.find({}, { fileData: 0 }).sort({ scheduledTime: -1 });
     res.json(papers);
   } catch (err) {
     console.error("Get papers error:", err);

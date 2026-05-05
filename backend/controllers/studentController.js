@@ -414,20 +414,36 @@ const getStudentPapers = async (req, res) => {
     const query = {
       $and: [
         { scheduledTime: { $lte: new Date() } },
-        { $or: [
-            { target: "ALL" },
-            { target: user.course },
-            { target: user.userId }
-          ]
-        }
+        { target: user.userId }
       ]
     };
 
-    const papers = await QuestionPaper.find(query).sort({ scheduledTime: -1 });
+    const papers = await QuestionPaper.find(query, { fileData: 0 }).sort({ scheduledTime: -1 });
 
     res.json(papers);
   } catch (err) {
     console.error("Get student papers error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* ================= DOWNLOAD PAPER ================= */
+const downloadPaper = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const paper = await QuestionPaper.findById(id);
+
+    if (!paper) {
+      return res.status(404).json({ message: "Paper not found" });
+    }
+
+    const buffer = Buffer.from(paper.fileData, "base64");
+
+    res.setHeader("Content-Type", paper.fileType);
+    res.setHeader("Content-Disposition", `inline; filename="${paper.fileName}"`);
+    res.send(buffer);
+  } catch (err) {
+    console.error("Download error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -441,5 +457,6 @@ module.exports = {
   updateProfile,
   forgotPassword,
   resetPassword,
-  getStudentPapers
+  getStudentPapers,
+  downloadPaper
 };

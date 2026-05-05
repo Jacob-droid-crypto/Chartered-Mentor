@@ -8,9 +8,17 @@ const questionPaperSchema = new mongoose.Schema({
   target: {
     type: String,
     required: true,
-    // e.g., "ALL", "INTER", "FINAL", or a specific studentId like "FIN26102"
+    // This will be a specific student's userId
   },
-  fileUrl: {
+  fileName: {
+    type: String,
+    required: true,
+  },
+  fileType: {
+    type: String,
+    required: true,
+  },
+  fileData: {
     type: String,
     required: true,
   },

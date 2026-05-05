@@ -133,6 +133,7 @@ function Dashboard({ user, onLogout }) {
     }
     if (activeTab === 'papers') {
       fetchPapers();
+      if (user.role === 'admin') fetchStudentsData();
     }
   }, [user, activeTab]);
 
@@ -850,7 +851,7 @@ function Dashboard({ user, onLogout }) {
             
             {user.role === 'admin' && (
               <div className="card" style={{ marginBottom: '2rem' }}>
-                <h3 style={{ marginBottom: '1rem' }}>Upload New Paper</h3>
+                <h3 style={{ marginBottom: '1rem' }}>Upload New Paper for Student</h3>
                 <form 
                   onSubmit={async (e) => {
                     e.preventDefault();
@@ -880,11 +881,14 @@ function Dashboard({ user, onLogout }) {
                   style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
                 >
                   <input type="text" name="title" placeholder="Paper Title (e.g. Midterm Physics)" required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                  
                   <select name="target" required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }}>
-                    <option value="ALL">All Students</option>
-                    <option value="INTER">Course: INTER</option>
-                    <option value="FINAL">Course: FINAL</option>
+                    <option value="">Select a Student...</option>
+                    {students && students.map(s => (
+                      <option key={s.userId} value={s.userId}>{s.name} ({s.userId})</option>
+                    ))}
                   </select>
+                  
                   <div>
                     <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Schedule Time (When will this be visible?)</label>
                     <input type="datetime-local" name="scheduledTime" required style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
@@ -903,12 +907,32 @@ function Dashboard({ user, onLogout }) {
                     <div>
                       <strong style={{ fontSize: '1.1rem' }}>{paper.title}</strong>
                       <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.2rem' }}>
-                        {user.role === 'admin' && <span style={{ marginRight: '1rem' }}>Target: <strong>{paper.target}</strong></span>}
+                        {user.role === 'admin' && <span style={{ marginRight: '1rem' }}>Target Student ID: <strong>{paper.target}</strong></span>}
                         <span>Scheduled: {new Date(paper.scheduledTime).toLocaleString()}</span>
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '1rem' }}>
-                      <a href={paper.fileUrl} target="_blank" rel="noreferrer" style={{ padding: '0.5rem 1rem', background: 'var(--primary-color)', color: 'white', textDecoration: 'none', borderRadius: '6px', fontWeight: 'bold' }}>View Paper</a>
+                      <button onClick={async () => {
+                        try {
+                          const res = await fetch(`/student/paper/${paper._id}/download`, {
+                            headers: { 'Authorization': `Bearer ${user.token}` }
+                          });
+                          if (!res.ok) throw new Error("Failed to download");
+                          const blob = await res.blob();
+                          const url = window.URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = paper.fileName || 'document.pdf';
+                          document.body.appendChild(a);
+                          a.click();
+                          a.remove();
+                        } catch(err) {
+                          alert("Error downloading file");
+                        }
+                      }} style={{ padding: '0.5rem 1rem', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
+                        Download
+                      </button>
+                      
                       {user.role === 'admin' && (
                         <button onClick={async () => {
                           if(!window.confirm('Delete this paper?')) return;

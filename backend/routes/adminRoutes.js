@@ -1,6 +1,13 @@
 const express = require("express");
 const router = express.Router();
-const { upload } = require("../config/cloudinary");
+const multer = require("multer");
+
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
+
 const { loginAdmin, addStudent, getAttendance, getDailySummary, getStudents, deleteStudent, resetPassword, getProfile, uploadQuestionPaper, getAdminPapers, deletePaper } = require("../controllers/adminController");
 const { updateProfile } = require("../controllers/studentController");
 const { protect, adminOnly } = require("../middleware/authMiddleware");
