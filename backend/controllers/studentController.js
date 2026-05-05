@@ -402,6 +402,36 @@ const resetPassword = async (req, res) => {
   }
 };
 
+const QuestionPaper = require("../models/QuestionPaper");
+
+/* ================= GET STUDENT PAPERS ================= */
+const getStudentPapers = async (req, res) => {
+  try {
+    const user = req.user;
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // The core Time-Gate logic: scheduledTime must be <= current date
+    const query = {
+      $and: [
+        { scheduledTime: { $lte: new Date() } },
+        { $or: [
+            { target: "ALL" },
+            { target: user.course },
+            { target: user.userId }
+          ]
+        }
+      ]
+    };
+
+    const papers = await QuestionPaper.find(query).sort({ scheduledTime: -1 });
+
+    res.json(papers);
+  } catch (err) {
+    console.error("Get student papers error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   loginStudent,
   changePassword,
@@ -410,5 +440,6 @@ module.exports = {
   getDailyHours,
   updateProfile,
   forgotPassword,
-  resetPassword
+  resetPassword,
+  getStudentPapers
 };

@@ -1,10 +1,10 @@
 const express = require("express");
 const router = express.Router();
-const { loginStudent, changePassword, getDashboard, scanQr, getDailyHours, updateProfile, forgotPassword, resetPassword } = require("../controllers/studentController");
+const { loginStudent, changePassword, getDashboard, scanQr, getDailyHours, updateProfile, forgotPassword, resetPassword, getStudentPapers } = require("../controllers/studentController");
 const { protect, studentOnly } = require("../middleware/authMiddleware");
 
 router.post("/login", loginStudent);
-router.post("/change-password", changePassword); // Allow without protect to change temp pass? Actually, normally protect this, but keeping as original logic for now.
+router.post("/change-password", changePassword); 
 
 router.get("/dashboard/:studentId", protect, studentOnly, getDashboard);
 router.post("/scan-qr", protect, studentOnly, scanQr);
@@ -13,5 +13,8 @@ router.post("/profile", protect, studentOnly, updateProfile);
 
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
+
+// Get Papers
+router.get("/papers", protect, studentOnly, getStudentPapers);
 
 module.exports = router;

@@ -255,6 +255,60 @@ const getProfile = async (req, res) => {
   }
 };
 
+const QuestionPaper = require("../models/QuestionPaper");
+
+/* ================= UPLOAD QUESTION PAPER ================= */
+const uploadQuestionPaper = async (req, res) => {
+  try {
+    const { title, target, scheduledTime } = req.body;
+
+    if (!title || !target || !scheduledTime) {
+      return res.status(400).json({ message: "Missing fields" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    const fileUrl = req.file.path; // Cloudinary returns the URL in req.file.path
+
+    const paper = await QuestionPaper.create({
+      title,
+      target,
+      fileUrl,
+      scheduledTime: new Date(scheduledTime),
+    });
+
+    res.json({ message: "Paper scheduled successfully!", paper });
+  } catch (error) {
+    console.error("Upload paper error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* ================= GET ADMIN PAPERS ================= */
+const getAdminPapers = async (req, res) => {
+  try {
+    const papers = await QuestionPaper.find().sort({ scheduledTime: -1 });
+    res.json(papers);
+  } catch (err) {
+    console.error("Get papers error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* ================= DELETE PAPER ================= */
+const deletePaper = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await QuestionPaper.findByIdAndDelete(id);
+    res.json({ message: "Paper deleted successfully" });
+  } catch (err) {
+    console.error("Delete paper error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   loginAdmin,
   addStudent,
@@ -263,5 +317,8 @@ module.exports = {
   getStudents,
   deleteStudent,
   resetPassword,
-  getProfile
+  getProfile,
+  uploadQuestionPaper,
+  getAdminPapers,
+  deletePaper
 };

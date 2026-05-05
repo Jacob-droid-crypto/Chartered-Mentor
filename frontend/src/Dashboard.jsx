@@ -102,6 +102,21 @@ function Dashboard({ user, onLogout }) {
     }
   };
 
+  const [papers, setPapers] = useState([]);
+  
+  const fetchPapers = async () => {
+    try {
+      const endpoint = user.role === 'admin' ? '/admin/papers' : '/student/papers';
+      const response = await fetch(endpoint, {
+        headers: { 'Authorization': `Bearer ${user.token}` }
+      });
+      const result = await response.json();
+      if (response.ok) setPapers(result);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'dashboard') {
       fetchDashboardData();
@@ -115,6 +130,9 @@ function Dashboard({ user, onLogout }) {
     }
     if (activeTab === 'profile') {
       fetchProfileData();
+    }
+    if (activeTab === 'papers') {
+      fetchPapers();
     }
   }, [user, activeTab]);
 
@@ -485,6 +503,9 @@ function Dashboard({ user, onLogout }) {
               <li className={`nav-item ${activeTab === 'attendance' ? 'active' : ''}`} onClick={() => setActiveTab('attendance')}>
                 <span>📅</span> Attendance
               </li>
+              <li className={`nav-item ${activeTab === 'papers' ? 'active' : ''}`} onClick={() => setActiveTab('papers')}>
+                <span>📄</span> Papers
+              </li>
               <li className={`nav-item ${activeTab === 'campus_qr' ? 'active' : ''}`} onClick={() => setActiveTab('campus_qr')}>
                 <span>🔲</span> Campus QR
               </li>
@@ -493,6 +514,9 @@ function Dashboard({ user, onLogout }) {
             <>
               <li className={`nav-item ${activeTab === 'attendance' ? 'active' : ''}`} onClick={() => setActiveTab('attendance')}>
                 <span>📅</span> Attendance Records
+              </li>
+              <li className={`nav-item ${activeTab === 'papers' ? 'active' : ''}`} onClick={() => setActiveTab('papers')}>
+                <span>📄</span> Exam Papers
               </li>
               <li className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
                 <span>👤</span> Profile
@@ -814,6 +838,88 @@ function Dashboard({ user, onLogout }) {
                   <QRCodeSVG value="CM-ATTENDANCE-OUT" size={240} />
                 </div>
                 <p style={{ marginTop: '2rem', color: 'var(--text-muted)', fontSize: '1.1rem' }}>Students scan this when leaving the campus.</p>
+              </div>
+              </div>
+            </div>
+          </>
+        ) : activeTab === 'papers' ? (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h2>{user.role === 'admin' ? 'Manage Exam Papers' : 'Your Exam Papers'}</h2>
+            </div>
+            
+            {user.role === 'admin' && (
+              <div className="card" style={{ marginBottom: '2rem' }}>
+                <h3 style={{ marginBottom: '1rem' }}>Upload New Paper</h3>
+                <form 
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const formData = new FormData();
+                    formData.append('title', e.target.title.value);
+                    formData.append('target', e.target.target.value);
+                    formData.append('scheduledTime', e.target.scheduledTime.value);
+                    formData.append('file', e.target.file.files[0]);
+
+                    try {
+                      setLoading(true);
+                      const res = await fetch('/admin/upload-paper', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${user.token}` },
+                        body: formData
+                      });
+                      if(!res.ok) throw new Error(await res.text());
+                      alert('Paper scheduled successfully!');
+                      e.target.reset();
+                      fetchPapers();
+                    } catch(err) {
+                      alert('Upload failed: ' + err.message);
+                    } finally {
+                      setLoading(false);
+                    }
+                  }} 
+                  style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+                >
+                  <input type="text" name="title" placeholder="Paper Title (e.g. Midterm Physics)" required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                  <select name="target" required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }}>
+                    <option value="ALL">All Students</option>
+                    <option value="INTER">Course: INTER</option>
+                    <option value="FINAL">Course: FINAL</option>
+                  </select>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Schedule Time (When will this be visible?)</label>
+                    <input type="datetime-local" name="scheduledTime" required style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                  </div>
+                  <input type="file" name="file" accept=".pdf,.png,.jpg,.jpeg,.docx" required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }} />
+                  <button type="submit" style={{ padding: '0.75rem', background: '#10b981', color: 'white', borderRadius: '8px', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}>Upload & Schedule</button>
+                </form>
+              </div>
+            )}
+
+            <div className="card">
+              <h3 style={{ marginBottom: '1.5rem' }}>{user.role === 'admin' ? 'Scheduled Papers' : 'Available Papers'}</h3>
+              <div className="activity-list">
+                {papers.map((paper) => (
+                  <div key={paper._id} className="activity-item" style={{ alignItems: 'center' }}>
+                    <div>
+                      <strong style={{ fontSize: '1.1rem' }}>{paper.title}</strong>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.2rem' }}>
+                        {user.role === 'admin' && <span style={{ marginRight: '1rem' }}>Target: <strong>{paper.target}</strong></span>}
+                        <span>Scheduled: {new Date(paper.scheduledTime).toLocaleString()}</span>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                      <a href={paper.fileUrl} target="_blank" rel="noreferrer" style={{ padding: '0.5rem 1rem', background: 'var(--primary-color)', color: 'white', textDecoration: 'none', borderRadius: '6px', fontWeight: 'bold' }}>View Paper</a>
+                      {user.role === 'admin' && (
+                        <button onClick={async () => {
+                          if(!window.confirm('Delete this paper?')) return;
+                          await fetch(`/admin/paper/${paper._id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${user.token}` }});
+                          fetchPapers();
+                        }} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '1.2rem' }}>🗑️</button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {papers.length === 0 && <p style={{ color: 'var(--text-muted)' }}>No papers available.</p>}
               </div>
             </div>
           </>
