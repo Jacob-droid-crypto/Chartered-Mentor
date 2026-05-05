@@ -59,6 +59,13 @@ function Login({ onLoginSuccess }) {
 
       clearTimeout(slowLoadingTimer);
       
+      if (data.firstLogin && role === 'student') {
+        setView('force_reset');
+        setMsg('This is your first login. Please set a new password to continue.');
+        setLoading(false);
+        return;
+      }
+
       // Pass token and user data back to App
       onLoginSuccess({
         token: data.token,
@@ -136,6 +143,63 @@ function Login({ onLoginSuccess }) {
         setNewPassword('');
         setMsg('');
       }, 3000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForceResetPassword = async (e) => {
+    e.preventDefault();
+    setError('');
+    setMsg('');
+    setLoading(true);
+
+    try {
+      const response = await fetch('/student/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, newPassword }),
+      });
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (e) {
+        throw new Error('Server took too long to respond. The backend may be waking up, please try again.');
+      }
+      
+      if (!response.ok) throw new Error(data.message || 'Failed to update password');
+
+      setMsg('Password updated successfully! Logging you in...');
+      
+      // Attempt to login automatically
+      setTimeout(async () => {
+        try {
+          const loginResponse = await fetch('/student/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, password: newPassword }),
+          });
+          const loginData = await loginResponse.json();
+          if (loginResponse.ok) {
+            onLoginSuccess({
+              token: loginData.token,
+              role: role,
+              userId: loginData.studentId || userId,
+              name: loginData.name || 'Admin',
+            });
+          } else {
+            setView('login');
+            setPassword('');
+          }
+        } catch (err) {
+          setView('login');
+          setPassword('');
+        }
+      }, 1500);
+
     } catch (err) {
       setError(err.message);
     } finally {

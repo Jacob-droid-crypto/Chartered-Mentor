@@ -162,7 +162,23 @@ const scanQr = async (req, res) => {
     
     console.log("Debug IP Check:", cleanIP, "| Allowed:", ALLOWED_IPS);
 
-    const isIpAllowed = ALLOWED_IPS.includes(cleanIP) || cleanIP === "127.0.0.1" || cleanIP === "localhost";
+    let isIpAllowed = 
+      ALLOWED_IPS.includes(cleanIP) || 
+      cleanIP === "127.0.0.1" || 
+      cleanIP === "localhost" ||
+      cleanIP.startsWith("192.168.") ||
+      cleanIP.startsWith("10.");
+
+    if (!isIpAllowed) {
+      // Also check for 172.16.x.x to 172.31.x.x
+      const parts = cleanIP.split(".");
+      if (parts.length === 4 && parts[0] === "172") {
+        const secondOctet = parseInt(parts[1], 10);
+        if (secondOctet >= 16 && secondOctet <= 31) {
+          isIpAllowed = true;
+        }
+      }
+    }
 
     if (!isIpAllowed) {
       return res.status(403).json({
