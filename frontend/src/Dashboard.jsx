@@ -857,7 +857,11 @@ function Dashboard({ user, onLogout }) {
                     const formData = new FormData();
                     formData.append('title', e.target.title.value);
                     formData.append('target', e.target.target.value);
-                    formData.append('scheduledTime', e.target.scheduledTime.value);
+                    
+                    // Convert local datetime-local value to ISO string to preserve exact time across timezones
+                    const localDate = new Date(e.target.scheduledTime.value);
+                    formData.append('scheduledTime', localDate.toISOString());
+                    
                     formData.append('file', e.target.file.files[0]);
 
                     try {
