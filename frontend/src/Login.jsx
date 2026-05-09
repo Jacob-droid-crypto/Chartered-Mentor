@@ -330,6 +330,30 @@ function Login({ onLoginSuccess }) {
             </div>
           </form>
         )}
+
+        {view === 'force_reset' && (
+          <form onSubmit={handleForceResetPassword}>
+            <div className="input-group">
+              <label>New Password</label>
+              <input 
+                type="password" 
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+              />
+            </div>
+
+            <button type="submit" className="submit-btn" disabled={loading}>
+              {loading ? 'Processing...' : 'Set Password'}
+            </button>
+            <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+              <button type="button" onClick={() => setView('login')} className="forgot-link" style={{ color: '#64748b' }}>
+                Back to Login
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );
