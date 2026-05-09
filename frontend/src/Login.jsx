@@ -14,18 +14,7 @@ function Login({ onLoginSuccess }) {
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const tokenParam = params.get('resetToken');
-    const userParam = params.get('userId');
-
-    if (tokenParam && userParam) {
-      setUserId(userParam);
-      setOtp(tokenParam);
-      setView('reset');
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  }, []);
+  // URL token parsing removed as we now use OTP
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -107,6 +96,10 @@ function Login({ onLoginSuccess }) {
       if (!response.ok) throw new Error(data.message || 'Failed to request password reset');
 
       setMsg(data.message);
+      setTimeout(() => {
+        setView('reset');
+        setMsg('');
+      }, 2000);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -124,7 +117,7 @@ function Login({ onLoginSuccess }) {
       const response = await fetch('/student/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, token: otp, newPassword }),
+        body: JSON.stringify({ userId, otp, newPassword }),
       });
 
       let data;
@@ -222,7 +215,7 @@ function Login({ onLoginSuccess }) {
             {view === 'login' ? 'Welcome Back ✨' : view === 'forgot' ? 'Reset Password' : 'Set New Password'}
           </h2>
           <p>
-            {view === 'login' ? 'Sign in to your beautiful dashboard' : view === 'forgot' ? 'Enter your User ID to receive a reset link' : 'Enter your new secure password'}
+            {view === 'login' ? 'Sign in to your beautiful dashboard' : view === 'forgot' ? 'Enter your User ID to receive an OTP' : 'Enter the OTP and your new secure password'}
           </p>
         </div>
 
@@ -293,7 +286,7 @@ function Login({ onLoginSuccess }) {
             </div>
 
             <button type="submit" className="submit-btn" disabled={loading}>
-              {loading ? 'Sending Link...' : 'Send Reset Link'}
+              {loading ? 'Sending OTP...' : 'Send OTP'}
             </button>
             <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
               <button type="button" onClick={() => setView('login')} className="forgot-link" style={{ color: '#64748b' }}>
@@ -305,6 +298,17 @@ function Login({ onLoginSuccess }) {
 
         {view === 'reset' && (
           <form onSubmit={handleResetPassword}>
+            <div className="input-group">
+              <label>6-Digit OTP</label>
+              <input 
+                type="text" 
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+                placeholder="Enter the code from your email"
+                maxLength="6"
+                required
+              />
+            </div>
             <div className="input-group">
               <label>New Password</label>
               <input 
