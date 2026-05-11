@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { GoogleLogin } from '@react-oauth/google';
 import './Login.css';
 
 function Login({ onLoginSuccess }) {
@@ -9,12 +10,20 @@ function Login({ onLoginSuccess }) {
   const [msg, setMsg] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Forgot password states
-  const [view, setView] = useState('login'); // login, forgot, reset
-  const [otp, setOtp] = useState('');
+  // States for new flows
+  const [view, setView] = useState('login'); // login, google_verify, force_reset
   const [newPassword, setNewPassword] = useState('');
+  const [tempToken, setTempToken] = useState(null);
 
-  // URL token parsing removed as we now use OTP
+  useEffect(() => {
+    // Check if user is clicking a setup link from their email
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('setup') === 'true') {
+       setView('google_verify');
+       if (params.get('userId')) setUserId(params.get('userId'));
+       setMsg('Welcome! Please verify your identity with Google to set up your account.');
+    }
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -22,7 +31,6 @@ function Login({ onLoginSuccess }) {
     setMsg('');
     setLoading(true);
 
-    // If it takes more than 3 seconds, it's likely a Render cold start. Let's tell the user.
     const slowLoadingTimer = setTimeout(() => {
       setMsg('Waking up the server... This might take up to 30 seconds on the first login. Please wait.');
     }, 3000);
@@ -73,69 +81,28 @@ function Login({ onLoginSuccess }) {
     }
   };
 
-  const handleForgotPassword = async (e) => {
-    e.preventDefault();
+  const handleGoogleSuccess = async (credentialResponse) => {
     setError('');
     setMsg('');
     setLoading(true);
 
     try {
-      const response = await fetch('/student/forgot-password', {
+      const response = await fetch('/student/verify-google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify({ token: credentialResponse.credential }),
       });
 
-      let data;
-      try {
-        data = await response.json();
-      } catch (e) {
-        throw new Error('Server took too long to respond. The backend may be waking up, please try again.');
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Google Verification failed');
       }
-      
-      if (!response.ok) throw new Error(data.message || 'Failed to request password reset');
 
-      setMsg(data.message);
-      setTimeout(() => {
-        setView('reset');
-        setMsg('');
-      }, 2000);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResetPassword = async (e) => {
-    e.preventDefault();
-    setError('');
-    setMsg('');
-    setLoading(true);
-
-    try {
-      const response = await fetch('/student/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, otp, newPassword }),
-      });
-
-      let data;
-      try {
-        data = await response.json();
-      } catch (e) {
-        throw new Error('Server took too long to respond. The backend may be waking up, please try again.');
-      }
-      if (!response.ok) throw new Error(data.message || 'Failed to reset password');
-
-      setMsg(data.message);
-      setTimeout(() => {
-        setView('login');
-        setPassword('');
-        setOtp('');
-        setNewPassword('');
-        setMsg('');
-      }, 3000);
+      setUserId(data.userId);
+      setTempToken(data.tempToken);
+      setView('force_reset');
+      setMsg('Identity verified! You can now set a new password.');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -165,7 +132,7 @@ function Login({ onLoginSuccess }) {
       
       if (!response.ok) throw new Error(data.message || 'Failed to update password');
 
-      setMsg('Password updated successfully! Logging you in...');
+      setMsg('Password saved successfully! Logging you in...');
       
       // Attempt to login automatically
       setTimeout(async () => {
@@ -177,6 +144,9 @@ function Login({ onLoginSuccess }) {
           });
           const loginData = await loginResponse.json();
           if (loginResponse.ok) {
+            // Remove URL params if they existed
+            window.history.replaceState({}, document.title, window.location.pathname);
+            
             onLoginSuccess({
               token: loginData.token,
               role: role,
@@ -202,7 +172,6 @@ function Login({ onLoginSuccess }) {
 
   return (
     <div className="login-container">
-      {/* Aesthetic Sparkles */}
       <div className="sparkle" style={{ top: '20%', left: '15%', animationDelay: '0s' }}></div>
       <div className="sparkle" style={{ top: '60%', left: '10%', animationDelay: '1.5s' }}></div>
       <div className="sparkle" style={{ top: '30%', right: '20%', animationDelay: '0.5s' }}></div>
@@ -212,10 +181,10 @@ function Login({ onLoginSuccess }) {
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <img src="/logo.png" alt="Chartered Mentor Logo" style={{ width: '180px', height: 'auto', margin: '0 auto 1rem auto', display: 'block' }} />
           <h2>
-            {view === 'login' ? 'Welcome Back ✨' : view === 'forgot' ? 'Reset Password' : 'Set New Password'}
+            {view === 'login' ? 'Welcome Back ✨' : view === 'google_verify' ? 'Verify Identity' : 'Set New Password'}
           </h2>
           <p>
-            {view === 'login' ? 'Sign in to your beautiful dashboard' : view === 'forgot' ? 'Enter your User ID to receive an OTP' : 'Enter the OTP and your new secure password'}
+            {view === 'login' ? 'Sign in to your beautiful dashboard' : view === 'google_verify' ? 'Use your registered Google account to verify.' : 'Create a secure password to use for login.'}
           </p>
         </div>
 
@@ -259,7 +228,7 @@ function Login({ onLoginSuccess }) {
               />
               {role === 'student' && (
                 <div style={{ textAlign: 'right', marginTop: '0.75rem' }}>
-                  <button type="button" onClick={() => setView('forgot')} className="forgot-link">
+                  <button type="button" onClick={() => setView('google_verify')} className="forgot-link">
                     Forgot Password?
                   </button>
                 </div>
@@ -272,63 +241,24 @@ function Login({ onLoginSuccess }) {
           </form>
         )}
 
-        {view === 'forgot' && (
-          <form onSubmit={handleForgotPassword}>
-            <div className="input-group">
-              <label>User ID</label>
-              <input 
-                type="text" 
-                value={userId}
-                onChange={(e) => setUserId(e.target.value)}
-                placeholder="Enter Student ID"
-                required
-              />
-            </div>
-
-            <button type="submit" className="submit-btn" disabled={loading}>
-              {loading ? 'Sending OTP...' : 'Send OTP'}
-            </button>
-            <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+        {view === 'google_verify' && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', marginTop: '20px' }}>
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => {
+                setError('Google Login Failed. Please try again.');
+              }}
+              useOneTap
+              theme="filled_blue"
+              shape="pill"
+              text="continue_with"
+            />
+            <div style={{ textAlign: 'center', marginTop: '1.5rem', width: '100%' }}>
               <button type="button" onClick={() => setView('login')} className="forgot-link" style={{ color: '#64748b' }}>
                 Back to Login
               </button>
             </div>
-          </form>
-        )}
-
-        {view === 'reset' && (
-          <form onSubmit={handleResetPassword}>
-            <div className="input-group">
-              <label>6-Digit OTP</label>
-              <input 
-                type="text" 
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                placeholder="Enter the code from your email"
-                maxLength="6"
-                required
-              />
-            </div>
-            <div className="input-group">
-              <label>New Password</label>
-              <input 
-                type="password" 
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-              />
-            </div>
-
-            <button type="submit" className="submit-btn" disabled={loading}>
-              {loading ? 'Processing...' : 'Reset Password'}
-            </button>
-            <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
-              <button type="button" onClick={() => setView('login')} className="forgot-link" style={{ color: '#64748b' }}>
-                Cancel
-              </button>
-            </div>
-          </form>
+          </div>
         )}
 
         {view === 'force_reset' && (
@@ -345,7 +275,7 @@ function Login({ onLoginSuccess }) {
             </div>
 
             <button type="submit" className="submit-btn" disabled={loading}>
-              {loading ? 'Processing...' : 'Set Password'}
+              {loading ? 'Processing...' : 'Save Password'}
             </button>
             <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
               <button type="button" onClick={() => setView('login')} className="forgot-link" style={{ color: '#64748b' }}>

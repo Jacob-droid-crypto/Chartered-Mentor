@@ -57,12 +57,10 @@ const addStudent = async (req, res) => {
     const admissionNumber = 101 + count;
     const studentId = `${coursePrefix}${year}${admissionNumber}`;
 
+    // Create a temporary unguessable password
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%";
     let plainPassword = "";
-    for (let i = 0; i < 10; i++) {
-        plainPassword += chars[Math.floor(Math.random() * chars.length)];
-    }
-
+    for (let i = 0; i < 20; i++) plainPassword += chars[Math.floor(Math.random() * chars.length)];
     const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
     await User.create({
@@ -76,9 +74,39 @@ const addStudent = async (req, res) => {
       firstLogin: true,
     });
 
+    // Send Welcome Email with Setup Link
+    const frontendURL = process.env.FRONTEND_URL || "http://localhost:5173";
+    const setupLink = `${frontendURL}/?setup=true&email=${encodeURIComponent(email)}&userId=${studentId}`;
+
+    if (process.env.RESEND_API_KEY) {
+      const { Resend } = require("resend");
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      
+      const message = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+          <h2 style="color: #4f46e5; text-align: center;">Welcome to Chartered Mentor!</h2>
+          <p>Hello ${name},</p>
+          <p>Your student account has been created by the administrator. Your Student ID is: <b>${studentId}</b></p>
+          <p>Please click the button below to verify your identity with Google and set up your personal password.</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${setupLink}" style="display: inline-block; padding: 12px 24px; background: #4f46e5; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">Set Up Account</a>
+          </div>
+          <p>If the button doesn't work, copy and paste this link into your browser:</p>
+          <p style="font-size: 12px; color: #888;">${setupLink}</p>
+        </div>
+      `;
+
+      await resend.emails.send({
+        from: "Chartered Mentor <onboarding@resend.dev>",
+        to: email,
+        subject: "Welcome to Chartered Mentor - Account Setup",
+        html: message,
+      });
+    }
+
     res.json({
+      message: "Student added and setup email sent successfully!",
       userId: studentId,
-      password: plainPassword,
     });
   } catch (err) {
     console.error("Add student error:", err);

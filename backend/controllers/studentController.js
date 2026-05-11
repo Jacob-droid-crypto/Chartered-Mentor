@@ -2,8 +2,11 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
+const { OAuth2Client } = require("google-auth-library");
 const User = require("../models/User");
 const Attendance = require("../models/Attendance");
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const generateToken = (userId, role) => {
   return jwt.sign({ userId, role }, process.env.JWT_SECRET || "fallback_secret", {
@@ -400,6 +403,52 @@ const resetPassword = async (req, res) => {
   }
 };
 
+/* ================= VERIFY GOOGLE OAUTH ================= */
+const verifyGoogle = async (req, res) => {
+  try {
+    const { token } = req.body;
+    
+    if (!token) {
+      return res.status(400).json({ message: "No Google token provided" });
+    }
+
+    if (!process.env.GOOGLE_CLIENT_ID) {
+       return res.status(500).json({ message: "Server is missing GOOGLE_CLIENT_ID. Please tell Admin to configure it." });
+    }
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    
+    const payload = ticket.getPayload();
+    const email = payload.email;
+
+    if (!email) {
+      return res.status(400).json({ message: "Google authentication failed" });
+    }
+
+    const user = await User.findOne({ email, role: "student" });
+
+    if (!user) {
+      return res.status(404).json({ message: "No student account found with this Google email. Make sure the Admin used this exact email to create your account." });
+    }
+
+    // Google Verified successfully!
+    // We return a temporary authentication token so the frontend can immediately hit "Change Password"
+    res.json({
+      message: "Google Verification Successful",
+      userId: user.userId,
+      firstLogin: user.firstLogin,
+      tempToken: generateToken(user.userId, user.role), // To allow changing password securely
+    });
+
+  } catch (error) {
+    console.error("Google verify error:", error);
+    res.status(500).json({ message: "Invalid or expired Google Token" });
+  }
+};
+
 const QuestionPaper = require("../models/QuestionPaper");
 
 /* ================= GET STUDENT PAPERS ================= */
@@ -455,6 +504,7 @@ module.exports = {
   updateProfile,
   forgotPassword,
   resetPassword,
+  verifyGoogle,
   getStudentPapers,
   downloadPaper
 };

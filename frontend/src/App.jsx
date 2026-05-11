@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Login from './Login';
 import Dashboard from './Dashboard';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import './App.css';
 
 function App() {
@@ -29,13 +30,13 @@ function App() {
   };
 
   return (
-    <>
+    <GoogleOAuthProvider clientId="229928991678-vi5f91bp2o0b0vm2cboef14659a7gm6a.apps.googleusercontent.com">
       {!user ? (
         <Login onLoginSuccess={handleLoginSuccess} />
       ) : (
         <Dashboard user={user} onLogout={handleLogout} />
       )}
-    </>
+    </GoogleOAuthProvider>
   );
 }
 
