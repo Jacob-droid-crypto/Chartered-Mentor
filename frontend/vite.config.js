@@ -11,7 +11,7 @@ export default defineConfig({
       includeAssets: ['logo.png'],
       manifest: {
         name: 'Chartered Mentor',
-        short_name: 'CMentor',
+        short_name: 'Chartered Mentor',
         description: 'Chartered Mentor Student and Admin Portal',
         theme_color: '#ffffff',
         background_color: '#ffffff',
