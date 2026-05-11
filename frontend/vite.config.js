@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'logo.png'],
+      includeAssets: ['logo.png'],
       manifest: {
         name: 'Chartered Mentor',
         short_name: 'CMentor',
