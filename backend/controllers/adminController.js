@@ -78,30 +78,90 @@ const addStudent = async (req, res) => {
     const frontendURL = process.env.FRONTEND_URL || "http://localhost:5173";
     const setupLink = `${frontendURL}/?setup=true&email=${encodeURIComponent(email)}&userId=${studentId}`;
 
-    if (process.env.RESEND_API_KEY) {
-      const { Resend } = require("resend");
-      const resend = new Resend(process.env.RESEND_API_KEY);
-      
-      const message = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
-          <h2 style="color: #4f46e5; text-align: center;">Welcome to Chartered Mentor!</h2>
-          <p>Hello ${name},</p>
-          <p>Your student account has been created by the administrator. Your Student ID is: <b>${studentId}</b></p>
-          <p>Please click the button below to verify your identity with Google and set up your personal password.</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${setupLink}" style="display: inline-block; padding: 12px 24px; background: #4f46e5; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">Set Up Account</a>
-          </div>
-          <p>If the button doesn't work, copy and paste this link into your browser:</p>
-          <p style="font-size: 12px; color: #888;">${setupLink}</p>
-        </div>
-      `;
+    let emailSent = false;
+    let emailErrorMsg = "";
 
-      await resend.emails.send({
-        from: "Chartered Mentor <onboarding@resend.dev>",
-        to: email,
-        subject: "Welcome to Chartered Mentor - Account Setup",
-        html: message,
-      });
+    if (process.env.RESEND_API_KEY) {
+      try {
+        const { Resend } = require("resend");
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        
+        const message = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+            <h2 style="color: #4f46e5; text-align: center;">Welcome to Chartered Mentor!</h2>
+            <p>Hello ${name},</p>
+            <p>Your student account has been created by the administrator. Your Student ID is: <b>${studentId}</b></p>
+            <p>Please click the button below to verify your identity with Google and set up your personal password.</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${setupLink}" style="display: inline-block; padding: 12px 24px; background: #4f46e5; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">Set Up Account</a>
+            </div>
+            <p>If the button doesn't work, copy and paste this link into your browser:</p>
+            <p style="font-size: 12px; color: #888;">${setupLink}</p>
+          </div>
+        `;
+
+        const { data, error } = await resend.emails.send({
+          from: "Chartered Mentor <onboarding@resend.dev>",
+          to: email,
+          subject: "Welcome to Chartered Mentor - Account Setup",
+          html: message,
+        });
+
+        if (error) {
+          console.error("Resend API Error:", error);
+          emailErrorMsg = error.message;
+        } else {
+          emailSent = true;
+          console.log("Resend success:", data);
+        }
+      } catch (err) {
+        console.error("Resend throw error:", err);
+      }
+    }
+
+    // Fallback to Nodemailer if Resend failed or wasn't configured
+    if (!emailSent && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+      try {
+        const nodemailer = require("nodemailer");
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
+          }
+        });
+
+        const message = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+            <h2 style="color: #4f46e5; text-align: center;">Welcome to Chartered Mentor!</h2>
+            <p>Hello ${name},</p>
+            <p>Your student account has been created by the administrator. Your Student ID is: <b>${studentId}</b></p>
+            <p>Please click the button below to verify your identity with Google and set up your personal password.</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${setupLink}" style="display: inline-block; padding: 12px 24px; background: #4f46e5; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">Set Up Account</a>
+            </div>
+            <p>If the button doesn't work, copy and paste this link into your browser:</p>
+            <p style="font-size: 12px; color: #888;">${setupLink}</p>
+          </div>
+        `;
+
+        await transporter.sendMail({
+          from: `"Chartered Mentor" <${process.env.EMAIL_USER}>`,
+          to: email,
+          subject: "Welcome to Chartered Mentor - Account Setup",
+          html: message
+        });
+        
+        emailSent = true;
+        console.log("Nodemailer success");
+      } catch (err) {
+        console.error("Nodemailer error:", err);
+        emailErrorMsg = err.message;
+      }
+    }
+
+    if (!emailSent) {
+      console.error("All email methods failed.");
     }
 
     res.json({
