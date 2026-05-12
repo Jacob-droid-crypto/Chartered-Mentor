@@ -534,6 +534,40 @@ const downloadPaper = async (req, res) => {
   }
 };
 
+/* ================= SUBMIT PAYMENT ================= */
+const submitPayment = async (req, res) => {
+  try {
+    const user = req.user;
+    if (!user || user.role !== 'student') return res.status(403).json({ message: "Unauthorized" });
+
+    const { amount, receiptNo } = req.body;
+    if (!amount || isNaN(amount) || amount <= 0) {
+      return res.status(400).json({ message: "Invalid payment amount" });
+    }
+
+    const studentRecord = await User.findOne({ userId: user.userId, role: 'student' });
+    if (!studentRecord) return res.status(404).json({ message: "Student not found" });
+
+    // Auto-update student fees
+    studentRecord.feesPaid = (studentRecord.feesPaid || 0) + Number(amount);
+    
+    // Add to history
+    studentRecord.feeHistory.push({
+      amount: Number(amount),
+      date: new Date(),
+      receiptNo: receiptNo || "Self-Reported",
+      status: "Verified" // Auto-verified as per user request
+    });
+
+    await studentRecord.save();
+    
+    res.json({ message: "Payment submitted successfully", feesPaid: studentRecord.feesPaid });
+  } catch (err) {
+    console.error("Submit payment error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   loginStudent,
   changePassword,
@@ -545,5 +579,6 @@ module.exports = {
   resetPassword,
   verifyGoogle,
   getStudentPapers,
-  downloadPaper
+  downloadPaper,
+  submitPayment
 };

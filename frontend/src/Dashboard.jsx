@@ -34,6 +34,10 @@ function Dashboard({ user, onLogout }) {
   const [profileForm, setProfileForm] = useState({ name: '', email: '', phone: '', course: '', profilePhoto: '' });
   const [profileData, setProfileData] = useState(null);
 
+  // Payment UI States
+  const [showPayModal, setShowPayModal] = useState(false);
+  const [feeSetupStudent, setFeeSetupStudent] = useState(null);
+
   // Reusable submit logic for attendance
   const submitAttendance = async (qrData) => {
     if (!navigator.geolocation) {
@@ -1046,6 +1050,33 @@ function Dashboard({ user, onLogout }) {
                   <button type="submit" style={{ padding: '1rem', background: '#10b981', color: 'white', borderRadius: '8px', border: 'none', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 4px 6px rgba(16, 185, 129, 0.2)' }}>Save Payment Settings</button>
                 </form>
               </div>
+
+              <div className="card">
+                <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-main)' }}>Recent Received Payments</h3>
+                <div className="activity-list">
+                  {students && students.flatMap(s => (s.feeHistory || []).map(f => ({ ...f, studentName: s.name, studentId: s.userId })))
+                    .sort((a, b) => new Date(b.date) - new Date(a.date))
+                    .slice(0, 50)
+                    .map((fee, idx) => (
+                      <div key={idx} className="activity-item" style={{ alignItems: 'center' }}>
+                        <div>
+                          <strong style={{ fontSize: '1.1rem', color: '#10b981' }}>+ ₹{fee.amount}</strong>
+                          <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.2rem' }}>
+                            <span>From: <strong>{fee.studentName}</strong> (#{fee.studentId})</span>
+                            <span style={{ marginLeft: '1rem' }}>Receipt: {fee.receiptNo || 'N/A'}</span>
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontWeight: 'bold', color: '#3b82f6' }}>{fee.status}</div>
+                          <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{new Date(fee.date).toLocaleDateString()}</div>
+                        </div>
+                      </div>
+                    ))}
+                  {(!students || students.flatMap(s => s.feeHistory || []).length === 0) && (
+                    <p style={{ color: 'var(--text-muted)' }}>No payment history available.</p>
+                  )}
+                </div>
+              </div>
             ) : (
               <>
                 <div className="card" style={{ marginBottom: '2rem', display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
@@ -1108,11 +1139,11 @@ function Dashboard({ user, onLogout }) {
                           </div>
                           
                           {paymentConfig.upiId && (
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
-                              <div style={{ background: 'white', padding: '0.5rem', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
-                                <QRCodeSVG value={`upi://pay?pa=${paymentConfig.upiId}&pn=${encodeURIComponent(paymentConfig.accountName)}`} size={150} />
-                              </div>
-                              <span style={{ marginTop: '1rem', fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>Scan to Pay via UPI</span>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1', width: '100%', maxWidth: '250px' }}>
+                              <span style={{ marginBottom: '1rem', fontSize: '1.1rem', color: 'var(--text-main)', fontWeight: 'bold' }}>Ready to Pay?</span>
+                              <button onClick={() => setShowPayModal(true)} style={{ width: '100%', padding: '1rem', background: '#10b981', color: 'white', borderRadius: '8px', border: 'none', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', boxShadow: '0 4px 10px rgba(16, 185, 129, 0.3)' }}>
+                                Pay Now
+                              </button>
                             </div>
                           )}
                         </div>
@@ -1245,22 +1276,14 @@ function Dashboard({ user, onLogout }) {
                           <button onClick={() => { handleResetPassword(student.userId); setOpenMenuId(null); }} className="dropdown-item">
                             🔄 Reset Password
                           </button>
-                          <button onClick={async () => {
-                            const totalFees = prompt('Enter Total Fees for ' + student.name, student.totalFees || 0);
-                            if (totalFees === null) return;
-                            const nextDue = prompt('Enter Next Payment Due Date (YYYY-MM-DD)', student.nextPaymentDueDate ? new Date(student.nextPaymentDueDate).toISOString().split('T')[0] : '');
-                            if (nextDue === null) return;
-                            try {
-                              const res = await fetch(`/admin/student/${student.userId}/fees`, {
-                                method: 'POST',
-                                headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ totalFees: Number(totalFees), nextPaymentDueDate: nextDue ? new Date(nextDue).toISOString() : null })
-                              });
-                              if (!res.ok) throw new Error(await res.text());
-                              alert('Fee structure updated!');
-                              fetchStudentsData();
-                            } catch(err) { alert('Error: ' + err.message); }
-                            setOpenMenuId(null);
+                          <button onClick={() => { 
+                            setFeeSetupStudent({ 
+                              userId: student.userId, 
+                              name: student.name, 
+                              totalFees: student.totalFees || '', 
+                              nextPaymentDueDate: student.nextPaymentDueDate ? new Date(student.nextPaymentDueDate).toISOString().split('T')[0] : '' 
+                            }); 
+                            setOpenMenuId(null); 
                           }} className="dropdown-item">
                             💰 Set Fee Structure
                           </button>
@@ -1327,6 +1350,91 @@ function Dashboard({ user, onLogout }) {
             <button className="modal-btn" onClick={() => setNewStudentDetails(null)}>
               Awesome, Got It!
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ADMIN FEE SETUP MODAL */}
+      {feeSetupStudent && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '400px' }}>
+            <h2 style={{ marginBottom: '1.5rem', color: 'var(--text-main)' }}>Set Fee Structure</h2>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>Configuring fees for <strong>{feeSetupStudent.name}</strong></p>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              try {
+                const res = await fetch(`/admin/student/${feeSetupStudent.userId}/fees`, {
+                  method: 'POST',
+                  headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ 
+                    totalFees: Number(feeSetupStudent.totalFees), 
+                    nextPaymentDueDate: feeSetupStudent.nextPaymentDueDate ? new Date(feeSetupStudent.nextPaymentDueDate).toISOString() : null 
+                  })
+                });
+                if (!res.ok) throw new Error(await res.text());
+                alert('Fee structure updated successfully!');
+                fetchStudentsData();
+                setFeeSetupStudent(null);
+              } catch(err) { alert('Error: ' + err.message); }
+            }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: 'var(--text-main)' }}>Total Course Fee (₹)</label>
+                <input type="number" required min="0" value={feeSetupStudent.totalFees} onChange={e => setFeeSetupStudent({...feeSetupStudent, totalFees: e.target.value})} style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: 'var(--text-main)' }}>Next Payment Due Date</label>
+                <input type="date" required value={feeSetupStudent.nextPaymentDueDate} onChange={e => setFeeSetupStudent({...feeSetupStudent, nextPaymentDueDate: e.target.value})} style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }} />
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                <button type="button" onClick={() => setFeeSetupStudent(null)} style={{ flex: 1, padding: '0.8rem', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-main)' }}>Cancel</button>
+                <button type="submit" style={{ flex: 1, padding: '0.8rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Save Fees</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* STUDENT PAY NOW MODAL */}
+      {showPayModal && paymentConfig && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '500px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <h2 style={{ marginBottom: '1.5rem', color: 'var(--text-main)' }}>Make a Payment</h2>
+            
+            <div style={{ background: 'white', padding: '1rem', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', marginBottom: '1.5rem' }}>
+              <QRCodeSVG value={`upi://pay?pa=${paymentConfig.upiId}&pn=${encodeURIComponent(paymentConfig.accountName)}`} size={200} />
+            </div>
+            
+            <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', textAlign: 'center' }}>Scan the QR code above using any UPI app (GPay, PhonePe, Paytm). After payment, enter the details below to update your ledger.</p>
+            
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              try {
+                const amount = e.target.amount.value;
+                const receipt = e.target.receipt.value;
+                const res = await fetch('/student/payment', {
+                  method: 'POST',
+                  headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ amount, receiptNo: receipt })
+                });
+                if (!res.ok) throw new Error(await res.text());
+                alert('Payment verified and updated successfully!');
+                setShowPayModal(false);
+                fetchProfileData();
+              } catch(err) { alert('Error: ' + err.message); }
+            }} style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: 'var(--text-main)', textAlign: 'left' }}>Amount Paid (₹)</label>
+                <input type="number" name="amount" required min="1" placeholder="e.g. 5000" style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: 'var(--text-main)', textAlign: 'left' }}>UTR / Transaction ID</label>
+                <input type="text" name="receipt" required placeholder="Enter 12-digit UPI Ref Number" style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }} />
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                <button type="button" onClick={() => setShowPayModal(false)} style={{ flex: 1, padding: '0.8rem', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-main)' }}>Cancel</button>
+                <button type="submit" style={{ flex: 1, padding: '0.8rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Verify Payment</button>
+              </div>
+            </form>
           </div>
         </div>
       )}

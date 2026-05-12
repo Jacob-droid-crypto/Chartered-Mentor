@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { loginStudent, changePassword, getDashboard, scanQr, getDailyHours, updateProfile, forgotPassword, resetPassword, verifyGoogle, getStudentPapers, downloadPaper } = require("../controllers/studentController");
+const { loginStudent, changePassword, getDashboard, scanQr, getDailyHours, updateProfile, forgotPassword, resetPassword, verifyGoogle, getStudentPapers, downloadPaper, submitPayment } = require("../controllers/studentController");
 const { protect, studentOnly } = require("../middleware/authMiddleware");
 const { getPaymentConfig } = require("../controllers/adminController");
 
@@ -22,5 +22,6 @@ router.get("/paper/:id/download", protect, downloadPaper); // student or admin c
 
 // Payments
 router.get("/payment-config", protect, studentOnly, getPaymentConfig);
+router.post("/payment", protect, studentOnly, submitPayment);
 
 module.exports = router;
