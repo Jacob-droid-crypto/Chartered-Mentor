@@ -983,7 +983,8 @@ function Dashboard({ user, onLogout }) {
             </div>
             
             {user.role === 'admin' ? (
-              <div className="card" style={{ marginBottom: '2rem', maxWidth: '800px' }}>
+              <>
+                <div className="card" style={{ marginBottom: '2rem', maxWidth: '800px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
                   <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '1rem', borderRadius: '50%', fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     🏦
@@ -1077,6 +1078,7 @@ function Dashboard({ user, onLogout }) {
                   )}
                 </div>
               </div>
+              </>
             ) : (
               <>
                 <div className="card" style={{ marginBottom: '2rem', display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
