@@ -123,6 +123,10 @@ const getDashboard = async (req, res) => {
       phone: student.phone,
       course: student.course,
       profilePhoto: student.profilePhoto,
+      totalFees: student.totalFees,
+      feesPaid: student.feesPaid,
+      nextPaymentDueDate: student.nextPaymentDueDate,
+      feeHistory: student.feeHistory,
       todayLogs: logs,
       attendanceSummary
     });
