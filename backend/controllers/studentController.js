@@ -379,7 +379,7 @@ const forgotPassword = async (req, res) => {
           }
         });
         await transporter.sendMail({
-          from: \`"Chartered Mentor" <\${process.env.EMAIL_USER}>\`,
+          from: `"Chartered Mentor" <${process.env.EMAIL_USER}>`,
           to: user.email,
           subject: "Chartered Mentor - Password Reset OTP",
           html: message
