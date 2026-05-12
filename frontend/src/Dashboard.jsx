@@ -1067,9 +1067,31 @@ function Dashboard({ user, onLogout }) {
                             <span style={{ marginLeft: '1rem' }}>Receipt: {fee.receiptNo || 'N/A'}</span>
                           </div>
                         </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontWeight: 'bold', color: '#3b82f6' }}>{fee.status}</div>
+                        <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
+                          <div style={{ fontWeight: 'bold', color: fee.status === 'Pending' ? '#f59e0b' : (fee.status === 'Rejected' ? '#ef4444' : '#10b981') }}>{fee.status}</div>
                           <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{new Date(fee.date).toLocaleDateString()}</div>
+                          {fee.status === 'Pending' && (
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                              <button onClick={async () => {
+                                try {
+                                  const res = await fetch(`/admin/student/${fee.studentId}/payment/${fee._id}/approve`, {
+                                    method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
+                                  });
+                                  if (!res.ok) throw new Error(await res.text());
+                                  fetchStudentsData();
+                                } catch(e) { alert('Error: ' + e.message); }
+                              }} style={{ padding: '0.3rem 0.8rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>Approve</button>
+                              <button onClick={async () => {
+                                try {
+                                  const res = await fetch(`/admin/student/${fee.studentId}/payment/${fee._id}/reject`, {
+                                    method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
+                                  });
+                                  if (!res.ok) throw new Error(await res.text());
+                                  fetchStudentsData();
+                                } catch(e) { alert('Error: ' + e.message); }
+                              }} style={{ padding: '0.3rem 0.8rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>Reject</button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}

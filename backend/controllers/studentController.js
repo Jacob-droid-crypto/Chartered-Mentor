@@ -548,20 +548,17 @@ const submitPayment = async (req, res) => {
     const studentRecord = await User.findOne({ userId: user.userId, role: 'student' });
     if (!studentRecord) return res.status(404).json({ message: "Student not found" });
 
-    // Auto-update student fees
-    studentRecord.feesPaid = (studentRecord.feesPaid || 0) + Number(amount);
-    
-    // Add to history
+    // Add to history as Pending. Do not update feesPaid yet.
     studentRecord.feeHistory.push({
       amount: Number(amount),
       date: new Date(),
       receiptNo: receiptNo || "Self-Reported",
-      status: "Verified" // Auto-verified as per user request
+      status: "Pending"
     });
 
     await studentRecord.save();
     
-    res.json({ message: "Payment submitted successfully", feesPaid: studentRecord.feesPaid });
+    res.json({ message: "Payment submitted and is pending admin approval.", feesPaid: studentRecord.feesPaid });
   } catch (err) {
     console.error("Submit payment error:", err);
     res.status(500).json({ message: "Server error" });

@@ -484,6 +484,55 @@ const addStudentPayment = async (req, res) => {
   }
 };
 
+const approveStudentPayment = async (req, res) => {
+  try {
+    const { studentId, paymentId } = req.params;
+    
+    const user = await User.findOne({ userId: studentId, role: "student" });
+    if (!user) return res.status(404).json({ message: "Student not found" });
+    
+    const payment = user.feeHistory.id(paymentId);
+    if (!payment) return res.status(404).json({ message: "Payment record not found" });
+    
+    if (payment.status !== "Pending") {
+      return res.status(400).json({ message: "Payment is already processed" });
+    }
+    
+    payment.status = "Verified";
+    user.feesPaid = (user.feesPaid || 0) + Number(payment.amount);
+    
+    await user.save();
+    res.json({ message: "Payment approved and ledger updated", user });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const rejectStudentPayment = async (req, res) => {
+  try {
+    const { studentId, paymentId } = req.params;
+    
+    const user = await User.findOne({ userId: studentId, role: "student" });
+    if (!user) return res.status(404).json({ message: "Student not found" });
+    
+    const payment = user.feeHistory.id(paymentId);
+    if (!payment) return res.status(404).json({ message: "Payment record not found" });
+    
+    if (payment.status !== "Pending") {
+      return res.status(400).json({ message: "Payment is already processed" });
+    }
+    
+    payment.status = "Rejected";
+    
+    await user.save();
+    res.json({ message: "Payment rejected", user });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   loginAdmin,
   addStudent,
@@ -499,5 +548,7 @@ module.exports = {
   getPaymentConfig,
   updatePaymentConfig,
   updateStudentFees,
-  addStudentPayment
+  addStudentPayment,
+  approveStudentPayment,
+  rejectStudentPayment
 };
