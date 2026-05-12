@@ -43,6 +43,23 @@ const userSchema = new mongoose.Schema({
   resetPasswordExpire: {
     type: Date,
   },
+  totalFees: {
+    type: Number,
+    default: 0
+  },
+  feesPaid: {
+    type: Number,
+    default: 0
+  },
+  nextPaymentDueDate: {
+    type: Date
+  },
+  feeHistory: [{
+    amount: Number,
+    date: { type: Date, default: Date.now },
+    status: { type: String, default: 'Paid' },
+    receiptNo: String
+  }]
 });
 
 module.exports = mongoose.model("User", userSchema);

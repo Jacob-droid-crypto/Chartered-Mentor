@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { loginStudent, changePassword, getDashboard, scanQr, getDailyHours, updateProfile, forgotPassword, resetPassword, verifyGoogle, getStudentPapers, downloadPaper } = require("../controllers/studentController");
 const { protect, studentOnly } = require("../middleware/authMiddleware");
+const { getPaymentConfig } = require("../controllers/adminController");
 
 router.post("/login", loginStudent);
 router.post("/change-password", changePassword); 
@@ -18,5 +19,8 @@ router.post("/verify-google", verifyGoogle);
 // Papers
 router.get("/papers", protect, studentOnly, getStudentPapers);
 router.get("/paper/:id/download", protect, downloadPaper); // student or admin can download
+
+// Payments
+router.get("/payment-config", protect, studentOnly, getPaymentConfig);
 
 module.exports = router;

@@ -2,6 +2,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Attendance = require("../models/Attendance");
+const PaymentConfig = require("../models/PaymentConfig");
 
 const generateToken = (userId, role) => {
   return jwt.sign({ userId, role }, process.env.JWT_SECRET || "fallback_secret", {
@@ -406,6 +407,83 @@ const deletePaper = async (req, res) => {
   }
 };
 
+/* ================= PAYMENT CONFIG ================= */
+const getPaymentConfig = async (req, res) => {
+  try {
+    let config = await PaymentConfig.findOne();
+    if (!config) {
+      config = await PaymentConfig.create({
+        accountName: "Institute Name",
+        accountNumber: "000000000",
+        bankName: "Bank Name",
+        ifscCode: "IFSC0000000",
+        upiId: "institute@upi"
+      });
+    }
+    res.json(config);
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const updatePaymentConfig = async (req, res) => {
+  try {
+    let config = await PaymentConfig.findOne();
+    if (config) {
+      Object.assign(config, req.body);
+      await config.save();
+    } else {
+      config = await PaymentConfig.create(req.body);
+    }
+    res.json({ message: "Payment configuration updated", config });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* ================= STUDENT FEES ================= */
+const updateStudentFees = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const { totalFees, nextPaymentDueDate } = req.body;
+    
+    const user = await User.findOneAndUpdate(
+      { userId: studentId, role: "student" },
+      { totalFees, nextPaymentDueDate },
+      { new: true }
+    );
+    
+    if (!user) return res.status(404).json({ message: "Student not found" });
+    
+    res.json({ message: "Student fees updated", user });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const addStudentPayment = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const { amount, date, receiptNo } = req.body;
+    
+    const user = await User.findOne({ userId: studentId, role: "student" });
+    if (!user) return res.status(404).json({ message: "Student not found" });
+    
+    user.feesPaid = (user.feesPaid || 0) + Number(amount);
+    user.feeHistory.push({
+      amount: Number(amount),
+      date: date ? new Date(date) : new Date(),
+      receiptNo
+    });
+    
+    await user.save();
+    
+    res.json({ message: "Payment recorded successfully", user });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   loginAdmin,
   addStudent,
@@ -417,5 +495,9 @@ module.exports = {
   getProfile,
   uploadQuestionPaper,
   getAdminPapers,
-  deletePaper
+  deletePaper,
+  getPaymentConfig,
+  updatePaymentConfig,
+  updateStudentFees,
+  addStudentPayment
 };

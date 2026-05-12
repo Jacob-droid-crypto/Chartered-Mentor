@@ -6,11 +6,15 @@ require("dotenv").config();
 const connectDB = require("./config/db");
 const adminRoutes = require("./routes/adminRoutes");
 const studentRoutes = require("./routes/studentRoutes");
+const { initCronJobs } = require("./utils/cronJobs");
 
 const app = express();
 
 /* ================= DATABASE CONNECTION ================= */
 connectDB();
+
+/* ================= BACKGROUND JOBS ================= */
+initCronJobs();
 
 /* ================= MIDDLEWARE ================= */
 app.use(cors());

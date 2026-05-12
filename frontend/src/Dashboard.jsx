@@ -135,7 +135,23 @@ function Dashboard({ user, onLogout }) {
       fetchPapers();
       if (user.role === 'admin') fetchStudentsData();
     }
+    if (activeTab === 'payments') {
+      fetchPaymentConfig();
+      if (user.role === 'admin') fetchStudentsData();
+    }
   }, [user, activeTab]);
+
+  const [paymentConfig, setPaymentConfig] = useState(null);
+  const fetchPaymentConfig = async () => {
+    try {
+      const endpoint = user.role === 'admin' ? '/admin/payment-config' : '/student/payment-config';
+      const res = await fetch(endpoint, { headers: { 'Authorization': `Bearer ${user.token}` } });
+      const result = await res.json();
+      if (res.ok) setPaymentConfig(result);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchProfileData = async () => {
     try {
@@ -507,6 +523,9 @@ function Dashboard({ user, onLogout }) {
               <li className={`nav-item ${activeTab === 'papers' ? 'active' : ''}`} onClick={() => setActiveTab('papers')}>
                 <span>📄</span> Papers
               </li>
+              <li className={`nav-item ${activeTab === 'payments' ? 'active' : ''}`} onClick={() => setActiveTab('payments')}>
+                <span>💳</span> Payments
+              </li>
               <li className={`nav-item ${activeTab === 'campus_qr' ? 'active' : ''}`} onClick={() => setActiveTab('campus_qr')}>
                 <span>🔲</span> Campus QR
               </li>
@@ -518,6 +537,9 @@ function Dashboard({ user, onLogout }) {
               </li>
               <li className={`nav-item ${activeTab === 'papers' ? 'active' : ''}`} onClick={() => setActiveTab('papers')}>
                 <span>📄</span> Exam Papers
+              </li>
+              <li className={`nav-item ${activeTab === 'payments' ? 'active' : ''}`} onClick={() => setActiveTab('payments')}>
+                <span>💳</span> Payments
               </li>
               <li className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
                 <span>👤</span> Profile
@@ -950,6 +972,142 @@ function Dashboard({ user, onLogout }) {
               </div>
             </div>
           </>
+        ) : activeTab === 'payments' ? (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h2>{user.role === 'admin' ? 'Payment Settings & Tracking' : 'Fee Payments'}</h2>
+            </div>
+            
+            {user.role === 'admin' ? (
+              <div className="card" style={{ marginBottom: '2rem' }}>
+                <h3 style={{ marginBottom: '1rem' }}>Institute Payment Account Setup</h3>
+                <form 
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const formData = {
+                      accountName: e.target.accountName.value,
+                      accountNumber: e.target.accountNumber.value,
+                      bankName: e.target.bankName.value,
+                      ifscCode: e.target.ifscCode.value,
+                      upiId: e.target.upiId.value
+                    };
+                    try {
+                      setLoading(true);
+                      const res = await fetch('/admin/payment-config', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData)
+                      });
+                      if(!res.ok) throw new Error(await res.text());
+                      alert('Payment configuration saved!');
+                      fetchPaymentConfig();
+                    } catch(err) {
+                      alert('Error: ' + err.message);
+                    } finally {
+                      setLoading(false);
+                    }
+                  }} 
+                  style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+                >
+                  <input type="text" name="accountName" placeholder="Account Name" defaultValue={paymentConfig?.accountName || ''} required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                  <input type="text" name="accountNumber" placeholder="Account Number" defaultValue={paymentConfig?.accountNumber || ''} required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                  <input type="text" name="bankName" placeholder="Bank Name" defaultValue={paymentConfig?.bankName || ''} required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                  <input type="text" name="ifscCode" placeholder="IFSC Code" defaultValue={paymentConfig?.ifscCode || ''} required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                  <input type="text" name="upiId" placeholder="UPI ID" defaultValue={paymentConfig?.upiId || ''} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                  
+                  <button type="submit" style={{ padding: '0.75rem', background: '#10b981', color: 'white', borderRadius: '8px', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}>Save Settings</button>
+                </form>
+              </div>
+            ) : (
+              <>
+                <div className="card" style={{ marginBottom: '2rem', display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: '250px' }}>
+                    <h3 style={{ marginBottom: '1rem', color: 'var(--text-main)' }}>Your Fee Status</h3>
+                    <div style={{ padding: '1.5rem', background: 'rgba(16, 185, 129, 0.05)', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                      <div style={{ marginBottom: '1rem' }}>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Total Fees</span>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-main)' }}>₹{profileData?.totalFees || 0}</div>
+                      </div>
+                      <div style={{ marginBottom: '1rem' }}>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Fees Paid</span>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#10b981' }}>₹{profileData?.feesPaid || 0}</div>
+                      </div>
+                      <div style={{ marginBottom: '1rem' }}>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Remaining Balance</span>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#ef4444' }}>₹{(profileData?.totalFees || 0) - (profileData?.feesPaid || 0)}</div>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Next Payment Due</span>
+                        <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
+                          {profileData?.nextPaymentDueDate ? new Date(profileData.nextPaymentDueDate).toLocaleDateString() : 'N/A'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div style={{ flex: 1, minWidth: '250px' }}>
+                    <h3 style={{ marginBottom: '1rem', color: 'var(--text-main)' }}>Payment Instructions</h3>
+                    {paymentConfig ? (
+                      <div style={{ padding: '1.5rem', background: 'rgba(59, 130, 246, 0.05)', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                        <p style={{ marginBottom: '1rem', color: 'var(--text-muted)' }}>Please remit your fee payments to the following account:</p>
+                        <div style={{ display: 'grid', gap: '0.5rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Account Name:</span>
+                            <strong style={{ color: 'var(--text-main)' }}>{paymentConfig.accountName}</strong>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Account Number:</span>
+                            <strong style={{ color: 'var(--text-main)' }}>{paymentConfig.accountNumber}</strong>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Bank Name:</span>
+                            <strong style={{ color: 'var(--text-main)' }}>{paymentConfig.bankName}</strong>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>IFSC Code:</span>
+                            <strong style={{ color: 'var(--text-main)' }}>{paymentConfig.ifscCode}</strong>
+                          </div>
+                          {paymentConfig.upiId && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px dashed var(--glass-border)' }}>
+                              <span style={{ color: 'var(--text-muted)' }}>UPI ID:</span>
+                              <strong style={{ color: 'var(--text-main)' }}>{paymentConfig.upiId}</strong>
+                            </div>
+                          )}
+                        </div>
+                        <p style={{ marginTop: '1rem', fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>* After making a payment, please inform the admin to get it updated on your portal.</p>
+                      </div>
+                    ) : (
+                      <p style={{ color: 'var(--text-muted)' }}>No payment account configured by admin yet.</p>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="card">
+                  <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-main)' }}>Payment History</h3>
+                  <div className="activity-list">
+                    {profileData?.feeHistory && profileData.feeHistory.length > 0 ? (
+                      profileData.feeHistory.map((fee, idx) => (
+                        <div key={idx} className="activity-item" style={{ alignItems: 'center' }}>
+                          <div>
+                            <strong style={{ fontSize: '1.1rem', color: '#10b981' }}>+ ₹{fee.amount}</strong>
+                            <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.2rem' }}>
+                              <span>Receipt No: {fee.receiptNo || 'N/A'}</span>
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontWeight: 'bold' }}>{fee.status}</div>
+                            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{new Date(fee.date).toLocaleDateString()}</div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p style={{ color: 'var(--text-muted)' }}>No payment history available.</p>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </>
         ) : (
           /* STUDENTS TAB (Admin Only) */
           <>
@@ -1016,6 +1174,11 @@ function Dashboard({ user, onLogout }) {
                             {student.currentStatus === 'Inside' ? '🟢 Inside' : '🔴 Outside'}
                           </span>
                           {student.age || 'N/A'} years old • {student.email || 'No email'}
+                          <div style={{ marginTop: '0.5rem', display: 'flex', gap: '1rem', fontSize: '0.85rem' }}>
+                            <span>Total Fee: ₹{student.totalFees || 0}</span>
+                            <span style={{ color: '#10b981' }}>Paid: ₹{student.feesPaid || 0}</span>
+                            <span style={{ color: '#ef4444' }}>Due: ₹{(student.totalFees || 0) - (student.feesPaid || 0)}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1031,6 +1194,43 @@ function Dashboard({ user, onLogout }) {
                         <div className="options-dropdown" onClick={(e) => e.stopPropagation()}>
                           <button onClick={() => { handleResetPassword(student.userId); setOpenMenuId(null); }} className="dropdown-item">
                             🔄 Reset Password
+                          </button>
+                          <button onClick={async () => {
+                            const totalFees = prompt('Enter Total Fees for ' + student.name, student.totalFees || 0);
+                            if (totalFees === null) return;
+                            const nextDue = prompt('Enter Next Payment Due Date (YYYY-MM-DD)', student.nextPaymentDueDate ? new Date(student.nextPaymentDueDate).toISOString().split('T')[0] : '');
+                            if (nextDue === null) return;
+                            try {
+                              const res = await fetch(`/admin/student/${student.userId}/fees`, {
+                                method: 'POST',
+                                headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ totalFees: Number(totalFees), nextPaymentDueDate: nextDue ? new Date(nextDue).toISOString() : null })
+                              });
+                              if (!res.ok) throw new Error(await res.text());
+                              alert('Fee structure updated!');
+                              fetchStudentsData();
+                            } catch(err) { alert('Error: ' + err.message); }
+                            setOpenMenuId(null);
+                          }} className="dropdown-item">
+                            💰 Set Fee Structure
+                          </button>
+                          <button onClick={async () => {
+                            const amount = prompt('Enter Payment Amount Received', '0');
+                            if (!amount || isNaN(amount)) return;
+                            const receipt = prompt('Enter Receipt/Transaction No.', '');
+                            try {
+                              const res = await fetch(`/admin/student/${student.userId}/payment`, {
+                                method: 'POST',
+                                headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ amount: Number(amount), receiptNo: receipt, date: new Date().toISOString() })
+                              });
+                              if (!res.ok) throw new Error(await res.text());
+                              alert('Payment recorded!');
+                              fetchStudentsData();
+                            } catch(err) { alert('Error: ' + err.message); }
+                            setOpenMenuId(null);
+                          }} className="dropdown-item">
+                            💸 Add Payment Received
                           </button>
                           <div style={{ height: '1px', background: 'var(--glass-border)', margin: '4px 0' }}></div>
                           <button onClick={() => { handleDelete(student.userId); setOpenMenuId(null); }} className="dropdown-item danger">
