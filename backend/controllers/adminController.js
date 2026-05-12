@@ -162,6 +162,11 @@ const addStudent = async (req, res) => {
 
     if (!emailSent) {
       console.error("All email methods failed.");
+      return res.status(207).json({
+        message: "Student added, BUT the setup email failed to send. Please check server logs.",
+        userId: studentId,
+        error: emailErrorMsg
+      });
     }
 
     res.json({
