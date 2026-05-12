@@ -979,8 +979,17 @@ function Dashboard({ user, onLogout }) {
             </div>
             
             {user.role === 'admin' ? (
-              <div className="card" style={{ marginBottom: '2rem' }}>
-                <h3 style={{ marginBottom: '1rem' }}>Institute Payment Account Setup</h3>
+              <div className="card" style={{ marginBottom: '2rem', maxWidth: '800px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
+                  <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '1rem', borderRadius: '50%', fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    🏦
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0 }}>Institute Payment Account Setup</h3>
+                    <p style={{ color: 'var(--text-muted)', margin: '0.2rem 0 0 0', fontSize: '0.9rem' }}>Configure the bank and UPI details where students will remit their fees.</p>
+                  </div>
+                </div>
+                
                 <form 
                   onSubmit={async (e) => {
                     e.preventDefault();
@@ -1007,15 +1016,34 @@ function Dashboard({ user, onLogout }) {
                       setLoading(false);
                     }
                   }} 
-                  style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+                  style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}
                 >
-                  <input type="text" name="accountName" placeholder="Account Name" defaultValue={paymentConfig?.accountName || ''} required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
-                  <input type="text" name="accountNumber" placeholder="Account Number" defaultValue={paymentConfig?.accountNumber || ''} required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
-                  <input type="text" name="bankName" placeholder="Bank Name" defaultValue={paymentConfig?.bankName || ''} required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
-                  <input type="text" name="ifscCode" placeholder="IFSC Code" defaultValue={paymentConfig?.ifscCode || ''} required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
-                  <input type="text" name="upiId" placeholder="UPI ID" defaultValue={paymentConfig?.upiId || ''} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'bold' }}>Institute/Account Name</label>
+                      <input type="text" name="accountName" placeholder="e.g. Chartered Mentor Pvt Ltd" defaultValue={paymentConfig?.accountName || ''} required style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'rgba(255, 255, 255, 0.5)', color: 'var(--text-main)', fontSize: '1rem' }} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'bold' }}>Account Number</label>
+                      <input type="text" name="accountNumber" placeholder="e.g. 123456789012" defaultValue={paymentConfig?.accountNumber || ''} required style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'rgba(255, 255, 255, 0.5)', color: 'var(--text-main)', fontSize: '1rem' }} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'bold' }}>Bank Name</label>
+                      <input type="text" name="bankName" placeholder="e.g. HDFC Bank" defaultValue={paymentConfig?.bankName || ''} required style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'rgba(255, 255, 255, 0.5)', color: 'var(--text-main)', fontSize: '1rem' }} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'bold' }}>IFSC Code</label>
+                      <input type="text" name="ifscCode" placeholder="e.g. HDFC0001234" defaultValue={paymentConfig?.ifscCode || ''} required style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'rgba(255, 255, 255, 0.5)', color: 'var(--text-main)', fontSize: '1rem' }} />
+                    </div>
+                  </div>
                   
-                  <button type="submit" style={{ padding: '0.75rem', background: '#10b981', color: 'white', borderRadius: '8px', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}>Save Settings</button>
+                  <div style={{ padding: '1.5rem', background: 'rgba(59, 130, 246, 0.05)', borderRadius: '12px', border: '1px dashed rgba(59, 130, 246, 0.3)' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', color: '#3b82f6', fontSize: '0.95rem', fontWeight: 'bold' }}>📱 UPI ID (Optional but recommended)</label>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>Adding a UPI ID will automatically generate a scannable QR code on the student's dashboard.</p>
+                    <input type="text" name="upiId" placeholder="e.g. institute@upi" defaultValue={paymentConfig?.upiId || ''} style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)', fontSize: '1rem' }} />
+                  </div>
+                  
+                  <button type="submit" style={{ padding: '1rem', background: '#10b981', color: 'white', borderRadius: '8px', border: 'none', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 4px 6px rgba(16, 185, 129, 0.2)' }}>Save Payment Settings</button>
                 </form>
               </div>
             ) : (
@@ -1045,39 +1073,61 @@ function Dashboard({ user, onLogout }) {
                     </div>
                   </div>
                   
-                  <div style={{ flex: 1, minWidth: '250px' }}>
+                  <div style={{ flex: 1.5, minWidth: '300px' }}>
                     <h3 style={{ marginBottom: '1rem', color: 'var(--text-main)' }}>Payment Instructions</h3>
                     {paymentConfig ? (
-                      <div style={{ padding: '1.5rem', background: 'rgba(59, 130, 246, 0.05)', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
-                        <p style={{ marginBottom: '1rem', color: 'var(--text-muted)' }}>Please remit your fee payments to the following account:</p>
-                        <div style={{ display: 'grid', gap: '0.5rem' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: 'var(--text-muted)' }}>Account Name:</span>
-                            <strong style={{ color: 'var(--text-main)' }}>{paymentConfig.accountName}</strong>
+                      <div style={{ padding: '1.5rem', background: 'white', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
+                        <p style={{ marginBottom: '1.5rem', color: 'var(--text-muted)' }}>Please remit your fee payments using the details or QR code below:</p>
+                        
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2rem' }}>
+                          <div style={{ flex: 1, minWidth: '200px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div>
+                              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Account Name</div>
+                              <strong style={{ color: 'var(--text-main)', fontSize: '1.1rem' }}>{paymentConfig.accountName}</strong>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Account Number</div>
+                              <strong style={{ color: 'var(--text-main)', fontSize: '1.1rem', letterSpacing: '2px' }}>{paymentConfig.accountNumber}</strong>
+                            </div>
+                            <div style={{ display: 'flex', gap: '2rem' }}>
+                              <div>
+                                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Bank Name</div>
+                                <strong style={{ color: 'var(--text-main)' }}>{paymentConfig.bankName}</strong>
+                              </div>
+                              <div>
+                                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>IFSC Code</div>
+                                <strong style={{ color: 'var(--text-main)' }}>{paymentConfig.ifscCode}</strong>
+                              </div>
+                            </div>
+                            {paymentConfig.upiId && (
+                              <div style={{ marginTop: '0.5rem', padding: '0.75rem', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                                <div style={{ fontSize: '0.85rem', color: '#10b981', fontWeight: 'bold' }}>UPI ID</div>
+                                <strong style={{ color: 'var(--text-main)' }}>{paymentConfig.upiId}</strong>
+                              </div>
+                            )}
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: 'var(--text-muted)' }}>Account Number:</span>
-                            <strong style={{ color: 'var(--text-main)' }}>{paymentConfig.accountNumber}</strong>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: 'var(--text-muted)' }}>Bank Name:</span>
-                            <strong style={{ color: 'var(--text-main)' }}>{paymentConfig.bankName}</strong>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: 'var(--text-muted)' }}>IFSC Code:</span>
-                            <strong style={{ color: 'var(--text-main)' }}>{paymentConfig.ifscCode}</strong>
-                          </div>
+                          
                           {paymentConfig.upiId && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px dashed var(--glass-border)' }}>
-                              <span style={{ color: 'var(--text-muted)' }}>UPI ID:</span>
-                              <strong style={{ color: 'var(--text-main)' }}>{paymentConfig.upiId}</strong>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
+                              <div style={{ background: 'white', padding: '0.5rem', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
+                                <QRCodeSVG value={`upi://pay?pa=${paymentConfig.upiId}&pn=${encodeURIComponent(paymentConfig.accountName)}`} size={150} />
+                              </div>
+                              <span style={{ marginTop: '1rem', fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>Scan to Pay via UPI</span>
                             </div>
                           )}
                         </div>
-                        <p style={{ marginTop: '1rem', fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>* After making a payment, please inform the admin to get it updated on your portal.</p>
+                        
+                        <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#fffbeb', borderLeft: '4px solid #f59e0b', borderRadius: '4px' }}>
+                          <p style={{ margin: 0, fontSize: '0.9rem', color: '#b45309' }}>
+                            <strong>Note:</strong> After making a payment, please ensure you save the transaction screenshot or receipt number and notify the administration to get it updated on your portal.
+                          </p>
+                        </div>
                       </div>
                     ) : (
-                      <p style={{ color: 'var(--text-muted)' }}>No payment account configured by admin yet.</p>
+                      <div style={{ padding: '2rem', textAlign: 'center', background: 'rgba(255,255,255,0.5)', borderRadius: '12px', border: '1px dashed var(--glass-border)' }}>
+                        <span style={{ fontSize: '2rem', display: 'block', marginBottom: '1rem' }}>⏳</span>
+                        <p style={{ color: 'var(--text-muted)', margin: 0 }}>The institute has not configured online payment details yet. Please contact administration.</p>
+                      </div>
                     )}
                   </div>
                 </div>
