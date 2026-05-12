@@ -314,9 +314,11 @@ const updateProfile = async (req, res) => {
 /* ================= FORGOT PASSWORD ================= */
 const forgotPassword = async (req, res) => {
   try {
-    const { userId } = req.body;
-    const user = await User.findOne({ userId, role: "student" });
-    if (!user) return res.status(404).json({ message: "No student found with that User ID" });
+    const { userId, role } = req.body;
+    const targetRole = role || "student";
+    
+    const user = await User.findOne({ userId, role: targetRole });
+    if (!user) return res.status(404).json({ message: `No ${targetRole} found with that User ID` });
     if (!user.email) return res.status(400).json({ message: "No email associated with this account. Contact Admin." });
 
     // Generate a secure 6-digit OTP
@@ -326,13 +328,6 @@ const forgotPassword = async (req, res) => {
     user.resetPasswordOtp = hashedOtp; 
     user.resetPasswordExpire = Date.now() + 15 * 60 * 1000; // 15 minutes
     await user.save();
-
-    if (!process.env.RESEND_API_KEY) {
-      return res.status(500).json({ message: "Resend API Key is not configured on the server. Please add RESEND_API_KEY." });
-    }
-
-    const { Resend } = require("resend");
-    const resend = new Resend(process.env.RESEND_API_KEY);
 
     const message = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
@@ -349,28 +344,68 @@ const forgotPassword = async (req, res) => {
       </div>
     `;
 
-    const { error } = await resend.emails.send({
-      from: "Chartered Mentor <onboarding@resend.dev>",
-      to: user.email,
-      subject: "Chartered Mentor - Password Reset OTP",
-      html: message,
-    });
+    let emailSent = false;
+    let emailErrorMsg = "";
 
-    if (error) {
-      throw new Error(error.message);
+    // Try Resend first
+    if (process.env.RESEND_API_KEY) {
+      try {
+        const { Resend } = require("resend");
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const { error } = await resend.emails.send({
+          from: "Chartered Mentor <onboarding@resend.dev>",
+          to: user.email,
+          subject: "Chartered Mentor - Password Reset OTP",
+          html: message,
+        });
+        if (error) {
+          emailErrorMsg = error.message;
+        } else {
+          emailSent = true;
+        }
+      } catch (err) {
+        console.error("Resend error:", err);
+      }
+    }
+
+    // Fallback to Nodemailer
+    if (!emailSent && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+      try {
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
+          }
+        });
+        await transporter.sendMail({
+          from: \`"Chartered Mentor" <\${process.env.EMAIL_USER}>\`,
+          to: user.email,
+          subject: "Chartered Mentor - Password Reset OTP",
+          html: message
+        });
+        emailSent = true;
+      } catch (err) {
+        emailErrorMsg = err.message;
+      }
+    }
+
+    if (!emailSent) {
+      return res.status(500).json({ message: "Failed to send email. " + emailErrorMsg });
     }
 
     res.json({ message: "A 6-digit OTP has been sent to your registered email" });
   } catch (error) {
     console.error("Forgot password error:", error);
-    res.status(500).json({ message: "Email Error: " + (error.message || "Check backend configuration.") });
+    res.status(500).json({ message: "Server Error" });
   }
 };
 
 /* ================= RESET PASSWORD WITH OTP ================= */
 const resetPassword = async (req, res) => {
   try {
-    const { userId, otp, newPassword } = req.body;
+    const { userId, otp, newPassword, role } = req.body;
+    const targetRole = role || "student";
 
     if (!userId || !otp || !newPassword) {
       return res.status(400).json({ message: "Missing required fields" });
@@ -378,7 +413,7 @@ const resetPassword = async (req, res) => {
 
     const user = await User.findOne({
       userId,
-      role: "student",
+      role: targetRole,
       resetPasswordExpire: { $gt: Date.now() },
     });
 

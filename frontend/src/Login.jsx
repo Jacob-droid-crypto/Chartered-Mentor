@@ -11,9 +11,11 @@ function Login({ onLoginSuccess }) {
   const [loading, setLoading] = useState(false);
 
   // States for new flows
-  const [view, setView] = useState('login'); // login, google_verify, force_reset
+  const [view, setView] = useState('login'); // login, google_verify, force_reset, forgot_role_select, forgot_email, forgot_otp
   const [newPassword, setNewPassword] = useState('');
+  const [otp, setOtp] = useState('');
   const [tempToken, setTempToken] = useState(null);
+  const [resetRole, setResetRole] = useState('student');
 
   useEffect(() => {
     // Check if user is clicking a setup link from their email
@@ -31,10 +33,6 @@ function Login({ onLoginSuccess }) {
     setMsg('');
     setLoading(true);
 
-    const slowLoadingTimer = setTimeout(() => {
-      setMsg('Waking up the server... This might take up to 30 seconds on the first login. Please wait.');
-    }, 3000);
-
     try {
       const endpoint = role === 'admin' ? '/admin/login' : '/student/login';
       const response = await fetch(`${endpoint}`, {
@@ -43,18 +41,8 @@ function Login({ onLoginSuccess }) {
         body: JSON.stringify({ userId, password }),
       });
 
-      let data;
-      try {
-        data = await response.json();
-      } catch (err) {
-        throw new Error('Server took too long to respond. The backend may be waking up, please try again.');
-      }
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
-      }
-
-      clearTimeout(slowLoadingTimer);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Login failed');
       
       if (data.firstLogin && role === 'student') {
         setView('force_reset');
@@ -72,11 +60,8 @@ function Login({ onLoginSuccess }) {
       });
       
     } catch (err) {
-      clearTimeout(slowLoadingTimer);
       setError(err.message);
-      setMsg('');
     } finally {
-      clearTimeout(slowLoadingTimer);
       setLoading(false);
     }
   };
@@ -123,46 +108,62 @@ function Login({ onLoginSuccess }) {
         body: JSON.stringify({ userId, newPassword }),
       });
 
-      let data;
-      try {
-        data = await response.json();
-      } catch (e) {
-        throw new Error('Server took too long to respond. The backend may be waking up, please try again.');
-      }
-      
+      const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Failed to update password');
 
       setMsg('Password saved successfully! Logging you in...');
-      
-      // Attempt to login automatically
-      setTimeout(async () => {
-        try {
-          const loginResponse = await fetch('/student/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, password: newPassword }),
-          });
-          const loginData = await loginResponse.json();
-          if (loginResponse.ok) {
-            // Remove URL params if they existed
-            window.history.replaceState({}, document.title, window.location.pathname);
-            
-            onLoginSuccess({
-              token: loginData.token,
-              role: role,
-              userId: loginData.studentId || userId,
-              name: loginData.name || 'Admin',
-            });
-          } else {
-            setView('login');
-            setPassword('');
-          }
-        } catch (err) {
-          setView('login');
-          setPassword('');
-        }
-      }, 1500);
+      setTimeout(() => window.location.reload(), 1500);
 
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendOtp = async (e) => {
+    e.preventDefault();
+    setError('');
+    setMsg('');
+    setLoading(true);
+
+    try {
+      const response = await fetch('/student/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, role: resetRole }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to send OTP');
+
+      setView('forgot_otp');
+      setMsg('OTP sent! Please check your email.');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtpAndReset = async (e) => {
+    e.preventDefault();
+    setError('');
+    setMsg('');
+    setLoading(true);
+
+    try {
+      const response = await fetch('/student/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, otp, newPassword, role: resetRole }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Reset failed');
+
+      setMsg('Password reset successfully! Redirecting to login...');
+      setTimeout(() => setView('login'), 2000);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -181,10 +182,18 @@ function Login({ onLoginSuccess }) {
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <img src="/logo.png" alt="Chartered Mentor Logo" style={{ width: '180px', height: 'auto', margin: '0 auto 1rem auto', display: 'block' }} />
           <h2>
-            {view === 'login' ? 'Welcome Back ✨' : view === 'google_verify' ? 'Verify Identity' : 'Set New Password'}
+            {view === 'login' ? 'Welcome Back ✨' 
+              : view === 'google_verify' ? 'Verify Identity' 
+              : view.startsWith('forgot') ? 'Reset Password' 
+              : 'Set New Password'}
           </h2>
           <p>
-            {view === 'login' ? 'Sign in to your beautiful dashboard' : view === 'google_verify' ? 'Use your registered Google account to verify.' : 'Create a secure password to use for login.'}
+            {view === 'login' ? 'Sign in to your beautiful dashboard' 
+              : view === 'google_verify' ? 'Use your registered Google account to verify.' 
+              : view === 'forgot_role_select' ? 'Who are you resetting the password for?'
+              : view === 'forgot_email' ? 'Enter your ID to receive an OTP.'
+              : view === 'forgot_otp' ? 'Enter the OTP sent to your email.'
+              : 'Create a secure password to use for login.'}
           </p>
         </div>
 
@@ -226,18 +235,104 @@ function Login({ onLoginSuccess }) {
                 placeholder="••••••••"
                 required
               />
-              {role === 'student' && (
-                <div style={{ textAlign: 'right', marginTop: '0.75rem' }}>
-                  <button type="button" onClick={() => setView('google_verify')} className="forgot-link">
-                    Forgot Password?
-                  </button>
-                </div>
-              )}
+              <div style={{ textAlign: 'right', marginTop: '0.75rem' }}>
+                <button type="button" onClick={() => {
+                  if (role === 'admin') {
+                    setView('forgot_role_select');
+                  } else {
+                    setResetRole('student');
+                    setView('forgot_email');
+                  }
+                }} className="forgot-link">
+                  Forgot Password?
+                </button>
+              </div>
             </div>
 
             <button type="submit" className="submit-btn" disabled={loading}>
               {loading ? 'Signing In...' : 'Sign In'}
             </button>
+          </form>
+        )}
+
+        {view === 'forgot_role_select' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <button 
+              type="button" 
+              className="submit-btn" 
+              onClick={() => { setResetRole('admin'); setView('forgot_email'); }}
+              style={{ background: '#3b82f6' }}
+            >
+              Reset Admin Password
+            </button>
+            <button 
+              type="button" 
+              className="submit-btn" 
+              onClick={() => { setResetRole('student'); setView('forgot_email'); }}
+            >
+              Reset Student Password
+            </button>
+            <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+              <button type="button" onClick={() => setView('login')} className="forgot-link" style={{ color: '#64748b' }}>
+                Back to Login
+              </button>
+            </div>
+          </div>
+        )}
+
+        {view === 'forgot_email' && (
+          <form onSubmit={handleSendOtp}>
+            <div className="input-group">
+              <label>{resetRole === 'admin' ? 'Admin ID' : 'Student ID'}</label>
+              <input 
+                type="text" 
+                value={userId}
+                onChange={(e) => setUserId(e.target.value)}
+                placeholder="Enter your ID"
+                required
+              />
+            </div>
+            <button type="submit" className="submit-btn" disabled={loading}>
+              {loading ? 'Sending Email...' : 'Send OTP'}
+            </button>
+            <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+              <button type="button" onClick={() => setView('login')} className="forgot-link" style={{ color: '#64748b' }}>
+                Back to Login
+              </button>
+            </div>
+          </form>
+        )}
+
+        {view === 'forgot_otp' && (
+          <form onSubmit={handleVerifyOtpAndReset}>
+            <div className="input-group">
+              <label>6-Digit OTP</label>
+              <input 
+                type="text" 
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+                placeholder="Enter OTP from email"
+                required
+              />
+            </div>
+            <div className="input-group">
+              <label>New Password</label>
+              <input 
+                type="password" 
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+              />
+            </div>
+            <button type="submit" className="submit-btn" disabled={loading}>
+              {loading ? 'Resetting...' : 'Reset Password'}
+            </button>
+            <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+              <button type="button" onClick={() => setView('login')} className="forgot-link" style={{ color: '#64748b' }}>
+                Cancel
+              </button>
+            </div>
           </form>
         )}
 
