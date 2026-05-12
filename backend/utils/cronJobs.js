@@ -52,7 +52,7 @@ const sendFeeReminderEmail = async (student, balance, dueDateStr) => {
         }
       });
       await transporter.sendMail({
-        from: \`"Chartered Mentor" <\${process.env.EMAIL_USER}>\`,
+        from: `"Chartered Mentor" <${process.env.EMAIL_USER}>`,
         to: email,
         subject: "Action Required: Fee Payment Reminder",
         html: htmlContent
