@@ -37,6 +37,7 @@ function Dashboard({ user, onLogout }) {
   // Payment UI States
   const [showPayModal, setShowPayModal] = useState(false);
   const [feeSetupStudent, setFeeSetupStudent] = useState(null);
+  const [showFeeDuePopup, setShowFeeDuePopup] = useState(false);
 
   // Reusable submit logic for attendance
   const submitAttendance = async (qrData) => {
@@ -83,6 +84,16 @@ function Dashboard({ user, onLogout }) {
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || 'Failed to fetch dashboard data');
       setData(result);
+
+      if (user.role === 'student' && result.nextPaymentDueDate && result.totalFees > (result.feesPaid || 0)) {
+        const today = new Date();
+        const dueDate = new Date(result.nextPaymentDueDate);
+        const daysDiff = Math.ceil((dueDate - today) / (1000 * 3600 * 24));
+        if (daysDiff <= 2 && !sessionStorage.getItem('feePopupShown')) {
+          setShowFeeDuePopup(true);
+          sessionStorage.setItem('feePopupShown', 'true');
+        }
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -1213,6 +1224,46 @@ function Dashboard({ user, onLogout }) {
               </>
             )}
           </>
+        ) : activeTab === 'feeSetup' && feeSetupStudent ? (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h2>Set Fee Structure for {feeSetupStudent.name}</h2>
+              <button onClick={() => { setActiveTab('students'); setFeeSetupStudent(null); }} style={{ padding: '0.5rem 1rem', background: 'transparent', border: '1px solid var(--text-muted)', color: 'var(--text-main)', borderRadius: '8px', cursor: 'pointer' }}>← Back to Students</button>
+            </div>
+            <div className="card" style={{ maxWidth: '600px' }}>
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                try {
+                  const res = await fetch(`/admin/student/${feeSetupStudent.userId}/fees`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                      totalFees: Number(feeSetupStudent.totalFees), 
+                      nextPaymentDueDate: feeSetupStudent.nextPaymentDueDate ? new Date(feeSetupStudent.nextPaymentDueDate).toISOString() : null 
+                    })
+                  });
+                  if (!res.ok) throw new Error(await res.text());
+                  alert('Fee structure updated successfully!');
+                  fetchStudentsData();
+                  setActiveTab('students');
+                  setFeeSetupStudent(null);
+                } catch(err) { alert('Error: ' + err.message); }
+              }} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: 'var(--text-main)' }}>Total Course Fee (₹)</label>
+                  <input type="number" required min="0" value={feeSetupStudent.totalFees} onChange={e => setFeeSetupStudent({...feeSetupStudent, totalFees: e.target.value})} style={{ width: '100%', padding: '1rem', borderRadius: '8px', border: '1px solid var(--glass-border)', fontSize: '1.1rem', background: 'transparent' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: 'var(--text-main)' }}>Next Payment Due Date</label>
+                  <input type="date" required value={feeSetupStudent.nextPaymentDueDate} onChange={e => setFeeSetupStudent({...feeSetupStudent, nextPaymentDueDate: e.target.value})} style={{ width: '100%', padding: '1rem', borderRadius: '8px', border: '1px solid var(--glass-border)', fontSize: '1.1rem', background: 'transparent' }} />
+                </div>
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                  <button type="button" onClick={() => { setActiveTab('students'); setFeeSetupStudent(null); }} style={{ flex: 1, padding: '1rem', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-main)', fontWeight: 'bold', fontSize: '1.1rem' }}>Cancel</button>
+                  <button type="submit" style={{ flex: 1, padding: '1rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1.1rem' }}>Save Fee Structure</button>
+                </div>
+              </form>
+            </div>
+          </>
         ) : (
           /* STUDENTS TAB (Admin Only) */
           <>
@@ -1307,6 +1358,7 @@ function Dashboard({ user, onLogout }) {
                               totalFees: student.totalFees || '', 
                               nextPaymentDueDate: student.nextPaymentDueDate ? new Date(student.nextPaymentDueDate).toISOString().split('T')[0] : '' 
                             }); 
+                            setActiveTab('feeSetup');
                             setOpenMenuId(null); 
                           }} className="dropdown-item">
                             💰 Set Fee Structure
@@ -1378,42 +1430,30 @@ function Dashboard({ user, onLogout }) {
         </div>
       )}
 
-      {/* ADMIN FEE SETUP MODAL */}
-      {feeSetupStudent && (
+      {/* STUDENT FEE DUE POPUP MODAL */}
+      {showFeeDuePopup && data && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '400px' }}>
-            <h2 style={{ marginBottom: '1.5rem', color: 'var(--text-main)' }}>Set Fee Structure</h2>
-            <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>Configuring fees for <strong>{feeSetupStudent.name}</strong></p>
-            <form onSubmit={async (e) => {
-              e.preventDefault();
-              try {
-                const res = await fetch(`/admin/student/${feeSetupStudent.userId}/fees`, {
-                  method: 'POST',
-                  headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ 
-                    totalFees: Number(feeSetupStudent.totalFees), 
-                    nextPaymentDueDate: feeSetupStudent.nextPaymentDueDate ? new Date(feeSetupStudent.nextPaymentDueDate).toISOString() : null 
-                  })
-                });
-                if (!res.ok) throw new Error(await res.text());
-                alert('Fee structure updated successfully!');
-                fetchStudentsData();
-                setFeeSetupStudent(null);
-              } catch(err) { alert('Error: ' + err.message); }
-            }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: 'var(--text-main)' }}>Total Course Fee (₹)</label>
-                <input type="number" required min="0" value={feeSetupStudent.totalFees} onChange={e => setFeeSetupStudent({...feeSetupStudent, totalFees: e.target.value})} style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }} />
+          <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center' }}>
+            <h2 style={{ color: '#ef4444', marginBottom: '1rem' }}>⚠️ Fee Payment Due</h2>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>
+              A gentle reminder that your fee payment is due.
+            </p>
+            <div style={{ background: 'rgba(239, 68, 68, 0.1)', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
+              <div style={{ marginBottom: '0.5rem' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Remaining Balance</span>
+                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#ef4444' }}>₹{(data.totalFees || 0) - (data.feesPaid || 0)}</div>
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: 'var(--text-main)' }}>Next Payment Due Date</label>
-                <input type="date" required value={feeSetupStudent.nextPaymentDueDate} onChange={e => setFeeSetupStudent({...feeSetupStudent, nextPaymentDueDate: e.target.value})} style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }} />
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Due Date</span>
+                <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
+                  {data.nextPaymentDueDate ? new Date(data.nextPaymentDueDate).toLocaleDateString() : 'N/A'}
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                <button type="button" onClick={() => setFeeSetupStudent(null)} style={{ flex: 1, padding: '0.8rem', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-main)' }}>Cancel</button>
-                <button type="submit" style={{ flex: 1, padding: '0.8rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Save Fees</button>
-              </div>
-            </form>
+            </div>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button onClick={() => setShowFeeDuePopup(false)} style={{ flex: 1, padding: '0.8rem', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-main)', fontWeight: 'bold' }}>Remind Me Later</button>
+              <button onClick={() => { setShowFeeDuePopup(false); setActiveTab('payments'); }} style={{ flex: 1, padding: '0.8rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Pay Now</button>
+            </div>
           </div>
         </div>
       )}
