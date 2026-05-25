@@ -20,6 +20,7 @@ function App() {
   }, []);
 
   const handleLoginSuccess = (userData) => {
+    sessionStorage.removeItem('feePopupShown');
     setUser(userData);
     localStorage.setItem('cmUser', JSON.stringify(userData));
   };
@@ -27,6 +28,7 @@ function App() {
   const handleLogout = () => {
     setUser(null);
     localStorage.removeItem('cmUser');
+    sessionStorage.removeItem('feePopupShown');
   };
 
   return (
