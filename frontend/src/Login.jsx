@@ -3,6 +3,7 @@ import { GoogleLogin } from '@react-oauth/google';
 import './Login.css';
 
 function Login({ onLoginSuccess }) {
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('student'); // 'student' or 'admin'
@@ -34,7 +35,7 @@ function Login({ onLoginSuccess }) {
     setLoading(true);
 
     try {
-      const endpoint = role === 'admin' ? '/admin/login' : '/student/login';
+      const endpoint = role === 'admin' ? `${API_URL}/admin/login` : `${API_URL}/student/login`;
       const response = await fetch(`${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -72,7 +73,7 @@ function Login({ onLoginSuccess }) {
     setLoading(true);
 
     try {
-      const response = await fetch('/student/verify-google', {
+      const response = await fetch(`${API_URL}/student/verify-google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: credentialResponse.credential }),
@@ -102,7 +103,7 @@ function Login({ onLoginSuccess }) {
     setLoading(true);
 
     try {
-      const response = await fetch('/student/change-password', {
+      const response = await fetch(`${API_URL}/student/change-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, newPassword }),
@@ -128,7 +129,7 @@ function Login({ onLoginSuccess }) {
     setLoading(true);
 
     try {
-      const response = await fetch('/student/forgot-password', {
+      const response = await fetch(`${API_URL}/student/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, role: resetRole }),
@@ -153,7 +154,7 @@ function Login({ onLoginSuccess }) {
     setLoading(true);
 
     try {
-      const response = await fetch('/student/reset-password', {
+      const response = await fetch(`${API_URL}/student/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, otp, newPassword, role: resetRole }),

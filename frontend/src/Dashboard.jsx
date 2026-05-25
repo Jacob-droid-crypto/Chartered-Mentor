@@ -49,7 +49,7 @@ function Dashboard({ user, onLogout }) {
     navigator.geolocation.getCurrentPosition(async (position) => {
       const { latitude, longitude } = position.coords;
       try {
-        const response = await fetch(`/student/scan-qr`, {
+        const response = await fetch(`${API_URL}/student/scan-qr`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
@@ -77,7 +77,7 @@ function Dashboard({ user, onLogout }) {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      let endpoint = user.role === 'admin' ? '/admin/daily-summary' : `/student/dashboard/${user.userId}`;
+      let endpoint = user.role === 'admin' ? `${API_URL}/admin/daily-summary` : `${API_URL}/student/dashboard/${user.userId}`;
       const response = await fetch(`${endpoint}`, {
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
@@ -104,7 +104,7 @@ function Dashboard({ user, onLogout }) {
   const fetchStudentsData = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/admin/students`, {
+      const response = await fetch(`${API_URL}/admin/students`, {
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
       const result = await response.json();
@@ -171,7 +171,7 @@ function Dashboard({ user, onLogout }) {
   const fetchProfileData = async () => {
     try {
       setLoading(true);
-      const url = user.role === 'admin' ? '/admin/profile' : `/student/dashboard/${user.userId}`;
+      const url = user.role === 'admin' ? `${API_URL}/admin/profile` : `${API_URL}/student/dashboard/${user.userId}`;
       const res = await fetch(url, { headers: { 'Authorization': `Bearer ${user.token}` } });
       const resData = await res.json();
       if (!res.ok) throw new Error(resData.message);
@@ -448,7 +448,7 @@ function Dashboard({ user, onLogout }) {
   const handleDelete = async (studentId) => {
     if (!window.confirm(`Are you sure you want to delete student ${studentId}?`)) return;
     try {
-      const response = await fetch(`/admin/student/${studentId}`, {
+      const response = await fetch(`${API_URL}/admin/student/${studentId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
@@ -465,7 +465,7 @@ function Dashboard({ user, onLogout }) {
   const handleAddSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch(`/admin/add-student`, {
+      const response = await fetch(`${API_URL}/admin/add-student`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -494,7 +494,7 @@ function Dashboard({ user, onLogout }) {
   const handleResetPassword = async (studentId) => {
     if (!window.confirm(`Reset password for student ${studentId}?`)) return;
     try {
-      const response = await fetch(`/admin/student/${studentId}/reset-password`, {
+      const response = await fetch(`${API_URL}/admin/student/${studentId}/reset-password`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
@@ -903,7 +903,7 @@ function Dashboard({ user, onLogout }) {
 
                     try {
                       setLoading(true);
-                      const res = await fetch('/admin/upload-paper', {
+                      const res = await fetch(`${API_URL}/admin/upload-paper`, {
                         method: 'POST',
                         headers: { 'Authorization': `Bearer ${user.token}` },
                         body: formData
@@ -954,7 +954,7 @@ function Dashboard({ user, onLogout }) {
                     <div style={{ display: 'flex', gap: '1rem' }}>
                       <button onClick={async () => {
                         try {
-                          const res = await fetch(`/student/paper/${paper._id}/download`, {
+                          const res = await fetch(`${API_URL}/student/paper/${paper._id}/download`, {
                             headers: { 'Authorization': `Bearer ${user.token}` }
                           });
                           if (!res.ok) throw new Error("Failed to download");
@@ -976,7 +976,7 @@ function Dashboard({ user, onLogout }) {
                       {user.role === 'admin' && (
                         <button onClick={async () => {
                           if(!window.confirm('Delete this paper?')) return;
-                          await fetch(`/admin/paper/${paper._id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${user.token}` }});
+                          await fetch(`${API_URL}/admin/paper/${paper._id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${user.token}` }});
                           fetchPapers();
                         }} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '1.2rem' }}>🗑️</button>
                       )}
@@ -1018,7 +1018,7 @@ function Dashboard({ user, onLogout }) {
                     };
                     try {
                       setLoading(true);
-                      const res = await fetch('/admin/payment-config', {
+                      const res = await fetch(`${API_URL}/admin/payment-config`, {
                         method: 'POST',
                         headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
                         body: JSON.stringify(formData)
@@ -1085,7 +1085,7 @@ function Dashboard({ user, onLogout }) {
                             <div style={{ display: 'flex', gap: '0.5rem' }}>
                               <button onClick={async () => {
                                 try {
-                                  const res = await fetch(`/admin/student/${fee.studentId}/payment/${fee._id}/approve`, {
+                                  const res = await fetch(`${API_URL}/admin/student/${fee.studentId}/payment/${fee._id}/approve`, {
                                     method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
                                   });
                                   if (!res.ok) throw new Error(await res.text());
@@ -1094,7 +1094,7 @@ function Dashboard({ user, onLogout }) {
                               }} style={{ padding: '0.3rem 0.8rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>Approve</button>
                               <button onClick={async () => {
                                 try {
-                                  const res = await fetch(`/admin/student/${fee.studentId}/payment/${fee._id}/reject`, {
+                                  const res = await fetch(`${API_URL}/admin/student/${fee.studentId}/payment/${fee._id}/reject`, {
                                     method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
                                   });
                                   if (!res.ok) throw new Error(await res.text());
@@ -1234,7 +1234,7 @@ function Dashboard({ user, onLogout }) {
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 try {
-                  const res = await fetch(`/admin/student/${feeSetupStudent.userId}/fees`, {
+                  const res = await fetch(`${API_URL}/admin/student/${feeSetupStudent.userId}/fees`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
@@ -1368,7 +1368,7 @@ function Dashboard({ user, onLogout }) {
                             if (!amount || isNaN(amount)) return;
                             const receipt = prompt('Enter Receipt/Transaction No.', '');
                             try {
-                              const res = await fetch(`/admin/student/${student.userId}/payment`, {
+                              const res = await fetch(`${API_URL}/admin/student/${student.userId}/payment`, {
                                 method: 'POST',
                                 headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ amount: Number(amount), receiptNo: receipt, date: new Date().toISOString() })
@@ -1475,7 +1475,7 @@ function Dashboard({ user, onLogout }) {
               try {
                 const amount = e.target.amount.value;
                 const receipt = e.target.receipt.value;
-                const res = await fetch('/student/payment', {
+                const res = await fetch(`${API_URL}/student/payment`, {
                   method: 'POST',
                   headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
                   body: JSON.stringify({ amount, receiptNo: receipt })
