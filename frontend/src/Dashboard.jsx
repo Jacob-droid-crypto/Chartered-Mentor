@@ -1309,7 +1309,7 @@ function Dashboard({ user, onLogout }) {
             <section className="recent-activity" onClick={() => setOpenMenuId(null)}>
               <div className="activity-list">
                 {Array.isArray(students) && students.map((student) => (
-                  <div key={student.userId || Math.random()} className="activity-item" style={{ position: 'relative' }}>
+                  <div key={student.userId || Math.random()} className="activity-item" style={{ position: 'relative', zIndex: openMenuId === student.userId ? 50 : 1 }}>
                     <div className="activity-info">
                       <div className="avatar" style={{ width: '35px', height: '35px', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
                         {student.name ? student.name.charAt(0).toUpperCase() : '?'}
