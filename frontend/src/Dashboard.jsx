@@ -574,16 +574,22 @@ function Dashboard({ user, onLogout }) {
             <h1>
               {activeTab === 'dashboard' ? `Welcome back, ${user.name} 👋`
                 : activeTab === 'students' ? 'Manage Students'
-                  : activeTab === 'attendance' ? 'Attendance Records'
-                    : activeTab === 'profile' ? 'My Profile'
-                      : 'Campus QR'}
+                : activeTab === 'attendance' ? 'Attendance Records'
+                : activeTab === 'profile' ? 'My Profile'
+                : activeTab === 'papers' ? 'Question Papers'
+                : activeTab === 'payments' ? (user.role === 'admin' ? 'Fee Ledger' : 'My Payments')
+                : activeTab === 'feeSetup' && feeSetupStudent ? `Fee Structure: ${feeSetupStudent.name}`
+                : 'Campus QR'}
             </h1>
             <p>
               {activeTab === 'dashboard' ? `Role: ${user.role === 'admin' ? 'Administrator' : 'Student (ID: ' + user.userId + ')'}`
                 : activeTab === 'students' ? 'Add new students or remove existing ones from the system.'
-                  : activeTab === 'attendance' ? 'View and track your attendance logs.'
-                    : activeTab === 'profile' ? 'Update your personal details and photo.'
-                      : 'Display the active QR code for students to scan.'}
+                : activeTab === 'attendance' ? 'View and track your attendance logs.'
+                : activeTab === 'profile' ? 'Update your personal details and photo.'
+                : activeTab === 'papers' ? 'Manage and download scheduled question papers.'
+                : activeTab === 'payments' ? 'View fee payment history and balances.'
+                : activeTab === 'feeSetup' ? 'Configure total fees and next due date.'
+                : 'Display the active QR code for students to scan.'}
             </p>
           </div>
           <div className="header-actions">
