@@ -136,6 +136,7 @@ function Dashboard({ user, onLogout }) {
     if (activeTab === 'dashboard') {
       fetchDashboardData();
       if (user.role === 'admin') fetchStudentsData();
+      if (user.role === 'student') fetchPaymentConfig();
     }
     if (activeTab === 'students' && user.role === 'admin') {
       fetchStudentsData();
@@ -153,6 +154,7 @@ function Dashboard({ user, onLogout }) {
     if (activeTab === 'payments') {
       fetchPaymentConfig();
       if (user.role === 'admin') fetchStudentsData();
+      if (user.role === 'student') fetchProfileData();
     }
   }, [user, activeTab]);
 
