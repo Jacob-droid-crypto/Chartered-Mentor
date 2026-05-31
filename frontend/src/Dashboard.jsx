@@ -35,7 +35,8 @@ function Dashboard({ user, onLogout }) {
     name: '', email: '', phone: '', course: '', profilePhoto: '',
     address: '', group: '', aadharNumber: '', dob: '',
     fatherName: '', fatherPhone: '', fatherOccupation: '',
-    motherName: '', motherPhone: '', motherOccupation: ''
+    motherName: '', motherPhone: '', motherOccupation: '',
+    mode: '', batch: ''
   });
   const [profileData, setProfileData] = useState(null);
 
@@ -217,7 +218,9 @@ function Dashboard({ user, onLogout }) {
         fatherOccupation: resData.fatherOccupation || '',
         motherName: resData.motherName || '',
         motherPhone: resData.motherPhone || '',
-        motherOccupation: resData.motherOccupation || ''
+        motherOccupation: resData.motherOccupation || '',
+        mode: resData.mode || '',
+        batch: resData.batch || ''
       });
     } catch (e) { setError(e.message); } finally { setLoading(false); }
   };
@@ -888,6 +891,19 @@ function Dashboard({ user, onLogout }) {
 
                     {user.role === 'student' && (
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.2rem' }}>
+                        <div style={{ opacity: 0.7 }}>
+                          <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'bold' }}>Study Mode</label>
+                          <input type="text" readOnly value={profileForm.mode || 'residential'} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'rgba(0,0,0,0.03)', color: 'var(--text-muted)', fontSize: '1rem', textTransform: 'capitalize' }} />
+                        </div>
+                        <div style={{ opacity: 0.7 }}>
+                          <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'bold' }}>Enrolled Batch</label>
+                          <input type="text" readOnly value={profileForm.batch || 'September 2026'} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'rgba(0,0,0,0.03)', color: 'var(--text-muted)', fontSize: '1rem' }} />
+                        </div>
+                      </div>
+                    )}
+
+                    {user.role === 'student' && (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.2rem' }}>
                         <div>
                           <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'bold' }}>Group Choice</label>
                           <select required value={profileForm.group || ''} onChange={(e) => setProfileForm({ ...profileForm, group: e.target.value })} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)', outline: 'none', fontSize: '1rem' }}>
@@ -1555,7 +1571,7 @@ function Dashboard({ user, onLogout }) {
                           }}>
                             {student.currentStatus === 'Inside' ? '🟢 Inside' : '🔴 Outside'}
                           </span>
-                          {student.email || 'No email'} • Batch: {student.batch || 'N/A'}
+                          {student.email || 'No email'} • Batch: {student.batch || 'N/A'} • Mode: <span style={{ textTransform: 'capitalize' }}>{student.mode || 'N/A'}</span>
                           <div style={{ marginTop: '0.5rem', display: 'flex', gap: '1rem', fontSize: '0.85rem' }}>
                             <span>Total Fee: ₹{student.totalFees || 0}</span>
                             <span style={{ color: '#10b981' }}>Paid: ₹{student.feesPaid || 0}</span>
