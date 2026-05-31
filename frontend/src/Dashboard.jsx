@@ -16,7 +16,7 @@ function Dashboard({ user, onLogout }) {
 
   // Add student form state
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newStudent, setNewStudent] = useState({ name: '', email: '', age: '', course: 'INTER', mode: 'residential' });
+  const [newStudent, setNewStudent] = useState({ name: '', email: '', course: 'INTER', mode: 'residential' });
   const [newStudentDetails, setNewStudentDetails] = useState(null);
 
   // Student options dropdown state
@@ -519,7 +519,7 @@ function Dashboard({ user, onLogout }) {
         password: result.password
       });
 
-      setNewStudent({ name: '', email: '', age: '', course: 'INTER' });
+      setNewStudent({ name: '', email: '', course: 'INTER' });
       setShowAddForm(false);
       fetchStudentsData();
     } catch (err) {
@@ -1498,10 +1498,7 @@ function Dashboard({ user, onLogout }) {
                     <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Email</label>
                     <input type="email" required value={newStudent.email} onChange={e => setNewStudent({ ...newStudent, email: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
                   </div>
-                  <div style={{ flex: 0.5, minWidth: '80px' }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Age</label>
-                    <input type="number" required value={newStudent.age} onChange={e => setNewStudent({ ...newStudent, age: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
-                  </div>
+
                   <div style={{ flex: 0.8, minWidth: '120px' }}>
                     <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Course</label>
                     <select value={newStudent.course} onChange={e => setNewStudent({ ...newStudent, course: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'rgba(255, 255, 255, 0.8)', color: 'var(--text-main)', outline: 'none' }}>
@@ -1546,7 +1543,7 @@ function Dashboard({ user, onLogout }) {
                           }}>
                             {student.currentStatus === 'Inside' ? '🟢 Inside' : '🔴 Outside'}
                           </span>
-                          {student.age || 'N/A'} years old • {student.email || 'No email'}
+                          {student.email || 'No email'}
                           <div style={{ marginTop: '0.5rem', display: 'flex', gap: '1rem', fontSize: '0.85rem' }}>
                             <span>Total Fee: ₹{student.totalFees || 0}</span>
                             <span style={{ color: '#10b981' }}>Paid: ₹{student.feesPaid || 0}</span>
@@ -1634,10 +1631,7 @@ function Dashboard({ user, onLogout }) {
                 <span className="detail-label">User ID</span>
                 <span className="detail-value highlight">{newStudentDetails.userId}</span>
               </div>
-              <div className="detail-row">
-                <span className="detail-label">Password</span>
-                <span className="detail-value highlight">{newStudentDetails.password}</span>
-              </div>
+
             </div>
 
             <button className="modal-btn" onClick={() => setNewStudentDetails(null)}>
