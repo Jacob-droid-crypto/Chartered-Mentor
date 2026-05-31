@@ -16,7 +16,7 @@ function Dashboard({ user, onLogout }) {
 
   // Add student form state
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newStudent, setNewStudent] = useState({ name: '', email: '', age: '', course: 'INTER' });
+  const [newStudent, setNewStudent] = useState({ name: '', email: '', age: '', course: 'INTER', mode: 'residential' });
   const [newStudentDetails, setNewStudentDetails] = useState(null);
 
   // Student options dropdown state
@@ -72,6 +72,21 @@ function Dashboard({ user, onLogout }) {
       timeout: 10000,
       maximumAge: 0
     });
+  };
+
+  const handleManualAttendance = async (action) => {
+    try {
+      const response = await fetch(`/student/manual-attendance`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId: user.userId, action })
+      });
+      const d = await response.json();
+      alert(d.message);
+      if (response.ok) fetchDashboardData();
+    } catch (err) {
+      alert('Failed to log attendance');
+    }
   };
 
   const fetchDashboardData = async () => {
@@ -675,28 +690,45 @@ function Dashboard({ user, onLogout }) {
 
             {user.role === 'student' && (
               <>
-                <div className="card" style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-                  <div>
-                    <h3 style={{ marginBottom: '0.5rem', fontSize: '1.2rem', color: 'var(--text-main)' }}>Attend Class via QR</h3>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Align the campus dynamic QR code to securely log your attendance duration.</p>
+                {data?.mode === 'online' ? (
+                  <div className="card" style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+                    <div>
+                      <h3 style={{ marginBottom: '0.5rem', fontSize: '1.2rem', color: 'var(--text-main)' }}>Online Attendance</h3>
+                      <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Manually check in when you start studying and check out when you finish.</p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                      <button onClick={() => handleManualAttendance('IN')} style={{ padding: '0.8rem 1.5rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                        ✅ Check-In
+                      </button>
+                      <button onClick={() => handleManualAttendance('OUT')} style={{ padding: '0.8rem 1.5rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                        ❌ Check-Out
+                      </button>
+                    </div>
                   </div>
-                  {!scanning ? (
-                    <button onClick={() => setScanning(true)} style={{ padding: '0.8rem 1.5rem', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-                      📷 Scan QR Code
-                    </button>
-                  ) : (
-                    <button onClick={() => setScanning(false)} style={{ padding: '0.8rem 1.5rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-                      Cancel Scanning
-                    </button>
-                  )}
-                </div>
+                ) : (
+                  <>
+                    <div className="card" style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+                      <div>
+                        <h3 style={{ marginBottom: '0.5rem', fontSize: '1.2rem', color: 'var(--text-main)' }}>Attend Class via QR</h3>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Align the campus dynamic QR code to securely log your attendance duration.</p>
+                      </div>
+                      {!scanning ? (
+                        <button onClick={() => setScanning(true)} style={{ padding: '0.8rem 1.5rem', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                          📷 Scan QR Code
+                        </button>
+                      ) : (
+                        <button onClick={() => setScanning(false)} style={{ padding: '0.8rem 1.5rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                          Cancel Scanning
+                        </button>
+                      )}
+                    </div>
 
-                {scanning && (
-                  <div className="card" style={{ marginBottom: '2rem' }}>
-                    <div id="reader" style={{ width: '100%', maxWidth: '400px', margin: '0 auto', overflow: 'hidden', borderRadius: '12px' }}></div>
-
-
-                  </div>
+                    {scanning && (
+                      <div className="card" style={{ marginBottom: '2rem' }}>
+                        <div id="reader" style={{ width: '100%', maxWidth: '400px', margin: '0 auto', overflow: 'hidden', borderRadius: '12px' }}></div>
+                      </div>
+                    )}
+                  </>
                 )}
               </>
             )}
@@ -1305,6 +1337,13 @@ function Dashboard({ user, onLogout }) {
                     <select value={newStudent.course} onChange={e => setNewStudent({ ...newStudent, course: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'rgba(255, 255, 255, 0.8)', color: 'var(--text-main)', outline: 'none' }}>
                       <option value="INTER">INTER</option>
                       <option value="FINAL">FINAL</option>
+                    </select>
+                  </div>
+                  <div style={{ flex: 0.8, minWidth: '120px' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Mode</label>
+                    <select value={newStudent.mode || 'residential'} onChange={e => setNewStudent({ ...newStudent, mode: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'rgba(255, 255, 255, 0.8)', color: 'var(--text-main)', outline: 'none' }}>
+                      <option value="residential">Residential</option>
+                      <option value="online">Online</option>
                     </select>
                   </div>
                   <div style={{ alignSelf: 'flex-end' }}>

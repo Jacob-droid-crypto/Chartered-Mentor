@@ -122,6 +122,7 @@ const getDashboard = async (req, res) => {
       email: student.email,
       phone: student.phone,
       course: student.course,
+      mode: student.mode || "residential",
       profilePhoto: student.profilePhoto,
       totalFees: student.totalFees,
       feesPaid: student.feesPaid,
@@ -565,6 +566,64 @@ const submitPayment = async (req, res) => {
   }
 };
 
+/* ================= MANUAL ATTENDANCE ================= */
+const manualAttendance = async (req, res) => {
+  try {
+    const { studentId, action } = req.body; // action is 'IN' or 'OUT'
+
+    if (!studentId || !action || !["IN", "OUT"].includes(action)) {
+      return res.status(400).json({ message: "Invalid action or missing data" });
+    }
+
+    const student = await User.findOne({
+      userId: studentId,
+      role: "student",
+    });
+
+    if (!student) {
+      return res.status(401).json({ message: "Invalid student session." });
+    }
+
+    if (student.mode !== "online") {
+      return res.status(403).json({ message: "Manual attendance is only allowed for online students." });
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+
+    // Get today's logs to validate logic
+    const logs = await Attendance.find({ studentId, date: today }).sort({ createdAt: 1 });
+    
+    // Determine current state based on last log
+    const lastLog = logs.length > 0 ? logs[logs.length - 1] : null;
+    
+    if (action === "IN") {
+      if (lastLog && lastLog.type === "IN") {
+        return res.status(400).json({ message: "You are already checked IN." });
+      }
+    } else if (action === "OUT") {
+      if (!lastLog || lastLog.type === "OUT") {
+        return res.status(400).json({ message: "You must check IN before checking OUT." });
+      }
+    }
+
+    const newLog = await Attendance.create({
+      studentId: studentId,
+      course: student.course,
+      type: action,
+      date: today,
+    });
+
+    res.json({
+      message: `Successfully checked ${action}`,
+      type: action,
+      timestamp: newLog.timestamp,
+    });
+  } catch (err) {
+    console.error("Manual Attendance Error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   loginStudent,
   changePassword,
@@ -577,5 +636,6 @@ module.exports = {
   verifyGoogle,
   getStudentPapers,
   downloadPaper,
-  submitPayment
+  submitPayment,
+  manualAttendance
 };

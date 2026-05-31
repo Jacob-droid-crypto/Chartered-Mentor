@@ -24,6 +24,11 @@ const userSchema = new mongoose.Schema({
   course: {
     type: String,
   },
+  mode: {
+    type: String,
+    enum: ["residential", "online"],
+    default: "residential"
+  },
   password: {
     type: String,
     required: true,
