@@ -30,6 +30,7 @@ const loginStudent = async (req, res) => {
       studentId: student.userId,
       name: student.name,
       firstLogin: student.firstLogin,
+      profileCompleted: student.profileCompleted || false,
       token: generateToken(student.userId, student.role),
     });
   } catch (err) {
@@ -129,7 +130,17 @@ const getDashboard = async (req, res) => {
       nextPaymentDueDate: student.nextPaymentDueDate,
       feeHistory: student.feeHistory,
       todayLogs: logs,
-      attendanceSummary
+      attendanceSummary,
+      address: student.address || "",
+      group: student.group || "",
+      aadharNumber: student.aadharNumber || "",
+      fatherName: student.fatherName || "",
+      fatherPhone: student.fatherPhone || "",
+      fatherOccupation: student.fatherOccupation || "",
+      motherName: student.motherName || "",
+      motherPhone: student.motherPhone || "",
+      motherOccupation: student.motherOccupation || "",
+      profileCompleted: student.profileCompleted || false
     });
   } catch (err) {
     console.error(err);
@@ -299,13 +310,48 @@ const updateProfile = async (req, res) => {
     const user = req.user;
     if (!user) return res.status(404).json({ message: "User not found" });
     
-    const { name, email, phone, course, profilePhoto } = req.body;
+    const { 
+      name, email, phone, course, profilePhoto,
+      address, group, aadharNumber,
+      fatherName, fatherPhone, fatherOccupation,
+      motherName, motherPhone, motherOccupation
+    } = req.body;
 
-    if (name) user.name = name;
-    if (email) user.email = email;
-    if (phone) user.phone = phone;
-    if (course) user.course = course;
-    if (profilePhoto) user.profilePhoto = profilePhoto;
+    if (name !== undefined) user.name = name;
+    if (email !== undefined) user.email = email;
+    if (phone !== undefined) user.phone = phone;
+    if (course !== undefined) user.course = course;
+    if (profilePhoto !== undefined) user.profilePhoto = profilePhoto;
+
+    if (address !== undefined) user.address = address;
+    if (group !== undefined) user.group = group;
+    if (aadharNumber !== undefined) user.aadharNumber = aadharNumber;
+    if (fatherName !== undefined) user.fatherName = fatherName;
+    if (fatherPhone !== undefined) user.fatherPhone = fatherPhone;
+    if (fatherOccupation !== undefined) user.fatherOccupation = fatherOccupation;
+    if (motherName !== undefined) user.motherName = motherName;
+    if (motherPhone !== undefined) user.motherPhone = motherPhone;
+    if (motherOccupation !== undefined) user.motherOccupation = motherOccupation;
+
+    // Check if profile is complete (all required fields filled)
+    if (
+      user.name && 
+      user.email && 
+      user.phone && 
+      user.address && 
+      user.group && 
+      user.aadharNumber && 
+      user.fatherName && 
+      user.fatherPhone && 
+      user.fatherOccupation && 
+      user.motherName && 
+      user.motherPhone && 
+      user.motherOccupation
+    ) {
+      user.profileCompleted = true;
+    } else {
+      user.profileCompleted = false;
+    }
 
     await user.save();
     

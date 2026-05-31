@@ -42,6 +42,38 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
+  address: {
+    type: String,
+  },
+  group: {
+    type: String,
+    enum: ["Group 1", "Group 2", "Both"],
+  },
+  aadharNumber: {
+    type: String,
+  },
+  fatherName: {
+    type: String,
+  },
+  fatherPhone: {
+    type: String,
+  },
+  fatherOccupation: {
+    type: String,
+  },
+  motherName: {
+    type: String,
+  },
+  motherPhone: {
+    type: String,
+  },
+  motherOccupation: {
+    type: String,
+  },
+  profileCompleted: {
+    type: Boolean,
+    default: false,
+  },
   resetPasswordOtp: {
     type: String,
   },

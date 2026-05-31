@@ -31,7 +31,12 @@ function Dashboard({ user, onLogout }) {
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
 
   // Profile State
-  const [profileForm, setProfileForm] = useState({ name: '', email: '', phone: '', course: '', profilePhoto: '' });
+  const [profileForm, setProfileForm] = useState({
+    name: '', email: '', phone: '', course: '', profilePhoto: '',
+    address: '', group: '', aadharNumber: '',
+    fatherName: '', fatherPhone: '', fatherOccupation: '',
+    motherName: '', motherPhone: '', motherOccupation: ''
+  });
   const [profileData, setProfileData] = useState(null);
 
   // Payment UI States
@@ -99,6 +104,10 @@ function Dashboard({ user, onLogout }) {
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || 'Failed to fetch dashboard data');
       setData(result);
+
+      if (user.role === 'student' && !result.profileCompleted) {
+        setActiveTab('profile');
+      }
 
       if (user.role === 'student' && result.nextPaymentDueDate && result.totalFees > (result.feesPaid || 0)) {
         const today = new Date();
@@ -198,7 +207,16 @@ function Dashboard({ user, onLogout }) {
         email: resData.email || '',
         phone: resData.phone || '',
         course: resData.course || '',
-        profilePhoto: resData.profilePhoto || ''
+        profilePhoto: resData.profilePhoto || '',
+        address: resData.address || '',
+        group: resData.group || '',
+        aadharNumber: resData.aadharNumber || '',
+        fatherName: resData.fatherName || '',
+        fatherPhone: resData.fatherPhone || '',
+        fatherOccupation: resData.fatherOccupation || '',
+        motherName: resData.motherName || '',
+        motherPhone: resData.motherPhone || '',
+        motherOccupation: resData.motherOccupation || ''
       });
     } catch (e) { setError(e.message); } finally { setLoading(false); }
   };
@@ -218,6 +236,7 @@ function Dashboard({ user, onLogout }) {
       }
       alert('Profile updated successfully!');
       fetchProfileData();
+      fetchDashboardData();
     } catch (err) {
       alert(err.message);
     }
@@ -538,7 +557,13 @@ function Dashboard({ user, onLogout }) {
           <img src="/logo.png" alt="Chartered Mentor Logo" style={{ width: '80%', maxWidth: '160px', height: 'auto', margin: '0 auto', display: 'block' }} />
         </div>
         <ul className="nav-links">
-          <li className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
+          <li className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => {
+            if (user.role === 'student' && data && !data.profileCompleted) {
+              alert('Please complete your profile details first to unlock all dashboard features.');
+              return;
+            }
+            setActiveTab('dashboard');
+          }}>
             <span>📊</span> Dashboard
           </li>
           {user.role === 'admin' ? (
@@ -564,13 +589,31 @@ function Dashboard({ user, onLogout }) {
             </>
           ) : (
             <>
-              <li className={`nav-item ${activeTab === 'attendance' ? 'active' : ''}`} onClick={() => setActiveTab('attendance')}>
+              <li className={`nav-item ${activeTab === 'attendance' ? 'active' : ''}`} onClick={() => {
+                if (data && !data.profileCompleted) {
+                  alert('Please complete your profile details first to unlock all dashboard features.');
+                  return;
+                }
+                setActiveTab('attendance');
+              }}>
                 <span>📅</span> Attendance Records
               </li>
-              <li className={`nav-item ${activeTab === 'papers' ? 'active' : ''}`} onClick={() => setActiveTab('papers')}>
+              <li className={`nav-item ${activeTab === 'papers' ? 'active' : ''}`} onClick={() => {
+                if (data && !data.profileCompleted) {
+                  alert('Please complete your profile details first to unlock all dashboard features.');
+                  return;
+                }
+                setActiveTab('papers');
+              }}>
                 <span>📄</span> Exam Papers
               </li>
-              <li className={`nav-item ${activeTab === 'payments' ? 'active' : ''}`} onClick={() => setActiveTab('payments')}>
+              <li className={`nav-item ${activeTab === 'payments' ? 'active' : ''}`} onClick={() => {
+                if (data && !data.profileCompleted) {
+                  alert('Please complete your profile details first to unlock all dashboard features.');
+                  return;
+                }
+                setActiveTab('payments');
+              }}>
                 <span>💳</span> Payments
               </li>
               <li className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
@@ -771,40 +814,167 @@ function Dashboard({ user, onLogout }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h2>Your Profile</h2>
             </div>
-            <div className="card" style={{ maxWidth: '600px' }}>
-              <form onSubmit={handleProfileSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            
+            {user.role === 'student' && data && !data.profileCompleted && (
+              <div style={{ 
+                padding: '1.5rem', 
+                background: 'rgba(239, 68, 68, 0.08)', 
+                borderLeft: '4px solid #ef4444', 
+                borderRadius: '8px', 
+                marginBottom: '2rem', 
+                boxShadow: '0 4px 15px rgba(239, 68, 68, 0.05)',
+                maxWidth: '800px'
+              }}>
+                <h3 style={{ color: '#ef4444', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  ⚠️ Complete Your Profile Details
+                </h3>
+                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: '1.5' }}>
+                  Please complete all profile details below (including Address, Group Selection, Aadhaar Number, and Parent details) to unlock all dashboard features and services.
+                </p>
+              </div>
+            )}
+
+            <div className="card" style={{ maxWidth: '800px', padding: '2rem' }}>
+              <form onSubmit={handleProfileSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                
+                {/* SECTION 1: Personal & Account Details */}
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Profile Photo</label>
-                  <label style={{ display: 'inline-block', padding: '0.6rem 1.2rem', background: '#eef2ff', color: 'var(--primary-color)', border: '1px solid var(--primary-color)', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-                    Choose Image / Take Photo
-                    <input type="file" accept="image/*" onChange={handlePhotoUpload} style={{ display: 'none' }} />
-                  </label>
-                  {profileForm.profilePhoto && (
-                    <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                      <img src={profileForm.profilePhoto} alt="Preview" style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--primary-color)' }} />
-                      <button type="button" onClick={() => setProfileForm({ ...profileForm, profilePhoto: '' })} style={{ padding: '0.4rem 0.8rem', background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '6px', cursor: 'pointer' }}>Remove</button>
+                  <h3 style={{ borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem', marginBottom: '1.5rem', color: 'var(--primary-color)', fontSize: '1.2rem', fontWeight: 'bold' }}>👤 Personal Details</h3>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                    <div style={{ display: 'flex', gap: '2rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                      {profileForm.profilePhoto || user.profilePhoto ? (
+                        <img src={profileForm.profilePhoto || user.profilePhoto} alt="Profile" style={{ width: '90px', height: '90px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary-color)', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }} />
+                      ) : (
+                        <div className="avatar" style={{ width: '90px', height: '90px', fontSize: '2.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold' }}>
+                          {user.name ? user.name.charAt(0).toUpperCase() : '?'}
+                        </div>
+                      )}
+                      <div>
+                        <label style={{ display: 'inline-block', padding: '0.6rem 1.2rem', background: 'rgba(59, 130, 246, 0.08)', color: 'var(--primary-color)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', transition: 'all 0.2s' }}>
+                          Choose Image / Take Photo
+                          <input type="file" accept="image/*" onChange={handlePhotoUpload} style={{ display: 'none' }} />
+                        </label>
+                        {profileForm.profilePhoto && (
+                          <button type="button" onClick={() => setProfileForm({ ...profileForm, profilePhoto: '' })} style={{ marginLeft: '1rem', padding: '0.6rem 1.2rem', background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem' }}>Remove</button>
+                        )}
+                      </div>
                     </div>
-                  )}
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.2rem' }}>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'bold' }}>Full Name</label>
+                        <input type="text" required value={profileForm.name} onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)', fontSize: '1rem' }} />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'bold' }}>Email ID</label>
+                        <input type="email" required value={profileForm.email} onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)', fontSize: '1rem' }} />
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.2rem' }}>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'bold' }}>Phone Number</label>
+                        <input type="tel" required value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)', fontSize: '1rem' }} />
+                      </div>
+                      {user.role === 'student' ? (
+                        <div style={{ opacity: 0.7 }}>
+                          <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'bold' }}>Enrolled Course</label>
+                          <input type="text" readOnly value={profileForm.course} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'rgba(0,0,0,0.03)', color: 'var(--text-muted)', fontSize: '1rem' }} />
+                        </div>
+                      ) : null}
+                    </div>
+
+                    {user.role === 'student' && (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.2rem' }}>
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'bold' }}>Group Choice</label>
+                          <select required value={profileForm.group || ''} onChange={(e) => setProfileForm({ ...profileForm, group: e.target.value })} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)', outline: 'none', fontSize: '1rem' }}>
+                            <option value="">Select Group...</option>
+                            <option value="Group 1">Group 1</option>
+                            <option value="Group 2">Group 2</option>
+                            <option value="Both">Both</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'bold' }}>Aadhaar Number</label>
+                          <input type="text" required pattern="\d{12}" title="Aadhaar must be a 12-digit number" placeholder="Enter 12-digit Aadhaar" value={profileForm.aadharNumber || ''} onChange={(e) => setProfileForm({ ...profileForm, aadharNumber: e.target.value.replace(/\D/g, '').substring(0, 12) })} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)', fontSize: '1rem' }} />
+                        </div>
+                      </div>
+                    )}
+
+                    {user.role === 'student' && (
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'bold' }}>Permanent Address</label>
+                        <textarea required placeholder="Enter full permanent address" value={profileForm.address || ''} onChange={(e) => setProfileForm({ ...profileForm, address: e.target.value })} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)', fontSize: '1rem', minHeight: '80px', fontFamily: 'inherit' }} />
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Full Name</label>
-                  <input type="text" required value={profileForm.name} onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Email ID</label>
-                  <input type="email" value={profileForm.email} onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Phone Number</label>
-                  <input type="tel" value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
-                </div>
+
+                {/* SECTION 2: Parents Information (Student Only) */}
                 {user.role === 'student' && (
-                  <div style={{ opacity: 0.6 }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Enrolled Course</label>
-                    <input type="text" readOnly value={profileForm.course} onChange={(e) => setProfileForm({ ...profileForm, course: e.target.value })} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                  <div>
+                    <h3 style={{ borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem', marginBottom: '1.5rem', color: 'var(--primary-color)', fontSize: '1.2rem', fontWeight: 'bold' }}>👨‍👩‍👧 Parents Information</h3>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.8rem' }}>
+                      {/* Father's Details */}
+                      <div style={{ padding: '1.2rem', background: 'rgba(255, 255, 255, 0.4)', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
+                        <h4 style={{ margin: '0 0 1rem 0', color: 'var(--text-main)' }}>🧔 Father's Details</h4>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                          <div>
+                            <label style={{ display: 'block', marginBottom: '0.4rem', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 'bold' }}>Father's Name</label>
+                            <input type="text" required value={profileForm.fatherName || ''} onChange={(e) => setProfileForm({ ...profileForm, fatherName: e.target.value })} style={{ width: '100%', padding: '0.7rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)', fontSize: '0.95rem' }} />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', marginBottom: '0.4rem', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 'bold' }}>Father's Contact Number</label>
+                            <input type="tel" required value={profileForm.fatherPhone || ''} onChange={(e) => setProfileForm({ ...profileForm, fatherPhone: e.target.value })} style={{ width: '100%', padding: '0.7rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)', fontSize: '0.95rem' }} />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', marginBottom: '0.4rem', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 'bold' }}>Occupation</label>
+                            <input type="text" required value={profileForm.fatherOccupation || ''} onChange={(e) => setProfileForm({ ...profileForm, fatherOccupation: e.target.value })} style={{ width: '100%', padding: '0.7rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)', fontSize: '0.95rem' }} />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Mother's Details */}
+                      <div style={{ padding: '1.2rem', background: 'rgba(255, 255, 255, 0.4)', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
+                        <h4 style={{ margin: '0 0 1rem 0', color: 'var(--text-main)' }}>👩 Mother's Details</h4>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                          <div>
+                            <label style={{ display: 'block', marginBottom: '0.4rem', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 'bold' }}>Mother's Name</label>
+                            <input type="text" required value={profileForm.motherName || ''} onChange={(e) => setProfileForm({ ...profileForm, motherName: e.target.value })} style={{ width: '100%', padding: '0.7rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)', fontSize: '0.95rem' }} />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', marginBottom: '0.4rem', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 'bold' }}>Mother's Contact Number</label>
+                            <input type="tel" required value={profileForm.motherPhone || ''} onChange={(e) => setProfileForm({ ...profileForm, motherPhone: e.target.value })} style={{ width: '100%', padding: '0.7rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)', fontSize: '0.95rem' }} />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', marginBottom: '0.4rem', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 'bold' }}>Occupation</label>
+                            <input type="text" required value={profileForm.motherOccupation || ''} onChange={(e) => setProfileForm({ ...profileForm, motherOccupation: e.target.value })} style={{ width: '100%', padding: '0.7rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)', fontSize: '0.95rem' }} />
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
                   </div>
                 )}
-                <button type="submit" style={{ marginTop: '1rem', padding: '0.75rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Update Profile</button>
+
+                <button type="submit" style={{ 
+                  marginTop: '1rem', 
+                  padding: '1rem', 
+                  background: '#10b981', 
+                  color: 'white', 
+                  border: 'none', 
+                  borderRadius: '8px', 
+                  fontWeight: 'bold', 
+                  fontSize: '1.1rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 10px rgba(16, 185, 129, 0.2)',
+                  transition: 'all 0.2s'
+                }}>
+                  💾 Save Profile Details
+                </button>
               </form>
             </div>
           </>
