@@ -29,8 +29,8 @@ const sendFeeReminderEmail = async (student, balance, dueDateStr) => {
     try {
       const { Resend } = require("resend");
       const resend = new Resend(process.env.RESEND_API_KEY);
-      const { error } = await resend.emails.send({
-        from: "Chartered Mentor <onboarding@resend.dev>",
+      const { data, error } = await resend.emails.send({
+        from: process.env.RESEND_FROM_EMAIL || "Chartered Mentor <onboarding@resend.dev>",
         to: email,
         subject: "Action Required: Fee Payment Reminder",
         html: htmlContent,

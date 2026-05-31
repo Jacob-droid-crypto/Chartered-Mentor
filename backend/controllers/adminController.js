@@ -102,7 +102,7 @@ const addStudent = async (req, res) => {
         `;
 
         const { data, error } = await resend.emails.send({
-          from: "Chartered Mentor <onboarding@resend.dev>",
+          from: process.env.RESEND_FROM_EMAIL || "Chartered Mentor <onboarding@resend.dev>",
           to: email,
           subject: "Welcome to Chartered Mentor - Account Setup",
           html: message,
