@@ -359,7 +359,7 @@ const getProfile = async (req, res) => {
 /* ================= UPLOAD QUESTION PAPER ================= */
 const uploadQuestionPaper = async (req, res) => {
   try {
-    const { title, target, scheduledTime } = req.body;
+    const { title, target, scheduledTime, examDuration, uploadDuration } = req.body;
 
     if (!title || !target || !scheduledTime) {
       return res.status(400).json({ message: "Missing fields" });
@@ -380,6 +380,8 @@ const uploadQuestionPaper = async (req, res) => {
       fileType,
       fileData,
       scheduledTime: new Date(scheduledTime),
+      examDuration: examDuration ? parseInt(examDuration) : 180,
+      uploadDuration: uploadDuration ? parseInt(uploadDuration) : 15,
     });
 
     res.json({ message: "Paper scheduled successfully!" });
@@ -392,7 +394,7 @@ const uploadQuestionPaper = async (req, res) => {
 /* ================= GET ADMIN PAPERS ================= */
 const getAdminPapers = async (req, res) => {
   try {
-    const papers = await QuestionPaper.find({}, { fileData: 0 }).sort({ scheduledTime: -1 });
+    const papers = await QuestionPaper.find({}, { fileData: 0, answerFileData: 0 }).sort({ scheduledTime: -1 });
     res.json(papers);
   } catch (err) {
     console.error("Get papers error:", err);
@@ -408,6 +410,31 @@ const deletePaper = async (req, res) => {
     res.json({ message: "Paper deleted successfully" });
   } catch (err) {
     console.error("Delete paper error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* ================= DOWNLOAD ANSWER PAPER ================= */
+const downloadAnswerPaper = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const paper = await QuestionPaper.findById(id);
+
+    if (!paper) {
+      return res.status(404).json({ message: "Paper not found" });
+    }
+
+    if (!paper.answerFileData) {
+      return res.status(404).json({ message: "Answer sheet not submitted yet" });
+    }
+
+    const buffer = Buffer.from(paper.answerFileData, "base64");
+
+    res.setHeader("Content-Type", paper.answerFileType || "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${paper.answerFileName || "answer-sheet.pdf"}"`);
+    res.send(buffer);
+  } catch (err) {
+    console.error("Download answer error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -550,6 +577,7 @@ module.exports = {
   uploadQuestionPaper,
   getAdminPapers,
   deletePaper,
+  downloadAnswerPaper,
   getPaymentConfig,
   updatePaymentConfig,
   updateStudentFees,

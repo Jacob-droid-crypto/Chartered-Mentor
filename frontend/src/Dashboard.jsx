@@ -7,6 +7,343 @@ import * as XLSX from 'xlsx';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, ArcElement);
 
+function StudentPaperCard({ paper, user, onRefresh }) {
+  const [timeLeft, setTimeLeft] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+
+  // Parse time
+  const scheduledDate = new Date(paper.scheduledTime);
+  const todayStr = new Date().toISOString().split("T")[0];
+  const scheduledStr = scheduledDate.toISOString().split("T")[0];
+  const isLocked = todayStr < scheduledStr;
+
+  useEffect(() => {
+    if (!paper.startTime || paper.answerUploadedAt) return;
+
+    const totalDurationMins = paper.examDuration + paper.uploadDuration;
+    const totalDurationMs = totalDurationMins * 60 * 1000;
+    const endMs = new Date(paper.startTime).getTime() + totalDurationMs;
+
+    const updateTimer = () => {
+      const remainingMs = endMs - new Date().getTime();
+      if (remainingMs <= 0) {
+        setTimeLeft(0);
+      } else {
+        setTimeLeft(remainingMs);
+      }
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+
+    return () => clearInterval(interval);
+  }, [paper.startTime, paper.answerUploadedAt, paper.examDuration, paper.uploadDuration]);
+
+  const handleStartExam = async () => {
+    if (!window.confirm("Are you sure you want to start the exam? Your individual timer will begin immediately.")) return;
+    try {
+      // 1. Call Start API
+      const res = await fetch(`/student/paper/${paper._id}/start`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${user.token}`,
+          "Content-Type": "application/json"
+        }
+      });
+      if (!res.ok) throw new Error(await res.text());
+      
+      // 2. Trigger automatic download of the question paper
+      const downloadRes = await fetch(`/student/paper/${paper._id}/download`, {
+        headers: { 'Authorization': `Bearer ${user.token}` }
+      });
+      if (!downloadRes.ok) throw new Error("Failed to download question paper");
+      const blob = await downloadRes.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = paper.fileName || 'question-paper.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      onRefresh();
+    } catch (err) {
+      alert("Error starting exam: " + err.message);
+    }
+  };
+
+  const handleFileUpload = async (file) => {
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      alert("File size exceeds 10MB limit.");
+      return;
+    }
+
+    setUploading(true);
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onloadend = async () => {
+      try {
+        const base64Data = reader.result.split(',')[1];
+        const res = await fetch(`/student/paper/${paper._id}/submit-answer`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${user.token}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            answerFileName: file.name,
+            answerFileType: file.type,
+            answerFileData: base64Data
+          })
+        });
+
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.message);
+        
+        alert("Answer sheets uploaded successfully!");
+        onRefresh();
+      } catch (err) {
+        alert("Upload failed: " + err.message);
+      } finally {
+        setUploading(false);
+      }
+    };
+  };
+
+  const formatTimeLeft = (ms) => {
+    if (ms === null) return "";
+    if (ms <= 0) return "00h 00m 00s";
+    const totalSecs = Math.floor(ms / 1000);
+    const h = Math.floor(totalSecs / 3600);
+    const m = Math.floor((totalSecs % 3600) / 60);
+    const s = totalSecs % 60;
+    return `${h.toString().padStart(2, '0')}h ${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
+  };
+
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFileUpload(e.dataTransfer.files[0]);
+    }
+  };
+
+  // Render Lock State
+  if (isLocked) {
+    return (
+      <div className="activity-item" style={{ opacity: 0.8, background: 'rgba(0,0,0,0.02)', padding: '1.5rem', borderRadius: '12px', border: '1px dashed var(--glass-border)', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'stretch' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <strong style={{ fontSize: '1.1rem', color: 'var(--text-muted)' }}>🔒 {paper.title}</strong>
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.3rem' }}>
+              Locked until: <strong>{new Date(paper.scheduledTime).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</strong>
+            </div>
+          </div>
+          <span style={{ fontSize: '0.85rem', background: 'rgba(0,0,0,0.08)', color: 'var(--text-muted)', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold' }}>
+            Locked
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // Render Submissions Completed
+  if (paper.answerUploadedAt) {
+    return (
+      <div className="activity-item" style={{ background: 'rgba(16, 185, 129, 0.03)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '1.5rem', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'stretch' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <strong style={{ fontSize: '1.15rem', color: 'var(--text-main)' }}>📄 {paper.title}</strong>
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.4rem' }}>
+              Exam started: {new Date(paper.startTime).toLocaleString()}
+            </div>
+            <div style={{ color: '#10b981', fontSize: '0.9rem', fontWeight: 'bold', marginTop: '0.3rem' }}>
+              ✅ Submitted: {paper.answerFileName} ({new Date(paper.answerUploadedAt).toLocaleString()})
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '0.8rem' }}>
+            <button onClick={async () => {
+              try {
+                const res = await fetch(`/student/paper/${paper._id}/download-answer`, {
+                  headers: { 'Authorization': `Bearer ${user.token}` }
+                });
+                if (!res.ok) throw new Error();
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = paper.answerFileName || 'answer-sheet.pdf';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+              } catch(err) {
+                alert("Error downloading answer sheet");
+              }
+            }} style={{ padding: '0.55rem 1.2rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
+              View Submission
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Render Time Expired State
+  if (timeLeft === 0) {
+    return (
+      <div className="activity-item" style={{ background: 'rgba(239, 68, 68, 0.03)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '1.5rem', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'stretch' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <strong style={{ fontSize: '1.15rem', color: '#ef4444' }}>⚠️ {paper.title}</strong>
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.4rem' }}>
+              Exam started: {new Date(paper.startTime).toLocaleString()}
+            </div>
+          </div>
+          <span style={{ fontSize: '0.85rem', background: '#ef4444', color: 'white', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold' }}>
+            Expired
+          </span>
+        </div>
+        <div style={{ color: '#ef4444', fontSize: '0.95rem', fontWeight: 'bold', padding: '0.8rem', background: 'rgba(239,68,68,0.06)', borderRadius: '8px', textAlign: 'center' }}>
+          🚨 Exam Closed: The combined writing and upload time has expired. Submissions are no longer accepted.
+        </div>
+      </div>
+    );
+  }
+
+  // Render Active / In Progress countdown and upload
+  if (paper.startTime) {
+    return (
+      <div className="activity-item" style={{ background: 'rgba(59, 130, 246, 0.03)', border: '1px solid rgba(59, 130, 246, 0.2)', padding: '1.5rem', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '1.2rem', alignItems: 'stretch' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <strong style={{ fontSize: '1.15rem', color: 'var(--text-main)' }}>✍️ {paper.title}</strong>
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.4rem' }}>
+              Exam Started: {new Date(paper.startTime).toLocaleString()}
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+            <span style={{ fontSize: '0.85rem', background: 'rgba(59, 130, 246, 0.1)', color: 'var(--primary-color)', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold', marginBottom: '0.3rem' }}>
+              Exam In Progress
+            </span>
+            <div style={{ color: '#ef4444', fontSize: '1.1rem', fontWeight: 'bold', fontFamily: 'monospace' }}>
+              ⏳ Time Left: {formatTimeLeft(timeLeft)}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ background: 'rgba(255, 255, 255, 0.6)', border: '1px solid var(--glass-border)', padding: '1rem', borderRadius: '8px', fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+          📌 <strong>Exam Rules:</strong> Please write your answers on paper, scan them into a single PDF or image file, and upload it below before the timer runs out. You have <strong>{paper.examDuration} minutes</strong> to write and <strong>{paper.uploadDuration} minutes</strong> to upload.
+        </div>
+
+        {/* Upload Answer Form */}
+        <div 
+          onDragEnter={handleDrag}
+          onDragOver={handleDrag}
+          onDragLeave={handleDrag}
+          onDrop={handleDrop}
+          style={{
+            border: dragActive ? '2px dashed var(--primary-color)' : '2px dashed var(--glass-border)',
+            background: dragActive ? 'rgba(59, 130, 246, 0.05)' : 'rgba(0,0,0,0.01)',
+            padding: '1.5rem',
+            borderRadius: '10px',
+            textAlign: 'center',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            position: 'relative'
+          }}
+        >
+          {uploading ? (
+            <div style={{ color: 'var(--primary-color)', fontWeight: 'bold' }}>📤 Uploading answer sheets...</div>
+          ) : (
+            <div>
+              <p style={{ margin: '0 0 0.5rem 0', color: 'var(--text-main)', fontWeight: 'bold' }}>
+                Drag & Drop your scanned Answer Sheets here
+              </p>
+              <p style={{ margin: '0 0 1rem 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                or click below to choose a file (PDF or Images, Max 10MB)
+              </p>
+              <input 
+                type="file" 
+                id={`ans-upload-${paper._id}`}
+                accept=".pdf,.png,.jpg,.jpeg"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    handleFileUpload(e.target.files[0]);
+                  }
+                }}
+                style={{ display: 'none' }}
+              />
+              <label 
+                htmlFor={`ans-upload-${paper._id}`}
+                style={{
+                  display: 'inline-block',
+                  padding: '0.55rem 1.5rem',
+                  background: 'var(--primary-color)',
+                  color: 'white',
+                  borderRadius: '6px',
+                  fontWeight: 'bold',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer'
+                }}
+              >
+                Select Answer Sheet
+              </label>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Render Ready state (Midnight scheduled reached, not started)
+  return (
+    <div className="activity-item" style={{ background: 'white', border: '1px solid var(--glass-border)', padding: '1.5rem', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'stretch', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+        <div>
+          <strong style={{ fontSize: '1.15rem', color: 'var(--text-main)' }}>📖 {paper.title}</strong>
+          <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.4rem' }}>
+            Scheduled Date: <strong>{new Date(paper.scheduledTime).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</strong>
+          </div>
+          <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.2rem' }}>
+            Combined Time: <strong>{paper.examDuration + paper.uploadDuration} minutes</strong> ({paper.examDuration}m exam + {paper.uploadDuration}m upload grace)
+          </div>
+        </div>
+        <div>
+          <button 
+            onClick={handleStartExam}
+            style={{
+              padding: '0.65rem 1.5rem',
+              background: '#10b981',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              fontSize: '0.9rem',
+              boxShadow: '0 4px 10px rgba(16, 185, 129, 0.2)'
+            }}
+          >
+            ▶️ Start Exam
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Dashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [data, setData] = useState(null);
@@ -1118,9 +1455,11 @@ function Dashboard({ user, onLogout }) {
                     const formData = new FormData();
                     formData.append('title', e.target.title.value);
                     formData.append('target', e.target.target.value);
+                    formData.append('examDuration', e.target.examDuration.value);
+                    formData.append('uploadDuration', e.target.uploadDuration.value);
                     
-                    // Convert local datetime-local value to ISO string to preserve exact time across timezones
-                    const localDate = new Date(e.target.scheduledTime.value);
+                    // Convert local date value (midnight) to ISO string
+                    const localDate = new Date(e.target.scheduledTime.value + "T00:00:00");
                     formData.append('scheduledTime', localDate.toISOString());
                     
                     formData.append('file', e.target.file.files[0]);
@@ -1153,9 +1492,20 @@ function Dashboard({ user, onLogout }) {
                     ))}
                   </select>
                   
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Exam Duration (minutes)</label>
+                      <input type="number" name="examDuration" placeholder="e.g. 180" defaultValue="180" required style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Upload Time (minutes)</label>
+                      <input type="number" name="uploadDuration" placeholder="e.g. 15" defaultValue="15" required style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                    </div>
+                  </div>
+
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Schedule Time (When will this be visible?)</label>
-                    <input type="datetime-local" name="scheduledTime" required style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                    <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Schedule Date (When will this be visible?)</label>
+                    <input type="date" name="scheduledTime" required style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
                   </div>
                   <input type="file" name="file" accept=".pdf,.png,.jpg,.jpeg,.docx" required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }} />
                   <button type="submit" style={{ padding: '0.75rem', background: '#10b981', color: 'white', borderRadius: '8px', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}>Upload & Schedule</button>
@@ -1166,47 +1516,117 @@ function Dashboard({ user, onLogout }) {
             <div className="card">
               <h3 style={{ marginBottom: '1.5rem' }}>{user.role === 'admin' ? 'Scheduled Papers' : 'Available Papers'}</h3>
               <div className="activity-list">
-                {papers.map((paper) => (
-                  <div key={paper._id} className="activity-item" style={{ alignItems: 'center' }}>
-                    <div>
-                      <strong style={{ fontSize: '1.1rem' }}>{paper.title}</strong>
-                      <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.2rem' }}>
-                        {user.role === 'admin' && <span style={{ marginRight: '1rem' }}>Target Student ID: <strong>{paper.target}</strong></span>}
-                        <span>Scheduled: {new Date(paper.scheduledTime).toLocaleString()}</span>
+                {papers.map((paper) => {
+                  if (user.role === 'student') {
+                    return (
+                      <StudentPaperCard 
+                        key={paper._id} 
+                        paper={paper} 
+                        user={user} 
+                        onRefresh={fetchPapers} 
+                      />
+                    );
+                  }
+
+                  // Admin View
+                  const totalDurationMins = (paper.examDuration || 180) + (paper.uploadDuration || 15);
+                  const totalDurationMs = totalDurationMins * 60 * 1000;
+                  const hasExpired = paper.startTime && (new Date(paper.startTime).getTime() + totalDurationMs < new Date().getTime());
+
+                  let statusText = "Not Started";
+                  let statusColor = "var(--text-muted)";
+                  let statusBg = "rgba(0,0,0,0.06)";
+
+                  if (paper.answerUploadedAt) {
+                    statusText = "Submitted";
+                    statusColor = "#10b981";
+                    statusBg = "rgba(16, 185, 129, 0.1)";
+                  } else if (hasExpired) {
+                    statusText = "Expired";
+                    statusColor = "#ef4444";
+                    statusBg = "rgba(239, 68, 68, 0.1)";
+                  } else if (paper.startTime) {
+                    statusText = "In Progress";
+                    statusColor = "var(--primary-color)";
+                    statusBg = "rgba(59, 130, 246, 0.1)";
+                  }
+
+                  return (
+                    <div key={paper._id} className="activity-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.2rem', padding: '1.2rem', background: 'white', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: '0 2px 8px rgba(0,0,0,0.01)' }}>
+                      <div>
+                        <strong style={{ fontSize: '1.1rem', color: 'var(--text-main)' }}>{paper.title}</strong>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.4rem', display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
+                          <span>Target: <strong>{paper.target}</strong></span>
+                          <span>Scheduled Date: <strong>{new Date(paper.scheduledTime).toLocaleDateString()}</strong></span>
+                          <span>Exam: <strong>{paper.examDuration || 180}m</strong> | Upload: <strong>{paper.uploadDuration || 15}m</strong></span>
+                        </div>
+                        {paper.startTime && (
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
+                            Started: {new Date(paper.startTime).toLocaleString()} 
+                            {paper.answerUploadedAt && ` • Submitted: ${new Date(paper.answerUploadedAt).toLocaleString()}`}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
+                        <span style={{ fontSize: '0.8rem', color: statusColor, background: statusBg, padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                          {statusText}
+                        </span>
+
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button onClick={async () => {
+                            try {
+                              const res = await fetch(`/student/paper/${paper._id}/download`, {
+                                headers: { 'Authorization': `Bearer ${user.token}` }
+                              });
+                              if (!res.ok) throw new Error("Failed to download");
+                              const blob = await res.blob();
+                              const url = window.URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = paper.fileName || 'question-paper.pdf';
+                              document.body.appendChild(a);
+                              a.click();
+                              a.remove();
+                            } catch(err) {
+                              alert("Error downloading QP");
+                            }
+                          }} style={{ padding: '0.45rem 0.9rem', background: 'rgba(59, 130, 246, 0.08)', color: 'var(--primary-color)', border: '1px solid rgba(59, 130, 246, 0.2)', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }} title="Download Question Paper">
+                            QP 📥
+                          </button>
+
+                          {paper.answerUploadedAt && (
+                            <button onClick={async () => {
+                              try {
+                                const res = await fetch(`/admin/paper/${paper._id}/download-answer`, {
+                                  headers: { 'Authorization': `Bearer ${user.token}` }
+                                });
+                                if (!res.ok) throw new Error();
+                                const blob = await res.blob();
+                                const url = window.URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = paper.answerFileName || 'answer-sheet.pdf';
+                                document.body.appendChild(a);
+                                a.click();
+                                a.remove();
+                              } catch(err) {
+                                alert("Error downloading answer sheet");
+                              }
+                            }} style={{ padding: '0.45rem 0.9rem', background: 'rgba(16, 185, 129, 0.08)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }} title="Download Scanned Answer Sheet">
+                              Answer 📥
+                            </button>
+                          )}
+
+                          <button onClick={async () => {
+                            if(!window.confirm('Delete this paper?')) return;
+                            await fetch(`/admin/paper/${paper._id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${user.token}` }});
+                            fetchPapers();
+                          }} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '1.2rem', padding: '0 0.5rem' }}>🗑️</button>
+                        </div>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '1rem' }}>
-                      <button onClick={async () => {
-                        try {
-                          const res = await fetch(`/student/paper/${paper._id}/download`, {
-                            headers: { 'Authorization': `Bearer ${user.token}` }
-                          });
-                          if (!res.ok) throw new Error("Failed to download");
-                          const blob = await res.blob();
-                          const url = window.URL.createObjectURL(blob);
-                          const a = document.createElement('a');
-                          a.href = url;
-                          a.download = paper.fileName || 'document.pdf';
-                          document.body.appendChild(a);
-                          a.click();
-                          a.remove();
-                        } catch(err) {
-                          alert("Error downloading file");
-                        }
-                      }} style={{ padding: '0.5rem 1rem', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
-                        Download
-                      </button>
-                      
-                      {user.role === 'admin' && (
-                        <button onClick={async () => {
-                          if(!window.confirm('Delete this paper?')) return;
-                          await fetch(`/admin/paper/${paper._id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${user.token}` }});
-                          fetchPapers();
-                        }} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '1.2rem' }}>🗑️</button>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {papers.length === 0 && <p style={{ color: 'var(--text-muted)' }}>No papers available.</p>}
               </div>
             </div>

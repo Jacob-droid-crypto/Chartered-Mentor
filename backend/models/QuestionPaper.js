@@ -26,6 +26,34 @@ const questionPaperSchema = new mongoose.Schema({
     type: Date,
     required: true,
   },
+  examDuration: {
+    type: Number,
+    default: 180, // In minutes
+  },
+  uploadDuration: {
+    type: Number,
+    default: 15, // In minutes
+  },
+  startTime: {
+    type: Date,
+    default: null,
+  },
+  answerFileName: {
+    type: String,
+    default: null,
+  },
+  answerFileType: {
+    type: String,
+    default: null,
+  },
+  answerFileData: {
+    type: String,
+    default: null,
+  },
+  answerUploadedAt: {
+    type: Date,
+    default: null,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

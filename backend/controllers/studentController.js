@@ -547,15 +547,9 @@ const getStudentPapers = async (req, res) => {
     const user = req.user;
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // The core Time-Gate logic: scheduledTime must be <= current date
-    const query = {
-      $and: [
-        { scheduledTime: { $lte: new Date() } },
-        { target: user.userId }
-      ]
-    };
+    const query = { target: user.userId };
 
-    const papers = await QuestionPaper.find(query, { fileData: 0 }).sort({ scheduledTime: -1 });
+    const papers = await QuestionPaper.find(query, { fileData: 0, answerFileData: 0 }).sort({ scheduledTime: 1 });
 
     res.json(papers);
   } catch (err) {
@@ -674,6 +668,122 @@ const manualAttendance = async (req, res) => {
   }
 };
 
+/* ================= START STUDENT EXAM ================= */
+const startStudentExam = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = req.user;
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const paper = await QuestionPaper.findOne({ _id: id, target: user.userId });
+    if (!paper) {
+      return res.status(404).json({ message: "Paper not found" });
+    }
+
+    // Date comparison (midnight local time or date string splitting)
+    const todayStr = new Date().toISOString().split("T")[0];
+    const scheduledStr = new Date(paper.scheduledTime).toISOString().split("T")[0];
+
+    // If today is before the scheduled date, it's locked
+    if (todayStr < scheduledStr) {
+      return res.status(400).json({ message: "Exam is locked until the scheduled date" });
+    }
+
+    // Set startTime if not already started
+    if (!paper.startTime) {
+      paper.startTime = new Date();
+      await paper.save();
+    }
+
+    res.json({
+      message: "Exam started successfully",
+      startTime: paper.startTime,
+      examDuration: paper.examDuration,
+      uploadDuration: paper.uploadDuration,
+    });
+  } catch (err) {
+    console.error("Start exam error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* ================= SUBMIT ANSWER PAPER ================= */
+const submitAnswerPaper = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = req.user;
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const { answerFileName, answerFileType, answerFileData } = req.body;
+
+    if (!answerFileName || !answerFileType || !answerFileData) {
+      return res.status(400).json({ message: "Missing file details" });
+    }
+
+    const paper = await QuestionPaper.findOne({ _id: id, target: user.userId });
+    if (!paper) {
+      return res.status(404).json({ message: "Paper not found" });
+    }
+
+    if (!paper.startTime) {
+      return res.status(400).json({ message: "Exam has not been started yet" });
+    }
+
+    // Enforce combined exam + upload duration timer
+    const totalDurationMs = (paper.examDuration + paper.uploadDuration) * 60 * 1000;
+    const startMs = new Date(paper.startTime).getTime();
+    const currentMs = new Date().getTime();
+
+    // 2-minute buffer for network lag
+    if (currentMs - startMs > totalDurationMs + 120000) {
+      return res.status(400).json({ message: "Time Expired. Answer sheets cannot be submitted." });
+    }
+
+    paper.answerFileName = answerFileName;
+    paper.answerFileType = answerFileType;
+    paper.answerFileData = answerFileData;
+    paper.answerUploadedAt = new Date();
+    await paper.save();
+
+    res.json({
+      message: "Answer sheets submitted successfully",
+      answerUploadedAt: paper.answerUploadedAt,
+      answerFileName: paper.answerFileName,
+    });
+  } catch (err) {
+    console.error("Submit answer error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* ================= STUDENT VIEW ANSWER SHEET ================= */
+const downloadStudentAnswerPaper = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = req.user;
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const paper = await QuestionPaper.findOne({ _id: id, target: user.userId });
+
+    if (!paper) {
+      return res.status(404).json({ message: "Paper not found" });
+    }
+
+    if (!paper.answerFileData) {
+      return res.status(404).json({ message: "Answer sheet not submitted yet" });
+    }
+
+    const buffer = Buffer.from(paper.answerFileData, "base64");
+
+    res.setHeader("Content-Type", paper.answerFileType || "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="${paper.answerFileName || "answer-sheet.pdf"}"`);
+    res.send(buffer);
+  } catch (err) {
+    console.error("Download student answer error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   loginStudent,
   changePassword,
@@ -686,6 +796,9 @@ module.exports = {
   verifyGoogle,
   getStudentPapers,
   downloadPaper,
+  startStudentExam,
+  submitAnswerPaper,
+  downloadStudentAnswerPaper,
   submitPayment,
   manualAttendance
 };
