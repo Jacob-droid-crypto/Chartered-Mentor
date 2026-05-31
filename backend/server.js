@@ -13,6 +13,12 @@ const app = express();
 /* ================= DATABASE CONNECTION ================= */
 connectDB();
 
+// Run a one-time migration to clean up any base64 profile photos to free up DB storage immediately
+const User = require("./models/User");
+User.updateMany({ profilePhoto: { $exists: true } }, { $unset: { profilePhoto: "" } })
+  .then((res) => console.log(`🧹 Cleared profile photos from database to reclaim storage:`, res))
+  .catch((err) => console.error(`Error clearing profile photos:`, err));
+
 /* ================= BACKGROUND JOBS ================= */
 initCronJobs();
 

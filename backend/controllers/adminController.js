@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Attendance = require("../models/Attendance");
 const PaymentConfig = require("../models/PaymentConfig");
+const QuestionPaper = require("../models/QuestionPaper");
 
 const generateToken = (userId, role) => {
   return jwt.sign({ userId, role }, process.env.JWT_SECRET || "fallback_secret", {
@@ -299,6 +300,10 @@ const deleteStudent = async (req, res) => {
     
     // Also clear out their attendance 
     await Attendance.deleteMany({ studentId: id });
+    
+    // Also clear out their scheduled question papers (base64 storage recovery)
+    await QuestionPaper.deleteMany({ target: id });
+
     res.json({ message: "Student deleted successfully" });
   } catch (err) {
     console.error("Delete student error:", err);
@@ -350,7 +355,6 @@ const getProfile = async (req, res) => {
   }
 };
 
-const QuestionPaper = require("../models/QuestionPaper");
 
 /* ================= UPLOAD QUESTION PAPER ================= */
 const uploadQuestionPaper = async (req, res) => {

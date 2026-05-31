@@ -846,22 +846,15 @@ function Dashboard({ user, onLogout }) {
                   <h3 style={{ borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem', marginBottom: '1.5rem', color: 'var(--primary-color)', fontSize: '1.2rem', fontWeight: 'bold' }}>👤 Personal Details</h3>
                   
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-                    <div style={{ display: 'flex', gap: '2rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                      {profileForm.profilePhoto || user.profilePhoto ? (
-                        <img src={profileForm.profilePhoto || user.profilePhoto} alt="Profile" style={{ width: '90px', height: '90px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary-color)', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }} />
-                      ) : (
-                        <div className="avatar" style={{ width: '90px', height: '90px', fontSize: '2.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold' }}>
-                          {user.name ? user.name.charAt(0).toUpperCase() : '?'}
-                        </div>
-                      )}
+                    <div style={{ display: 'flex', gap: '2rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1.2rem', padding: '1rem', background: 'rgba(59, 130, 246, 0.04)', borderRadius: '12px', border: '1px dashed rgba(59, 130, 246, 0.2)' }}>
+                      <div className="avatar" style={{ width: '80px', height: '80px', fontSize: '2.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', borderRadius: '50%', background: 'var(--primary-color)' }}>
+                        {user.name ? user.name.charAt(0).toUpperCase() : '?'}
+                      </div>
                       <div>
-                        <label style={{ display: 'inline-block', padding: '0.6rem 1.2rem', background: 'rgba(59, 130, 246, 0.08)', color: 'var(--primary-color)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', transition: 'all 0.2s' }}>
-                          Choose Image / Take Photo
-                          <input type="file" accept="image/*" onChange={handlePhotoUpload} style={{ display: 'none' }} />
-                        </label>
-                        {profileForm.profilePhoto && (
-                          <button type="button" onClick={() => setProfileForm({ ...profileForm, profilePhoto: '' })} style={{ marginLeft: '1rem', padding: '0.6rem 1.2rem', background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem' }}>Remove</button>
-                        )}
+                        <h4 style={{ margin: '0 0 0.3rem 0', color: 'var(--text-main)', fontSize: '1.2rem', fontWeight: 'bold' }}>{user.name}</h4>
+                        <span style={{ background: 'rgba(59, 130, 246, 0.1)', color: 'var(--primary-color)', padding: '4px 10px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                          🎓 {user.role} Account
+                        </span>
                       </div>
                     </div>
 
