@@ -140,7 +140,9 @@ const getDashboard = async (req, res) => {
       motherName: student.motherName || "",
       motherPhone: student.motherPhone || "",
       motherOccupation: student.motherOccupation || "",
-      profileCompleted: student.profileCompleted || false
+      profileCompleted: student.profileCompleted || false,
+      batch: student.batch || "",
+      dob: student.dob || null
     });
   } catch (err) {
     console.error(err);
@@ -312,7 +314,7 @@ const updateProfile = async (req, res) => {
     
     const { 
       name, email, phone, course, profilePhoto,
-      address, group, aadharNumber,
+      address, group, aadharNumber, dob,
       fatherName, fatherPhone, fatherOccupation,
       motherName, motherPhone, motherOccupation
     } = req.body;
@@ -326,6 +328,7 @@ const updateProfile = async (req, res) => {
     if (address !== undefined) user.address = address;
     if (group !== undefined) user.group = group;
     if (aadharNumber !== undefined) user.aadharNumber = aadharNumber;
+    if (dob !== undefined) user.dob = dob;
     if (fatherName !== undefined) user.fatherName = fatherName;
     if (fatherPhone !== undefined) user.fatherPhone = fatherPhone;
     if (fatherOccupation !== undefined) user.fatherOccupation = fatherOccupation;
@@ -341,6 +344,7 @@ const updateProfile = async (req, res) => {
       user.address && 
       user.group && 
       user.aadharNumber && 
+      user.dob &&
       user.fatherName && 
       user.fatherPhone && 
       user.fatherOccupation && 

@@ -16,7 +16,7 @@ function Dashboard({ user, onLogout }) {
 
   // Add student form state
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newStudent, setNewStudent] = useState({ name: '', email: '', course: 'INTER', mode: 'residential' });
+  const [newStudent, setNewStudent] = useState({ name: '', email: '', course: 'INTER', mode: 'residential', batch: 'September 2026' });
   const [newStudentDetails, setNewStudentDetails] = useState(null);
 
   // Student options dropdown state
@@ -33,7 +33,7 @@ function Dashboard({ user, onLogout }) {
   // Profile State
   const [profileForm, setProfileForm] = useState({
     name: '', email: '', phone: '', course: '', profilePhoto: '',
-    address: '', group: '', aadharNumber: '',
+    address: '', group: '', aadharNumber: '', dob: '',
     fatherName: '', fatherPhone: '', fatherOccupation: '',
     motherName: '', motherPhone: '', motherOccupation: ''
   });
@@ -211,6 +211,7 @@ function Dashboard({ user, onLogout }) {
         address: resData.address || '',
         group: resData.group || '',
         aadharNumber: resData.aadharNumber || '',
+        dob: resData.dob ? new Date(resData.dob).toISOString().split('T')[0] : '',
         fatherName: resData.fatherName || '',
         fatherPhone: resData.fatherPhone || '',
         fatherOccupation: resData.fatherOccupation || '',
@@ -516,10 +517,10 @@ function Dashboard({ user, onLogout }) {
         name: newStudent.name,
         email: newStudent.email,
         userId: result.userId,
-        password: result.password
+        batch: newStudent.batch
       });
 
-      setNewStudent({ name: '', email: '', course: 'INTER' });
+      setNewStudent({ name: '', email: '', course: 'INTER', batch: 'September 2026' });
       setShowAddForm(false);
       fetchStudentsData();
     } catch (err) {
@@ -899,6 +900,10 @@ function Dashboard({ user, onLogout }) {
                         <div>
                           <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'bold' }}>Aadhaar Number</label>
                           <input type="text" required pattern="\d{12}" title="Aadhaar must be a 12-digit number" placeholder="Enter 12-digit Aadhaar" value={profileForm.aadharNumber || ''} onChange={(e) => setProfileForm({ ...profileForm, aadharNumber: e.target.value.replace(/\D/g, '').substring(0, 12) })} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)', fontSize: '1rem' }} />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'bold' }}>Date of Birth</label>
+                          <input type="date" required value={profileForm.dob || ''} onChange={(e) => setProfileForm({ ...profileForm, dob: e.target.value })} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)', fontSize: '1rem' }} />
                         </div>
                       </div>
                     )}
@@ -1513,6 +1518,13 @@ function Dashboard({ user, onLogout }) {
                       <option value="online">Online</option>
                     </select>
                   </div>
+                  <div style={{ flex: 1, minWidth: '150px' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Batch</label>
+                    <select value={newStudent.batch || 'September 2026'} onChange={e => setNewStudent({ ...newStudent, batch: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'rgba(255, 255, 255, 0.8)', color: 'var(--text-main)', outline: 'none' }}>
+                      <option value="September 2026">September 2026</option>
+                      <option value="November 2026">November 2026</option>
+                    </select>
+                  </div>
                   <div style={{ alignSelf: 'flex-end' }}>
                     <button type="submit" style={{ padding: '0.65rem 1.5rem', background: '#10b981', color: 'white', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>Save</button>
                   </div>
@@ -1543,7 +1555,7 @@ function Dashboard({ user, onLogout }) {
                           }}>
                             {student.currentStatus === 'Inside' ? '🟢 Inside' : '🔴 Outside'}
                           </span>
-                          {student.email || 'No email'}
+                          {student.email || 'No email'} • Batch: {student.batch || 'N/A'}
                           <div style={{ marginTop: '0.5rem', display: 'flex', gap: '1rem', fontSize: '0.85rem' }}>
                             <span>Total Fee: ₹{student.totalFees || 0}</span>
                             <span style={{ color: '#10b981' }}>Paid: ₹{student.feesPaid || 0}</span>
@@ -1630,6 +1642,10 @@ function Dashboard({ user, onLogout }) {
               <div className="detail-row">
                 <span className="detail-label">User ID</span>
                 <span className="detail-value highlight">{newStudentDetails.userId}</span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Batch</span>
+                <span className="detail-value">{newStudentDetails.batch}</span>
               </div>
 
             </div>

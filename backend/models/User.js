@@ -74,6 +74,13 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  batch: {
+    type: String,
+    enum: ["September 2026", "November 2026"],
+  },
+  dob: {
+    type: Date,
+  },
   resetPasswordOtp: {
     type: String,
   },

@@ -35,9 +35,9 @@ const loginAdmin = async (req, res) => {
 /* ================= ADD STUDENT ================= */
 const addStudent = async (req, res) => {
   try {
-    const { name, email, course, mode } = req.body;
+    const { name, email, course, mode, batch } = req.body;
 
-    if (!name || !email || !course) {
+    if (!name || !email || !course || !batch) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
@@ -70,6 +70,7 @@ const addStudent = async (req, res) => {
       email,
       course,
       mode: mode || "residential",
+      batch,
       password: hashedPassword,
       role: "student",
       firstLogin: true,
