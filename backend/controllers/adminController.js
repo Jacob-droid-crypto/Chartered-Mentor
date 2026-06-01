@@ -55,9 +55,23 @@ const addStudent = async (req, res) => {
     else if (course === "FINAL") coursePrefix = "FIN";
 
     const year = new Date().getFullYear().toString().slice(-2);
-    const count = await User.countDocuments({ role: "student", course: course });
-    const admissionNumber = 101 + count;
-    const studentId = `${coursePrefix}${year}${admissionNumber}`;
+    const prefix = `${coursePrefix}${year}`;
+    
+    // Find the student with the highest admission number for this course and year
+    const lastStudent = await User.findOne({
+      role: "student",
+      userId: { $regex: `^${prefix}` }
+    }).sort({ userId: -1 });
+
+    let admissionNumber = 101;
+    if (lastStudent) {
+      const lastNumberStr = lastStudent.userId.replace(prefix, "");
+      const lastNumber = parseInt(lastNumberStr, 10);
+      if (!isNaN(lastNumber)) {
+        admissionNumber = lastNumber + 1;
+      }
+    }
+    const studentId = `${prefix}${admissionNumber}`;
 
     // Create a temporary unguessable password
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%";
