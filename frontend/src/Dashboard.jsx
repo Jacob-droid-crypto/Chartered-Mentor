@@ -355,6 +355,7 @@ function Dashboard({ user, onLogout }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newStudent, setNewStudent] = useState({ name: '', email: '', course: 'INTER', mode: 'residential', batch: 'September 2026' });
   const [newStudentDetails, setNewStudentDetails] = useState(null);
+  const [viewingProfileStudent, setViewingProfileStudent] = useState(null);
 
   // Student options dropdown state
   const [openMenuId, setOpenMenuId] = useState(null);
@@ -2003,6 +2004,9 @@ function Dashboard({ user, onLogout }) {
 
                       {openMenuId === student.userId && (
                         <div className="options-dropdown" onClick={(e) => e.stopPropagation()}>
+                          <button onClick={() => { setViewingProfileStudent(student); setOpenMenuId(null); }} className="dropdown-item">
+                            👁️ View Full Profile
+                          </button>
                           <button onClick={() => { handleResetPassword(student.userId); setOpenMenuId(null); }} className="dropdown-item">
                             🔄 Reset Password
                           </button>
@@ -2155,6 +2159,113 @@ function Dashboard({ user, onLogout }) {
                 <button type="submit" style={{ flex: 1, padding: '0.8rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Verify Payment</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* STUDENT PROFILE VIEW MODAL */}
+      {viewingProfileStudent && (
+        <div className="modal-overlay" onClick={() => setViewingProfileStudent(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px', width: '95%', padding: '2rem', borderRadius: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.75rem' }}>
+              <h2 style={{ margin: 0, fontSize: '1.4rem', color: 'var(--text-main)' }}>Student Profile: {viewingProfileStudent.name}</h2>
+              <button onClick={() => setViewingProfileStudent(null)} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-muted)' }}>&times;</button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxHeight: '65vh', overflowY: 'auto', paddingRight: '0.5rem', textAlign: 'left' }}>
+              {/* Personal Section */}
+              <div>
+                <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.1rem', color: 'var(--primary-color)', borderBottom: '1px dashed var(--glass-border)', paddingBottom: '4px' }}>👤 Personal Details</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem 1.5rem', fontSize: '0.95rem' }}>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Student ID</span>
+                    <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.userId}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Course & Mode</span>
+                    <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.course} ({viewingProfileStudent.mode || 'residential'})</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Email</span>
+                    <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.email || 'N/A'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Phone</span>
+                    <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.phone || 'N/A'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Date of Birth</span>
+                    <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.dob ? new Date(viewingProfileStudent.dob).toLocaleDateString() : 'N/A'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Batch</span>
+                    <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.batch || 'N/A'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Group Choice</span>
+                    <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.group || 'N/A'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Aadhaar Number</span>
+                    <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.aadharNumber || 'N/A'}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Address Section */}
+              <div>
+                <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.1rem', color: 'var(--primary-color)', borderBottom: '1px dashed var(--glass-border)', paddingBottom: '4px' }}>📍 Permanent Address</h3>
+                <p style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-main)', lineHeight: '1.4' }}>{viewingProfileStudent.address || 'N/A'}</p>
+              </div>
+
+              {/* Parents Section */}
+              <div>
+                <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.1rem', color: 'var(--primary-color)', borderBottom: '1px dashed var(--glass-border)', paddingBottom: '4px' }}>🧔 Father's Details</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem 1.5rem', fontSize: '0.95rem' }}>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Father's Name</span>
+                    <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.fatherName || 'N/A'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Father's Phone</span>
+                    <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.fatherPhone || 'N/A'}</strong>
+                  </div>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Occupation</span>
+                    <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.fatherOccupation || 'N/A'}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.1rem', color: 'var(--primary-color)', borderBottom: '1px dashed var(--glass-border)', paddingBottom: '4px' }}>👩 Mother's Details</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem 1.5rem', fontSize: '0.95rem' }}>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Mother's Name</span>
+                    <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.motherName || 'N/A'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Mother's Phone</span>
+                    <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.motherPhone || 'N/A'}</strong>
+                  </div>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Occupation</span>
+                    <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.motherOccupation || 'N/A'}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Profile Status */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem', borderRadius: '8px', background: viewingProfileStudent.profileCompleted ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)', color: viewingProfileStudent.profileCompleted ? '#10b981' : '#ef4444', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                <span>{viewingProfileStudent.profileCompleted ? '✅ Profile Completed' : '⚠️ Profile Incomplete'}</span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', borderTop: '1px solid var(--glass-border)', paddingTop: '1rem' }}>
+              <button className="modal-btn" onClick={() => setViewingProfileStudent(null)} style={{ margin: 0, padding: '0.6rem 1.5rem', fontSize: '0.95rem' }}>
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
