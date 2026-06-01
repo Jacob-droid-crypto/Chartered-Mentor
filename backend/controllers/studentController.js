@@ -172,7 +172,7 @@ const scanQr = async (req, res) => {
 
     // --- 1. IP RESTRICTION ---
     // Read allowed IPs from env (comma-separated list). Fallback to new hardcoded IP.
-    const allowedIPsRaw = process.env.ALLOWED_IP || "192.168.68.120";
+    const allowedIPsRaw = process.env.ALLOWED_IP || "192.168.68.120, 111.92.83.195";
     const ALLOWED_IPS = allowedIPsRaw.split(",").map(ip => ip.trim()).filter(Boolean);
 
     let requestIP = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "";
