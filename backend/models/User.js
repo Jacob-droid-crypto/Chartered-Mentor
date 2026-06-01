@@ -81,6 +81,9 @@ const userSchema = new mongoose.Schema({
   dob: {
     type: Date,
   },
+  joiningDate: {
+    type: Date,
+  },
   resetPasswordOtp: {
     type: String,
   },

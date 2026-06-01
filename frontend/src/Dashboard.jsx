@@ -371,7 +371,7 @@ function Dashboard({ user, onLogout }) {
   // Profile State
   const [profileForm, setProfileForm] = useState({
     name: '', email: '', phone: '', course: '', profilePhoto: '',
-    address: '', group: '', aadharNumber: '', dob: '',
+    address: '', group: '', aadharNumber: '', dob: '', joiningDate: '',
     fatherName: '', fatherPhone: '', fatherOccupation: '',
     motherName: '', motherPhone: '', motherOccupation: '',
     mode: '', batch: ''
@@ -558,7 +558,8 @@ function Dashboard({ user, onLogout }) {
         motherPhone: resData.motherPhone || '',
         motherOccupation: resData.motherOccupation || '',
         mode: resData.mode || '',
-        batch: resData.batch || ''
+        batch: resData.batch || '',
+        joiningDate: resData.joiningDate ? new Date(resData.joiningDate).toISOString().split('T')[0] : ''
       });
     } catch (e) { setError(e.message); } finally { setLoading(false); }
   };
@@ -1251,6 +1252,10 @@ function Dashboard({ user, onLogout }) {
                         <div>
                           <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'bold' }}>Date of Birth</label>
                           <input type="date" required value={profileForm.dob || ''} onChange={(e) => setProfileForm({ ...profileForm, dob: e.target.value })} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)', fontSize: '1rem' }} />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'bold' }}>Date of Joining</label>
+                          <input type="date" required value={profileForm.joiningDate || ''} onChange={(e) => setProfileForm({ ...profileForm, joiningDate: e.target.value })} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)', fontSize: '1rem' }} />
                         </div>
                       </div>
                     )}
@@ -1986,6 +1991,7 @@ function Dashboard({ user, onLogout }) {
                             {student.currentStatus === 'Inside' ? '🟢 Inside' : '🔴 Outside'}
                           </span>
                           {student.email || 'No email'} • Batch: {student.batch || 'N/A'} • Mode: <span style={{ textTransform: 'capitalize' }}>{student.mode || 'N/A'}</span>
+                          {student.joiningDate && ` • Joined: ${new Date(student.joiningDate).toLocaleDateString()}`}
                           <div style={{ marginTop: '0.5rem', display: 'flex', gap: '1rem', fontSize: '0.85rem' }}>
                             <span>Total Fee: ₹{student.totalFees || 0}</span>
                             <span style={{ color: '#10b981' }}>Paid: ₹{student.feesPaid || 0}</span>
@@ -2208,6 +2214,48 @@ function Dashboard({ user, onLogout }) {
                   <div>
                     <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Aadhaar Number</span>
                     <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.aadharNumber || 'N/A'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Date of Joining</span>
+                    {user.role === 'admin' ? (
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.2rem' }}>
+                        <input
+                          type="date"
+                          value={viewingProfileStudent.joiningDate ? new Date(viewingProfileStudent.joiningDate).toISOString().split('T')[0] : ''}
+                          onChange={(e) => {
+                            const newDoj = e.target.value;
+                            setViewingProfileStudent({ ...viewingProfileStudent, joiningDate: newDoj });
+                          }}
+                          style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid var(--glass-border)', fontSize: '0.9rem', width: '135px' }}
+                        />
+                        <button
+                          onClick={async () => {
+                            try {
+                              const res = await fetch(`/admin/student/${viewingProfileStudent.userId}/profile`, {
+                                method: 'POST',
+                                headers: {
+                                  'Authorization': `Bearer ${user.token}`,
+                                  'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({ joiningDate: viewingProfileStudent.joiningDate })
+                              });
+                              if (!res.ok) throw new Error(await res.text());
+                              alert('Date of Joining saved!');
+                              fetchStudentsData();
+                            } catch(err) {
+                              alert('Error saving date of joining: ' + err.message);
+                            }
+                          }}
+                          style={{ padding: '4px 8px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
+                        >
+                          Save
+                        </button>
+                      </div>
+                    ) : (
+                      <strong style={{ color: 'var(--text-main)' }}>
+                        {viewingProfileStudent.joiningDate ? new Date(viewingProfileStudent.joiningDate).toLocaleDateString() : 'N/A'}
+                      </strong>
+                    )}
                   </div>
                 </div>
               </div>

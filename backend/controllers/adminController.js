@@ -579,6 +579,26 @@ const rejectStudentPayment = async (req, res) => {
   }
 };
 
+const updateStudentProfileByAdmin = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const { joiningDate } = req.body;
+    
+    const student = await User.findOneAndUpdate(
+      { userId: studentId, role: "student" },
+      { joiningDate },
+      { new: true }
+    );
+    
+    if (!student) return res.status(404).json({ message: "Student not found" });
+    
+    res.json({ message: "Student profile updated successfully", student });
+  } catch (err) {
+    console.error("Update student profile by admin error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   loginAdmin,
   addStudent,
@@ -597,5 +617,6 @@ module.exports = {
   updateStudentFees,
   addStudentPayment,
   approveStudentPayment,
-  rejectStudentPayment
+  rejectStudentPayment,
+  updateStudentProfileByAdmin
 };

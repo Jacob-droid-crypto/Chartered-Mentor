@@ -313,7 +313,7 @@ const updateProfile = async (req, res) => {
     
     const { 
       name, email, phone, course, profilePhoto,
-      address, group, aadharNumber, dob,
+      address, group, aadharNumber, dob, joiningDate,
       fatherName, fatherPhone, fatherOccupation,
       motherName, motherPhone, motherOccupation
     } = req.body;
@@ -328,6 +328,7 @@ const updateProfile = async (req, res) => {
     if (group !== undefined) user.group = group;
     if (aadharNumber !== undefined) user.aadharNumber = aadharNumber;
     if (dob !== undefined) user.dob = dob;
+    if (joiningDate !== undefined) user.joiningDate = joiningDate;
     if (fatherName !== undefined) user.fatherName = fatherName;
     if (fatherPhone !== undefined) user.fatherPhone = fatherPhone;
     if (fatherOccupation !== undefined) user.fatherOccupation = fatherOccupation;
@@ -344,6 +345,7 @@ const updateProfile = async (req, res) => {
       user.group && 
       user.aadharNumber && 
       user.dob &&
+      user.joiningDate &&
       user.fatherName && 
       user.fatherPhone && 
       user.fatherOccupation && 
