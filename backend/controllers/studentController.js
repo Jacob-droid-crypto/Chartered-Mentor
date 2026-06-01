@@ -171,8 +171,8 @@ const scanQr = async (req, res) => {
     }
 
     // --- 1. IP RESTRICTION ---
-    // Read allowed IPs from env (comma-separated list). Fallback to old hardcoded IP.
-    const allowedIPsRaw = process.env.ALLOWED_IP || "103.182.166.218";
+    // Read allowed IPs from env (comma-separated list). Fallback to new hardcoded IP.
+    const allowedIPsRaw = process.env.ALLOWED_IP || "192.168.68.120";
     const ALLOWED_IPS = allowedIPsRaw.split(",").map(ip => ip.trim()).filter(Boolean);
 
     let requestIP = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "";
@@ -188,8 +188,7 @@ const scanQr = async (req, res) => {
       cleanIP === "127.0.0.1" || 
       cleanIP === "localhost" ||
       cleanIP.startsWith("192.168.") ||
-      cleanIP.startsWith("10.") ||
-      cleanIP.startsWith("103.182.166.");
+      cleanIP.startsWith("10.");
 
     if (!isIpAllowed) {
       // Also check for 172.16.x.x to 172.31.x.x
@@ -215,8 +214,8 @@ const scanQr = async (req, res) => {
 
     // Set your Institute's exact Latitude and Longitude here:
     // Update these values to the precise GPS coordinates of the institute
-    const INST_LAT = 9.7760483; 
-    const INST_LNG = 76.7631978;
+    const INST_LAT = 9.99232; 
+    const INST_LNG = 76.31317;
     const ALLOWED_RADIUS_METERS = 50; // Strict 50m radius
     
     const getDistance = (lat1, lon1, lat2, lon2) => {
