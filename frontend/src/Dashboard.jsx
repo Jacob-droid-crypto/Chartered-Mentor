@@ -535,6 +535,8 @@ function Dashboard({ user, onLogout }) {
     }
     if (activeTab === 'attendance') {
       fetchDashboardData(); // Fetches daily-summary (admin) or dashboard (student)
+      fetchGoalConfig();
+      if (user.role === 'admin') fetchStudentsData();
     }
     if (activeTab === 'profile') {
       fetchProfileData();
@@ -1784,11 +1786,23 @@ function Dashboard({ user, onLogout }) {
                         </div>
                       </div>
 
-                      {attendanceView === 'daily' ? (
-                        <div className="activity-date" style={{ fontWeight: 'bold', color: record.status === 'Present' ? '#10b981' : record.status === 'Partial' ? '#f59e0b' : '#ef4444' }}>
-                          {record.status} ({formatStudyTime(record.totalHours)}) • {record.date}
-                        </div>
-                      ) : (
+                      {attendanceView === 'daily' ? (() => {
+                        const recDate = new Date(record.date);
+                        const dayOfWeek = recDate.getDay();
+                        const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+                        const dayKey = dayKeys[dayOfWeek];
+                        const targetHours = goalConfig[dayKey] !== undefined ? goalConfig[dayKey] : 12;
+                        return (
+                          <div className="activity-date" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.2rem' }}>
+                            <span style={{ fontWeight: 'bold', color: record.status === 'Present' ? '#10b981' : record.status === 'Partial' ? '#f59e0b' : '#ef4444' }}>
+                              {record.status} ({formatStudyTime(record.totalHours)})
+                            </span>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>
+                              Target: {targetHours > 0 ? `${targetHours} hrs` : 'Holiday'} • {record.date}
+                            </span>
+                          </div>
+                        );
+                      })() : (
                         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
                           <span style={{ color: '#10b981', fontWeight: 'bold' }}>Present: {record.totalPresent}</span>
                           <span style={{ color: '#f59e0b', fontWeight: 'bold' }}>Partial: {record.totalPartial}</span>
@@ -2324,15 +2338,51 @@ function Dashboard({ user, onLogout }) {
               const stats = calculateStudentStats();
               const shortfallDays = studyTrackerPeriod === 'week' ? stats.lowHoursWeek : stats.lowHoursMonth;
               const totalDaysCount = shortfallDays.length;
+              const todayDayIndex = new Date().getDay();
+              const todayKey = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][todayDayIndex];
+              const todayTarget = goalConfig[todayKey] !== undefined ? goalConfig[todayKey] : 12;
 
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                  {/* Weekly Target Goals Schedule */}
+                  <div className="card" style={{ padding: '1.5rem', marginBottom: '0.5rem' }}>
+                    <h3 style={{ fontSize: '1.1rem', color: 'var(--text-main)', fontWeight: 'bold', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      🎯 Weekly Target Goals Schedule
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '1rem' }}>
+                      {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => {
+                        const target = goalConfig[day] !== undefined ? goalConfig[day] : (day === 'sunday' ? 0 : 12);
+                        const isToday = new Date().toLocaleDateString(undefined, { weekday: 'long' }).toLowerCase() === day;
+                        return (
+                          <div key={day} style={{
+                            padding: '0.75rem',
+                            background: isToday ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(236, 72, 153, 0.05))' : 'rgba(255, 255, 255, 0.4)',
+                            border: isToday ? '1px solid var(--primary-color)' : '1px solid var(--glass-border)',
+                            borderRadius: '12px',
+                            textAlign: 'center',
+                            boxShadow: isToday ? '0 4px 12px rgba(99, 102, 241, 0.1)' : 'none'
+                          }}>
+                            <span style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'capitalize', color: isToday ? 'var(--primary-color)' : 'var(--text-muted)' }}>
+                              {day}
+                            </span>
+                            <strong style={{ display: 'block', fontSize: '1.25rem', marginTop: '0.25rem', color: 'var(--text-main)' }}>
+                              {target > 0 ? `${target} hrs` : 'OFF'}
+                            </strong>
+                            {isToday && <span style={{ fontSize: '0.7rem', color: 'var(--primary-color)', fontWeight: 'bold', display: 'block', marginTop: '0.25rem' }}>Today</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   {/* Summary Cards */}
                   <div className="dashboard-cards">
                     <div className="card">
                       <div className="card-icon" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>🎯</div>
-                      <h3>Daily Target</h3>
-                      <div className="value" style={{ fontSize: '2rem' }}>Custom Goals</div>
+                      <h3>Target Today</h3>
+                      <div className="value" style={{ fontSize: '2rem' }}>
+                        {todayTarget > 0 ? `${todayTarget} Hours` : 'Holiday'}
+                      </div>
                     </div>
                     <div className="card">
                       <div className="card-icon" style={{ background: totalDaysCount > 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: totalDaysCount > 0 ? '#ef4444' : '#10b981' }}>🚨</div>
