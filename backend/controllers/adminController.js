@@ -507,17 +507,40 @@ const updatePaymentConfig = async (req, res) => {
 
 /* ================= HELPER FOR INSTALLMENTS ================= */
 const updateInstallmentStatus = (user) => {
-  let remainingPaid = user.feesPaid || 0;
   if (user.installments && user.installments.length > 0) {
     // Sort chronologically by due date
     user.installments.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
-    
+
+    // Get all verified/paid payments sorted by date
+    const payments = (user.feeHistory || [])
+      .filter(p => p.status === 'Verified' || p.status === 'Paid')
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    let paymentIdx = 0;
+    let paymentRemaining = payments[paymentIdx] ? payments[paymentIdx].amount : 0;
+
     user.installments.forEach((inst) => {
-      if (remainingPaid >= inst.amount) {
+      let instNeeded = inst.amount;
+      let lastPaymentDate = null;
+
+      while (instNeeded > 0 && paymentIdx < payments.length) {
+        if (paymentRemaining >= instNeeded) {
+          paymentRemaining -= instNeeded;
+          instNeeded = 0;
+          lastPaymentDate = payments[paymentIdx].date;
+        } else {
+          instNeeded -= paymentRemaining;
+          paymentIdx++;
+          paymentRemaining = payments[paymentIdx] ? payments[paymentIdx].amount : 0;
+        }
+      }
+
+      if (instNeeded === 0) {
         inst.status = "Paid";
-        remainingPaid -= inst.amount;
+        inst.paidDate = lastPaymentDate || new Date();
       } else {
         inst.status = "Unpaid";
+        inst.paidDate = null;
       }
     });
 

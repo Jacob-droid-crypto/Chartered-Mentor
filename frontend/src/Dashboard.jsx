@@ -1932,14 +1932,20 @@ function Dashboard({ user, onLogout }) {
                           <span style={{ color: 'var(--text-main)', fontSize: '0.95rem', fontWeight: 'bold', display: 'block', marginBottom: '0.75rem' }}>📅 Installment Schedule</span>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                             {profileData.installments.map((inst, idx) => (
-                              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white', padding: '0.6rem 0.8rem', borderRadius: '6px', border: '1px solid var(--glass-border)' }}>
-                                <div>
-                                  <div style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.85rem' }}>Installment {idx + 1}: ₹{inst.amount}</div>
-                                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Due: {new Date(inst.dueDate).toLocaleDateString()}</div>
+                              <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', background: 'white', padding: '0.6rem 0.8rem', borderRadius: '6px', border: '1px solid var(--glass-border)' }}>
+                                <div style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.85rem' }}>Installment {idx + 1}: ₹{inst.amount}</div>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+                                  <span>Due: {new Date(inst.dueDate).toLocaleDateString()}</span>
+                                  {inst.status === 'Paid' ? (
+                                    <span style={{ color: '#10b981', fontWeight: 'bold', padding: '0.1rem 0.4rem', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '4px' }}>
+                                      ✓ Paid {inst.paidDate ? `on ${new Date(inst.paidDate).toLocaleDateString()}` : ''}
+                                    </span>
+                                  ) : (
+                                    <span style={{ color: '#ef4444', fontWeight: 'bold', padding: '0.1rem 0.4rem', background: 'rgba(239, 68, 68, 0.08)', borderRadius: '4px' }}>
+                                      Pending
+                                    </span>
+                                  )}
                                 </div>
-                                <span style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', background: inst.status === 'Paid' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', color: inst.status === 'Paid' ? '#10b981' : '#ef4444' }}>
-                                  {inst.status}
-                                </span>
                               </div>
                             ))}
                           </div>

@@ -110,7 +110,8 @@ const userSchema = new mongoose.Schema({
   installments: [{
     amount: { type: Number, required: true },
     dueDate: { type: Date, required: true },
-    status: { type: String, enum: ["Unpaid", "Paid"], default: "Unpaid" }
+    status: { type: String, enum: ["Unpaid", "Paid"], default: "Unpaid" },
+    paidDate: { type: Date }
   }]
 });
 
