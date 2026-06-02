@@ -824,6 +824,54 @@ function Dashboard({ user, onLogout }) {
     XLSX.writeFile(workbook, `Attendance_${attendanceView}_${attendanceDate.substring(0, 10)}.xlsx`);
   };
 
+  const handleExportStudentsLedger = () => {
+    if (!Array.isArray(students) || students.length === 0) {
+      alert("No students data available to export.");
+      return;
+    }
+
+    let maxInstallments = 0;
+    students.forEach(student => {
+      if (Array.isArray(student.installments) && student.installments.length > maxInstallments) {
+        maxInstallments = student.installments.length;
+      }
+    });
+
+    const exportData = students.map(student => {
+      const row = {
+        "Student Name": student.name || "-",
+        "Student ID": student.userId || "-",
+        "Email": student.email || "-",
+        "Phone": student.phone || "-",
+        "Course": student.course || "-",
+        "Mode": student.mode || "-",
+        "Batch": student.batch || "-",
+        "Joining Date": student.joiningDate ? new Date(student.joiningDate).toLocaleDateString() : "-",
+        "Total Course Fee": student.totalFees || 0,
+        "Fees Paid": student.feesPaid || 0,
+        "Remaining Balance": (student.totalFees || 0) - (student.feesPaid || 0),
+      };
+
+      const sortedInstallments = Array.isArray(student.installments)
+        ? [...student.installments].sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+        : [];
+
+      for (let i = 0; i < maxInstallments; i++) {
+        const inst = sortedInstallments[i] || null;
+        row[`Inst ${i + 1} Amount (₹)`] = inst ? inst.amount : "-";
+        row[`Inst ${i + 1} Status`] = inst ? inst.status : "-";
+        row[`Inst ${i + 1} Due Date`] = inst && inst.dueDate ? new Date(inst.dueDate).toLocaleDateString() : "-";
+      }
+
+      return row;
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Fee Ledger");
+    XLSX.writeFile(workbook, `Student_Fee_Ledger_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
   useEffect(() => {
     let html5QrCode;
 
@@ -2091,13 +2139,21 @@ function Dashboard({ user, onLogout }) {
         ) : (
           /* STUDENTS TAB (Admin Only) */
           <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
               <h2>All Students</h2>
-              <button
-                onClick={() => { setShowAddForm(!showAddForm); setAddMsg(''); }}
-                style={{ padding: '0.5rem 1rem', background: 'var(--primary-color)', color: 'white', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
-                {showAddForm ? 'Close Form' : '+ Add Student'}
-              </button>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={handleExportStudentsLedger}
+                  style={{ padding: '0.5rem 1rem', background: '#10b981', color: 'white', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
+                  📥 Export Fee Ledger
+                </button>
+                <button
+                  onClick={() => { setShowAddForm(!showAddForm); setAddMsg(''); }}
+                  style={{ padding: '0.5rem 1rem', background: 'var(--primary-color)', color: 'white', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
+                  {showAddForm ? 'Close Form' : '+ Add Student'}
+                </button>
+              </div>
             </div>
 
             {showAddForm && (
