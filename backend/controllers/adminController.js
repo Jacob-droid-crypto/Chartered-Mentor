@@ -4,6 +4,7 @@ const User = require("../models/User");
 const Attendance = require("../models/Attendance");
 const PaymentConfig = require("../models/PaymentConfig");
 const QuestionPaper = require("../models/QuestionPaper");
+const GoalConfig = require("../models/GoalConfig");
 
 const generateToken = (userId, role) => {
   return jwt.sign({ userId, role }, process.env.JWT_SECRET || "fallback_secret", {
@@ -677,6 +678,42 @@ const updateStudentProfileByAdmin = async (req, res) => {
   }
 };
 
+/* ================= GOAL TARGET CONFIGURATION ================= */
+const getGoalConfig = async (req, res) => {
+  try {
+    let config = await GoalConfig.findOne();
+    if (!config) {
+      config = await GoalConfig.create({
+        monday: 12,
+        tuesday: 12,
+        wednesday: 12,
+        thursday: 12,
+        friday: 12,
+        saturday: 12,
+        sunday: 0
+      });
+    }
+    res.json(config);
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const updateGoalConfig = async (req, res) => {
+  try {
+    let config = await GoalConfig.findOne();
+    if (config) {
+      Object.assign(config, req.body);
+      await config.save();
+    } else {
+      config = await GoalConfig.create(req.body);
+    }
+    res.json({ message: "Goal configuration updated", config });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   loginAdmin,
   addStudent,
@@ -696,5 +733,7 @@ module.exports = {
   addStudentPayment,
   approveStudentPayment,
   rejectStudentPayment,
-  updateStudentProfileByAdmin
+  updateStudentProfileByAdmin,
+  getGoalConfig,
+  updateGoalConfig
 };

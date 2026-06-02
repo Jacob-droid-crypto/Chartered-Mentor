@@ -347,8 +347,33 @@ function StudentPaperCard({ paper, user, onRefresh }) {
 function Dashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [studyTrackerPeriod, setStudyTrackerPeriod] = useState('week');
+  const [motivationalQuote, setMotivationalQuote] = useState('');
+  const [goalConfig, setGoalConfig] = useState({ monday: 12, tuesday: 12, wednesday: 12, thursday: 12, friday: 12, saturday: 12, sunday: 0 });
   const [data, setData] = useState(null);
   const [students, setStudents] = useState([]);
+
+  const quotesList = [
+    "Focus on your goal. Don't look in any direction but ahead.",
+    "Success is the sum of small efforts, repeated day in and day out.",
+    "Believe you can and you're halfway there.",
+    "The secret of getting ahead is getting started.",
+    "It always seems impossible until it's done.",
+    "Don't wish it were easier. Wish you were better.",
+    "The only limit to our realization of tomorrow is our doubts of today.",
+    "There are no shortcuts to any place worth going.",
+    "Work hard in silence, let your success be your noise.",
+    "Attitude determines how well you do it.",
+    "Your future is created by what you do today, not tomorrow.",
+    "Today a reader, tomorrow a leader.",
+    "The expert in anything was once a beginner.",
+    "Procrastination makes easy things hard and hard things harder.",
+    "You don't have to be great to start, but you have to start to be great."
+  ];
+
+  useEffect(() => {
+    const randomIndex = Math.floor(Math.random() * quotesList.length);
+    setMotivationalQuote(quotesList[randomIndex]);
+  }, []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -500,7 +525,10 @@ function Dashboard({ user, onLogout }) {
     if (activeTab === 'dashboard') {
       fetchDashboardData();
       if (user.role === 'admin') fetchStudentsData();
-      if (user.role === 'student') fetchPaymentConfig();
+      if (user.role === 'student') {
+        fetchPaymentConfig();
+        fetchGoalConfig();
+      }
     }
     if (activeTab === 'students' && user.role === 'admin') {
       fetchStudentsData();
@@ -520,6 +548,12 @@ function Dashboard({ user, onLogout }) {
       if (user.role === 'admin') fetchStudentsData();
       if (user.role === 'student') fetchProfileData();
     }
+    if (activeTab === 'study_tracker') {
+      fetchGoalConfig();
+    }
+    if (activeTab === 'goal_settings') {
+      fetchGoalConfig();
+    }
   }, [user, activeTab]);
 
   const [paymentConfig, setPaymentConfig] = useState(null);
@@ -531,6 +565,17 @@ function Dashboard({ user, onLogout }) {
       if (res.ok) setPaymentConfig(result);
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const fetchGoalConfig = async () => {
+    try {
+      const endpoint = user.role === 'admin' ? '/admin/goal-config' : '/student/goal-config';
+      const res = await fetch(endpoint, { headers: { 'Authorization': `Bearer ${user.token}` } });
+      const result = await res.json();
+      if (res.ok) setGoalConfig(result);
+    } catch (err) {
+      console.error("Fetch goal config error:", err);
     }
   };
 
@@ -674,20 +719,24 @@ function Dashboard({ user, onLogout }) {
     }
 
     const weekDays = getWeekDays();
+    const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
     weekDays.forEach(day => {
       const dateStr = formatLocalDate(day);
-      const isSunday = day.getDay() === 0;
       if (joiningDate && day < joiningDate) return;
 
       const log = summaryMap[dateStr];
+      const dayKey = dayKeys[day.getDay()];
+      const targetHours = goalConfig[dayKey] !== undefined ? parseFloat(goalConfig[dayKey]) : 12;
+
       if (log) {
         stats.weekHours += parseFloat(log.totalHours || 0);
         const hours = parseFloat(log.totalHours || 0);
-        if (!isSunday && hours < 12) {
+        if (targetHours > 0 && hours < targetHours) {
           stats.lowHoursWeek.push({
             date: dateStr,
             hours: hours,
             status: log.status,
+            target: targetHours
           });
         }
       } else {
@@ -698,18 +747,21 @@ function Dashboard({ user, onLogout }) {
     const monthDays = getMonthDays();
     monthDays.forEach(day => {
       const dateStr = formatLocalDate(day);
-      const isSunday = day.getDay() === 0;
       if (joiningDate && day < joiningDate) return;
 
       const log = summaryMap[dateStr];
+      const dayKey = dayKeys[day.getDay()];
+      const targetHours = goalConfig[dayKey] !== undefined ? parseFloat(goalConfig[dayKey]) : 12;
+
       if (log) {
         stats.monthHours += parseFloat(log.totalHours || 0);
         const hours = parseFloat(log.totalHours || 0);
-        if (!isSunday && hours < 12) {
+        if (targetHours > 0 && hours < targetHours) {
           stats.lowHoursMonth.push({
             date: dateStr,
             hours: hours,
             status: log.status,
+            target: targetHours
           });
         }
       } else {
@@ -1179,6 +1231,9 @@ function Dashboard({ user, onLogout }) {
               <li className={`nav-item ${activeTab === 'campus_qr' ? 'active' : ''}`} onClick={() => setActiveTab('campus_qr')}>
                 <span>🔲</span> Campus QR
               </li>
+              <li className={`nav-item ${activeTab === 'goal_settings' ? 'active' : ''}`} onClick={() => setActiveTab('goal_settings')}>
+                <span>🎯</span> Goal Settings
+              </li>
             </>
           ) : (
             <>
@@ -1242,6 +1297,7 @@ function Dashboard({ user, onLogout }) {
                 : activeTab === 'payments' ? (user.role === 'admin' ? 'Fee Ledger' : 'My Payments')
                 : activeTab === 'feeSetup' && feeSetupStudent ? `Fee Structure: ${feeSetupStudent.name}`
                 : activeTab === 'study_tracker' ? 'Study Goal Tracker'
+                : activeTab === 'goal_settings' ? 'Study Goal Settings'
                 : 'Campus QR'}
             </h1>
             <p>
@@ -1252,7 +1308,8 @@ function Dashboard({ user, onLogout }) {
                 : activeTab === 'papers' ? 'Manage and download scheduled question papers.'
                 : activeTab === 'payments' ? 'View fee payment history and balances.'
                 : activeTab === 'feeSetup' ? 'Configure total fees and next due date.'
-                : activeTab === 'study_tracker' ? 'Track days where you studied less than 12 hours (excluding Sundays).'
+                : activeTab === 'study_tracker' ? 'Track days where you studied less than your configured daily target hours.'
+                : activeTab === 'goal_settings' ? 'Configure the mandatory study hours for each day of the week.'
                 : 'Display the active QR code for students to scan.'}
             </p>
           </div>
@@ -1281,29 +1338,60 @@ function Dashboard({ user, onLogout }) {
           <>
             {user.role === 'student' && (() => {
               const stats = calculateStudentStats();
+              const todayDayIndex = new Date().getDay();
+              const todayKey = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][todayDayIndex];
+              const todayTarget = goalConfig[todayKey] !== undefined ? goalConfig[todayKey] : 12;
+
               return (
-                <div className="dashboard-cards" style={{ marginBottom: '2rem' }}>
-                  <div className="card">
-                    <div className="card-icon" style={{ background: 'rgba(59, 130, 246, 0.1)', color: 'var(--primary-color)' }}>⏱️</div>
-                    <h3>Today's Study Hours</h3>
-                    <div className="value">{formatStudyTime(stats.todayHours)}</div>
+                <>
+                  {motivationalQuote && (
+                    <div className="card" style={{ 
+                      marginBottom: '2rem', 
+                      background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(236, 72, 153, 0.03))', 
+                      borderLeft: '5px solid var(--primary-color)',
+                      padding: '1.25rem 1.5rem',
+                      borderRadius: '16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '1rem',
+                      boxShadow: '0 8px 24px rgba(99, 102, 241, 0.05)'
+                    }}>
+                      <span style={{ fontSize: '2rem' }}>✨</span>
+                      <div>
+                        <h4 style={{ margin: '0 0 0.25rem 0', color: 'var(--primary-color)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>Today's Motivation</h4>
+                        <p style={{ margin: 0, fontSize: '1.05rem', color: 'var(--text-main)', fontStyle: 'italic', lineHeight: '1.4' }}>
+                          "{motivationalQuote}"
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="dashboard-cards" style={{ marginBottom: '2rem' }}>
+                    <div className="card">
+                      <div className="card-icon" style={{ background: 'rgba(59, 130, 246, 0.1)', color: 'var(--primary-color)' }}>⏱️</div>
+                      <h3>Today's Study Hours</h3>
+                      <div className="value">{formatStudyTime(stats.todayHours)}</div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.5rem', fontWeight: 'bold' }}>
+                        Target Today: {todayTarget > 0 ? `${todayTarget} hrs` : 'No Target (Holiday)'}
+                      </div>
+                    </div>
+                    <div className="card">
+                      <div className="card-icon" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>📅</div>
+                      <h3>Weekly Study Hours</h3>
+                      <div className="value">{formatStudyTime(stats.weekHours)}</div>
+                    </div>
+                    <div className="card">
+                      <div className="card-icon" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' }}>📊</div>
+                      <h3>Monthly Study Hours</h3>
+                      <div className="value">{formatStudyTime(stats.monthHours)}</div>
+                    </div>
+                    <div className="card">
+                      <div className="card-icon" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>🚨</div>
+                      <h3>Absent Days (This Month)</h3>
+                      <div className="value">{stats.monthAbsentCount} {stats.monthAbsentCount === 1 ? 'day' : 'days'}</div>
+                    </div>
                   </div>
-                  <div className="card">
-                    <div className="card-icon" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>📅</div>
-                    <h3>Weekly Study Hours</h3>
-                    <div className="value">{formatStudyTime(stats.weekHours)}</div>
-                  </div>
-                  <div className="card">
-                    <div className="card-icon" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' }}>📊</div>
-                    <h3>Monthly Study Hours</h3>
-                    <div className="value">{formatStudyTime(stats.monthHours)}</div>
-                  </div>
-                  <div className="card">
-                    <div className="card-icon" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>🚨</div>
-                    <h3>Absent Days (This Month)</h3>
-                    <div className="value">{stats.monthAbsentCount} {stats.monthAbsentCount === 1 ? 'day' : 'days'}</div>
-                  </div>
-                </div>
+                </>
               );
             })()}
 
@@ -2244,7 +2332,7 @@ function Dashboard({ user, onLogout }) {
                     <div className="card">
                       <div className="card-icon" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>🎯</div>
                       <h3>Daily Target</h3>
-                      <div className="value" style={{ fontSize: '2rem' }}>12 Hours</div>
+                      <div className="value" style={{ fontSize: '2rem' }}>Custom Goals</div>
                     </div>
                     <div className="card">
                       <div className="card-icon" style={{ background: totalDaysCount > 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: totalDaysCount > 0 ? '#ef4444' : '#10b981' }}>🚨</div>
@@ -2258,10 +2346,10 @@ function Dashboard({ user, onLogout }) {
                   {/* Details Section */}
                   <div className="card">
                     <h3 style={{ fontSize: '1.2rem', color: 'var(--text-main)', fontWeight: 'bold', marginBottom: '1rem' }}>
-                      📋 Shortfall Days Details (Excluding Sundays)
+                      📋 Shortfall Days Details (Excluding Holidays)
                     </h3>
                     <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
-                      Showing days where you studied less than the mandatory 12 hours.
+                      Showing days where you studied less than your configured target hours.
                     </p>
                     
                     {totalDaysCount === 0 ? (
@@ -2269,7 +2357,7 @@ function Dashboard({ user, onLogout }) {
                         <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '1rem' }}>🎉</span>
                         <strong style={{ color: '#10b981', display: 'block', fontSize: '1.1rem', marginBottom: '0.5rem' }}>Perfect Attendance!</strong>
                         <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.9rem' }}>
-                          You have met the 12-hour study target on all tracked days in this period. Keep it up!
+                          You have met your daily study goals on all tracked days in this period. Keep it up!
                         </p>
                       </div>
                     ) : (
@@ -2277,7 +2365,7 @@ function Dashboard({ user, onLogout }) {
                         {shortfallDays.map((day, idx) => {
                           const dateObj = new Date(day.date);
                           const dayName = dateObj.toLocaleDateString(undefined, { weekday: 'long' });
-                          const shortfallHours = Math.max(0, 12 - day.hours);
+                          const shortfallHours = Math.max(0, day.target - day.hours);
                           
                           return (
                             <div key={idx} className="activity-item" style={{ alignItems: 'center' }}>
@@ -2287,6 +2375,7 @@ function Dashboard({ user, onLogout }) {
                                   <strong style={{ fontSize: '1.05rem' }}>{day.date} ({dayName})</strong>
                                   <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.2rem' }}>
                                     Status: <span style={{ fontWeight: 'bold', color: day.status === 'Absent' ? '#ef4444' : '#f59e0b' }}>{day.status}</span>
+                                    <span style={{ marginLeft: '1rem' }}>Target: <strong>{day.target} hrs</strong></span>
                                   </div>
                                 </div>
                               </div>
@@ -2308,6 +2397,81 @@ function Dashboard({ user, onLogout }) {
               );
             })()}
           </>
+        ) : activeTab === 'goal_settings' ? (
+          <div className="card" style={{ maxWidth: '600px', padding: '2rem' }}>
+            <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-main)' }}>⚙️ Configure Daily Study Target Hours</h3>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.9rem' }}>
+              Set the target study hours for students for each day of the week. Setting target hours to 0 will mark that day as a holiday and exclude it from student shortfall calculations.
+            </p>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const formData = {
+                  sunday: parseFloat(e.target.sunday.value),
+                  monday: parseFloat(e.target.monday.value),
+                  tuesday: parseFloat(e.target.tuesday.value),
+                  wednesday: parseFloat(e.target.wednesday.value),
+                  thursday: parseFloat(e.target.thursday.value),
+                  friday: parseFloat(e.target.friday.value),
+                  saturday: parseFloat(e.target.saturday.value)
+                };
+                try {
+                  setLoading(true);
+                  const res = await fetch('/admin/goal-config', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                  });
+                  if (!res.ok) throw new Error(await res.text());
+                  alert('Study target configuration saved successfully!');
+                  fetchGoalConfig();
+                } catch(err) {
+                  alert('Error: ' + err.message);
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}
+            >
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
+                {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => (
+                  <div key={day}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'bold', textTransform: 'capitalize' }}>
+                      {day} Target (hrs)
+                    </label>
+                    <input
+                      type="number"
+                      name={day}
+                      min="0"
+                      max="24"
+                      step="0.5"
+                      defaultValue={goalConfig[day] !== undefined ? goalConfig[day] : (day === 'sunday' ? 0 : 12)}
+                      required
+                      style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'rgba(255, 255, 255, 0.5)', color: 'var(--text-main)', fontSize: '1rem' }}
+                    />
+                  </div>
+                ))}
+              </div>
+              <button
+                type="submit"
+                style={{
+                  marginTop: '1rem',
+                  padding: '1rem',
+                  background: '#10b981',
+                  color: 'white',
+                  borderRadius: '8px',
+                  border: 'none',
+                  fontWeight: 'bold',
+                  fontSize: '1.1rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  boxShadow: '0 4px 6px rgba(16, 185, 129, 0.2)'
+                }}
+              >
+                Save Study Goals
+              </button>
+            </form>
+          </div>
         ) : activeTab === 'feeSetup' && feeSetupStudent ? (
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>

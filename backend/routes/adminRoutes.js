@@ -8,7 +8,7 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
-const { loginAdmin, addStudent, getAttendance, getDailySummary, getStudents, deleteStudent, resetPassword, getProfile, uploadQuestionPaper, getAdminPapers, deletePaper, downloadAnswerPaper, getPaymentConfig, updatePaymentConfig, updateStudentFees, addStudentPayment, approveStudentPayment, rejectStudentPayment, updateStudentProfileByAdmin } = require("../controllers/adminController");
+const { loginAdmin, addStudent, getAttendance, getDailySummary, getStudents, deleteStudent, resetPassword, getProfile, uploadQuestionPaper, getAdminPapers, deletePaper, downloadAnswerPaper, getPaymentConfig, updatePaymentConfig, updateStudentFees, addStudentPayment, approveStudentPayment, rejectStudentPayment, updateStudentProfileByAdmin, getGoalConfig, updateGoalConfig } = require("../controllers/adminController");
 const { updateProfile } = require("../controllers/studentController");
 const { protect, adminOnly } = require("../middleware/authMiddleware");
 
@@ -30,6 +30,8 @@ router.get("/paper/:id/download-answer", protect, adminOnly, downloadAnswerPaper
 // Payments
 router.get("/payment-config", protect, adminOnly, getPaymentConfig);
 router.post("/payment-config", protect, adminOnly, updatePaymentConfig);
+router.get("/goal-config", protect, adminOnly, getGoalConfig);
+router.post("/goal-config", protect, adminOnly, updateGoalConfig);
 router.post("/student/:studentId/fees", protect, adminOnly, updateStudentFees);
 router.post("/student/:studentId/payment", protect, adminOnly, addStudentPayment);
 router.post("/student/:studentId/profile", protect, adminOnly, updateStudentProfileByAdmin);
