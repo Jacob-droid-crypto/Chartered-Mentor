@@ -692,13 +692,6 @@ function Dashboard({ user, onLogout }) {
         }
       } else {
         stats.weekAbsentCount++;
-        if (!isSunday) {
-          stats.lowHoursWeek.push({
-            date: dateStr,
-            hours: 0,
-            status: 'Absent',
-          });
-        }
       }
     });
 
@@ -721,13 +714,6 @@ function Dashboard({ user, onLogout }) {
         }
       } else {
         stats.monthAbsentCount++;
-        if (!isSunday) {
-          stats.lowHoursMonth.push({
-            date: dateStr,
-            hours: 0,
-            status: 'Absent',
-          });
-        }
       }
     });
 
