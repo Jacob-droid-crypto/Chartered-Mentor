@@ -346,6 +346,7 @@ function StudentPaperCard({ paper, user, onRefresh }) {
 
 function Dashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [studyTrackerPeriod, setStudyTrackerPeriod] = useState('week');
   const [data, setData] = useState(null);
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -603,6 +604,134 @@ function Dashboard({ user, onLogout }) {
     const m = totalMins % 60;
     if (h > 0) return `${h}h ${m}m`;
     return `${m}m`;
+  };
+
+  const formatLocalDate = (date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  const getWeekDays = () => {
+    const days = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dayOfWeek = today.getDay();
+    
+    const sunday = new Date(today);
+    sunday.setDate(today.getDate() - dayOfWeek);
+    
+    let temp = new Date(sunday);
+    while (temp <= today) {
+      days.push(new Date(temp));
+      temp.setDate(temp.getDate() + 1);
+    }
+    return days;
+  };
+
+  const getMonthDays = () => {
+    const days = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    
+    let temp = new Date(firstOfMonth);
+    while (temp <= today) {
+      days.push(new Date(temp));
+      temp.setDate(temp.getDate() + 1);
+    }
+    return days;
+  };
+
+  const calculateStudentStats = () => {
+    const stats = {
+      todayHours: 0,
+      weekHours: 0,
+      monthHours: 0,
+      weekAbsentCount: 0,
+      monthAbsentCount: 0,
+      lowHoursWeek: [],
+      lowHoursMonth: [],
+    };
+
+    if (!data || !data.attendanceSummary) return stats;
+
+    const todayStr = formatLocalDate(new Date());
+    
+    const summaryMap = {};
+    data.attendanceSummary.forEach(item => {
+      summaryMap[item.date] = item;
+    });
+
+    if (summaryMap[todayStr]) {
+      stats.todayHours = parseFloat(summaryMap[todayStr].totalHours || 0);
+    }
+
+    const joiningDate = data.joiningDate ? new Date(data.joiningDate) : null;
+    if (joiningDate) {
+      joiningDate.setHours(0, 0, 0, 0);
+    }
+
+    const weekDays = getWeekDays();
+    weekDays.forEach(day => {
+      const dateStr = formatLocalDate(day);
+      const isSunday = day.getDay() === 0;
+      if (joiningDate && day < joiningDate) return;
+
+      const log = summaryMap[dateStr];
+      if (log) {
+        stats.weekHours += parseFloat(log.totalHours || 0);
+        const hours = parseFloat(log.totalHours || 0);
+        if (!isSunday && hours < 12) {
+          stats.lowHoursWeek.push({
+            date: dateStr,
+            hours: hours,
+            status: log.status,
+          });
+        }
+      } else {
+        stats.weekAbsentCount++;
+        if (!isSunday) {
+          stats.lowHoursWeek.push({
+            date: dateStr,
+            hours: 0,
+            status: 'Absent',
+          });
+        }
+      }
+    });
+
+    const monthDays = getMonthDays();
+    monthDays.forEach(day => {
+      const dateStr = formatLocalDate(day);
+      const isSunday = day.getDay() === 0;
+      if (joiningDate && day < joiningDate) return;
+
+      const log = summaryMap[dateStr];
+      if (log) {
+        stats.monthHours += parseFloat(log.totalHours || 0);
+        const hours = parseFloat(log.totalHours || 0);
+        if (!isSunday && hours < 12) {
+          stats.lowHoursMonth.push({
+            date: dateStr,
+            hours: hours,
+            status: log.status,
+          });
+        }
+      } else {
+        stats.monthAbsentCount++;
+        if (!isSunday) {
+          stats.lowHoursMonth.push({
+            date: dateStr,
+            hours: 0,
+            status: 'Absent',
+          });
+        }
+      }
+    });
+
+    return stats;
   };
 
   // Attendance Aggregation Logic
@@ -1094,6 +1223,15 @@ function Dashboard({ user, onLogout }) {
               }}>
                 <span>💳</span> Payments
               </li>
+              <li className={`nav-item ${activeTab === 'study_tracker' ? 'active' : ''}`} onClick={() => {
+                if (data && !data.profileCompleted) {
+                  alert('Please complete your profile details first to unlock all dashboard features.');
+                  return;
+                }
+                setActiveTab('study_tracker');
+              }}>
+                <span>⏱️</span> Study Goal Tracker
+              </li>
               <li className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
                 <span>👤</span> Profile
               </li>
@@ -1117,6 +1255,7 @@ function Dashboard({ user, onLogout }) {
                 : activeTab === 'papers' ? 'Question Papers'
                 : activeTab === 'payments' ? (user.role === 'admin' ? 'Fee Ledger' : 'My Payments')
                 : activeTab === 'feeSetup' && feeSetupStudent ? `Fee Structure: ${feeSetupStudent.name}`
+                : activeTab === 'study_tracker' ? 'Study Goal Tracker'
                 : 'Campus QR'}
             </h1>
             <p>
@@ -1127,6 +1266,7 @@ function Dashboard({ user, onLogout }) {
                 : activeTab === 'papers' ? 'Manage and download scheduled question papers.'
                 : activeTab === 'payments' ? 'View fee payment history and balances.'
                 : activeTab === 'feeSetup' ? 'Configure total fees and next due date.'
+                : activeTab === 'study_tracker' ? 'Track days where you studied less than 12 hours (excluding Sundays).'
                 : 'Display the active QR code for students to scan.'}
             </p>
           </div>
@@ -1153,20 +1293,48 @@ function Dashboard({ user, onLogout }) {
           <div style={{ color: 'red' }}>Error: {error}</div>
         ) : activeTab === 'dashboard' ? (
           <>
-            <div className="dashboard-cards" style={{ marginBottom: '2rem' }}>
-              <div className="card">
-                <div className="card-icon">👨‍🎓</div>
-                <h3>{user.role === 'admin' ? 'Total Registered Students' : 'Today Attendance'}</h3>
-                <div className="value">{user.role === 'admin' && Array.isArray(students) ? students.length : (data?.todayLogs?.length || 0)}</div>
-              </div>
-              {user.role === 'admin' && (
+            {user.role === 'student' && (() => {
+              const stats = calculateStudentStats();
+              return (
+                <div className="dashboard-cards" style={{ marginBottom: '2rem' }}>
+                  <div className="card">
+                    <div className="card-icon" style={{ background: 'rgba(59, 130, 246, 0.1)', color: 'var(--primary-color)' }}>⏱️</div>
+                    <h3>Today's Study Hours</h3>
+                    <div className="value">{formatStudyTime(stats.todayHours)}</div>
+                  </div>
+                  <div className="card">
+                    <div className="card-icon" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>📅</div>
+                    <h3>Weekly Study Hours</h3>
+                    <div className="value">{formatStudyTime(stats.weekHours)}</div>
+                  </div>
+                  <div className="card">
+                    <div className="card-icon" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' }}>📊</div>
+                    <h3>Monthly Study Hours</h3>
+                    <div className="value">{formatStudyTime(stats.monthHours)}</div>
+                  </div>
+                  <div className="card">
+                    <div className="card-icon" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>🚨</div>
+                    <h3>Absent Days (This Month)</h3>
+                    <div className="value">{stats.monthAbsentCount} {stats.monthAbsentCount === 1 ? 'day' : 'days'}</div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {user.role === 'admin' && (
+              <div className="dashboard-cards" style={{ marginBottom: '2rem' }}>
+                <div className="card">
+                  <div className="card-icon">👨‍🎓</div>
+                  <h3>Total Registered Students</h3>
+                  <div className="value">{Array.isArray(students) ? students.length : 0}</div>
+                </div>
                 <div className="card">
                   <div className="card-icon" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>📊</div>
                   <h3>Active Check-ins Today</h3>
                   <div className="value">{Array.isArray(data) ? data.filter(d => d.date === new Date().toISOString().split('T')[0]).length : 0}</div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {user.role === 'admin' && (
               <div className="charts-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
@@ -2039,6 +2207,120 @@ function Dashboard({ user, onLogout }) {
                 </div>
               </>
             )}
+          </>
+        ) : activeTab === 'study_tracker' ? (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+              <h2>⏱️ Study Goal Tracker</h2>
+              <div style={{ display: 'flex', background: 'rgba(255, 255, 255, 0.4)', padding: '4px', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
+                <button
+                  onClick={() => setStudyTrackerPeriod('week')}
+                  style={{
+                    padding: '0.5rem 1.2rem',
+                    background: studyTrackerPeriod === 'week' ? 'var(--primary-color)' : 'transparent',
+                    color: studyTrackerPeriod === 'week' ? 'white' : 'var(--text-main)',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  This Week
+                </button>
+                <button
+                  onClick={() => setStudyTrackerPeriod('month')}
+                  style={{
+                    padding: '0.5rem 1.2rem',
+                    background: studyTrackerPeriod === 'month' ? 'var(--primary-color)' : 'transparent',
+                    color: studyTrackerPeriod === 'month' ? 'white' : 'var(--text-main)',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  This Month
+                </button>
+              </div>
+            </div>
+
+            {(() => {
+              const stats = calculateStudentStats();
+              const shortfallDays = studyTrackerPeriod === 'week' ? stats.lowHoursWeek : stats.lowHoursMonth;
+              const totalDaysCount = shortfallDays.length;
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                  {/* Summary Cards */}
+                  <div className="dashboard-cards">
+                    <div className="card">
+                      <div className="card-icon" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>🎯</div>
+                      <h3>Daily Target</h3>
+                      <div className="value" style={{ fontSize: '2rem' }}>12 Hours</div>
+                    </div>
+                    <div className="card">
+                      <div className="card-icon" style={{ background: totalDaysCount > 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: totalDaysCount > 0 ? '#ef4444' : '#10b981' }}>🚨</div>
+                      <h3>Shortfall Days</h3>
+                      <div className="value" style={{ fontSize: '2rem', color: totalDaysCount > 0 ? '#ef4444' : '#10b981' }}>
+                        {totalDaysCount} {totalDaysCount === 1 ? 'Day' : 'Days'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Details Section */}
+                  <div className="card">
+                    <h3 style={{ fontSize: '1.2rem', color: 'var(--text-main)', fontWeight: 'bold', marginBottom: '1rem' }}>
+                      📋 Shortfall Days Details (Excluding Sundays)
+                    </h3>
+                    <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+                      Showing days where you studied less than the mandatory 12 hours.
+                    </p>
+                    
+                    {totalDaysCount === 0 ? (
+                      <div style={{ padding: '2rem', textAlign: 'center', background: 'rgba(16, 185, 129, 0.04)', borderRadius: '12px', border: '1px dashed rgba(16, 185, 129, 0.3)' }}>
+                        <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '1rem' }}>🎉</span>
+                        <strong style={{ color: '#10b981', display: 'block', fontSize: '1.1rem', marginBottom: '0.5rem' }}>Perfect Attendance!</strong>
+                        <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.9rem' }}>
+                          You have met the 12-hour study target on all tracked days in this period. Keep it up!
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="activity-list">
+                        {shortfallDays.map((day, idx) => {
+                          const dateObj = new Date(day.date);
+                          const dayName = dateObj.toLocaleDateString(undefined, { weekday: 'long' });
+                          const shortfallHours = Math.max(0, 12 - day.hours);
+                          
+                          return (
+                            <div key={idx} className="activity-item" style={{ alignItems: 'center' }}>
+                              <div className="activity-info">
+                                <div className="activity-dot" style={{ background: day.status === 'Absent' ? '#ef4444' : '#f59e0b' }}></div>
+                                <div>
+                                  <strong style={{ fontSize: '1.05rem' }}>{day.date} ({dayName})</strong>
+                                  <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.2rem' }}>
+                                    Status: <span style={{ fontWeight: 'bold', color: day.status === 'Absent' ? '#ef4444' : '#f59e0b' }}>{day.status}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div style={{ textAlign: 'right' }}>
+                                <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: day.hours > 0 ? '#f59e0b' : '#ef4444' }}>
+                                  {formatStudyTime(day.hours)} studied
+                                </div>
+                                <div style={{ color: '#ef4444', fontSize: '0.85rem', fontWeight: 'bold', marginTop: '0.2rem' }}>
+                                  ⚠️ Shortfall: -{formatStudyTime(shortfallHours)}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </>
         ) : activeTab === 'feeSetup' && feeSetupStudent ? (
           <>

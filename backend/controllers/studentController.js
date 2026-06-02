@@ -142,7 +142,8 @@ const getDashboard = async (req, res) => {
       motherOccupation: student.motherOccupation || "",
       profileCompleted: student.profileCompleted || false,
       batch: student.batch || "",
-      dob: student.dob || null
+      dob: student.dob || null,
+      joiningDate: student.joiningDate || null
     });
   } catch (err) {
     console.error(err);
