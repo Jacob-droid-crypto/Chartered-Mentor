@@ -505,22 +505,53 @@ const updatePaymentConfig = async (req, res) => {
   }
 };
 
+/* ================= HELPER FOR INSTALLMENTS ================= */
+const updateInstallmentStatus = (user) => {
+  let remainingPaid = user.feesPaid || 0;
+  if (user.installments && user.installments.length > 0) {
+    // Sort chronologically by due date
+    user.installments.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+    
+    user.installments.forEach((inst) => {
+      if (remainingPaid >= inst.amount) {
+        inst.status = "Paid";
+        remainingPaid -= inst.amount;
+      } else {
+        inst.status = "Unpaid";
+      }
+    });
+
+    // Sync nextPaymentDueDate to first unpaid installment's dueDate
+    const nextUnpaid = user.installments.find(inst => inst.status === "Unpaid");
+    user.nextPaymentDueDate = nextUnpaid ? nextUnpaid.dueDate : null;
+  }
+};
+
 /* ================= STUDENT FEES ================= */
 const updateStudentFees = async (req, res) => {
   try {
     const { studentId } = req.params;
-    const { totalFees, nextPaymentDueDate } = req.body;
+    const { totalFees, installments } = req.body;
     
-    const user = await User.findOneAndUpdate(
-      { userId: studentId, role: "student" },
-      { totalFees, nextPaymentDueDate },
-      { new: true }
-    );
-    
+    const user = await User.findOne({ userId: studentId, role: "student" });
     if (!user) return res.status(404).json({ message: "Student not found" });
     
+    user.totalFees = totalFees;
+    if (installments && Array.isArray(installments)) {
+      user.installments = installments.map(inst => ({
+        amount: Number(inst.amount),
+        dueDate: new Date(inst.dueDate),
+        status: inst.status || "Unpaid"
+      }));
+    }
+    
+    // Automatically allocate existing paid fees to installments
+    updateInstallmentStatus(user);
+    
+    await user.save();
     res.json({ message: "Student fees updated", user });
   } catch (err) {
+    console.error("Update student fees error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -537,11 +568,14 @@ const addStudentPayment = async (req, res) => {
     user.feeHistory.push({
       amount: Number(amount),
       date: date ? new Date(date) : new Date(),
-      receiptNo
+      receiptNo,
+      status: 'Paid'
     });
     
-    await user.save();
+    // Recalculate installments paid status
+    updateInstallmentStatus(user);
     
+    await user.save();
     res.json({ message: "Payment recorded successfully", user });
   } catch (err) {
     res.status(500).json({ message: "Server error" });
@@ -564,6 +598,9 @@ const approveStudentPayment = async (req, res) => {
     
     payment.status = "Verified";
     user.feesPaid = (user.feesPaid || 0) + Number(payment.amount);
+    
+    // Recalculate installments paid status
+    updateInstallmentStatus(user);
     
     await user.save();
     res.json({ message: "Payment approved and ledger updated", user });

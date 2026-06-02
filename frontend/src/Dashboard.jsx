@@ -1822,12 +1822,31 @@ function Dashboard({ user, onLogout }) {
                         <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Remaining Balance</span>
                         <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#ef4444' }}>₹{(profileData?.totalFees || 0) - (profileData?.feesPaid || 0)}</div>
                       </div>
-                      <div>
+                      <div style={{ marginBottom: '1rem' }}>
                         <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Next Payment Due</span>
                         <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
                           {profileData?.nextPaymentDueDate ? new Date(profileData.nextPaymentDueDate).toLocaleDateString() : 'N/A'}
                         </div>
                       </div>
+
+                      {profileData?.installments && profileData.installments.length > 0 && (
+                        <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px dashed rgba(0, 0, 0, 0.1)' }}>
+                          <span style={{ color: 'var(--text-main)', fontSize: '0.95rem', fontWeight: 'bold', display: 'block', marginBottom: '0.75rem' }}>📅 Installment Schedule</span>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            {profileData.installments.map((inst, idx) => (
+                              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white', padding: '0.6rem 0.8rem', borderRadius: '6px', border: '1px solid var(--glass-border)' }}>
+                                <div>
+                                  <div style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.85rem' }}>Installment {idx + 1}: ₹{inst.amount}</div>
+                                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Due: {new Date(inst.dueDate).toLocaleDateString()}</div>
+                                </div>
+                                <span style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', background: inst.status === 'Paid' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', color: inst.status === 'Paid' ? '#10b981' : '#ef4444' }}>
+                                  {inst.status}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                   
@@ -1922,16 +1941,32 @@ function Dashboard({ user, onLogout }) {
               <h2>Set Fee Structure for {feeSetupStudent.name}</h2>
               <button onClick={() => { setActiveTab('students'); setFeeSetupStudent(null); }} style={{ padding: '0.5rem 1rem', background: 'transparent', border: '1px solid var(--text-muted)', color: 'var(--text-main)', borderRadius: '8px', cursor: 'pointer' }}>← Back to Students</button>
             </div>
-            <div className="card" style={{ maxWidth: '600px' }}>
+            <div className="card" style={{ maxWidth: '700px' }}>
               <form onSubmit={async (e) => {
                 e.preventDefault();
+                
+                const insts = feeSetupStudent.installments || [];
+                const totalCourseFee = Number(feeSetupStudent.totalFees);
+                const sumInstallments = insts.reduce((sum, inst) => sum + Number(inst.amount || 0), 0);
+
+                if (sumInstallments !== totalCourseFee) {
+                  alert(`The sum of installment amounts (₹${sumInstallments}) must exactly equal the Total Course Fee (₹${totalCourseFee}). Please adjust installment values.`);
+                  return;
+                }
+
+                const missingDates = insts.some(inst => !inst.dueDate);
+                if (missingDates) {
+                  alert("Please enter due dates for all configured installments.");
+                  return;
+                }
+
                 try {
                   const res = await fetch(`/admin/student/${feeSetupStudent.userId}/fees`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
-                      totalFees: Number(feeSetupStudent.totalFees), 
-                      nextPaymentDueDate: feeSetupStudent.nextPaymentDueDate ? new Date(feeSetupStudent.nextPaymentDueDate).toISOString() : null 
+                      totalFees: totalCourseFee, 
+                      installments: insts
                     })
                   });
                   if (!res.ok) throw new Error(await res.text());
@@ -1941,14 +1976,111 @@ function Dashboard({ user, onLogout }) {
                   setFeeSetupStudent(null);
                 } catch(err) { alert('Error: ' + err.message); }
               }} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: 'var(--text-main)' }}>Total Course Fee (₹)</label>
-                  <input type="number" required min="0" value={feeSetupStudent.totalFees} onChange={e => setFeeSetupStudent({...feeSetupStudent, totalFees: e.target.value})} style={{ width: '100%', padding: '1rem', borderRadius: '8px', border: '1px solid var(--glass-border)', fontSize: '1.1rem', background: 'transparent' }} />
+                  <input 
+                    type="number" 
+                    required 
+                    min="0" 
+                    value={feeSetupStudent.totalFees} 
+                    onChange={e => {
+                      const newTotal = e.target.value;
+                      setFeeSetupStudent({
+                        ...feeSetupStudent,
+                        totalFees: newTotal
+                      });
+                    }} 
+                    style={{ width: '100%', padding: '1rem', borderRadius: '8px', border: '1px solid var(--glass-border)', fontSize: '1.1rem', background: 'transparent', color: 'var(--text-main)' }} 
+                  />
                 </div>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: 'var(--text-main)' }}>Next Payment Due Date</label>
-                  <input type="date" required value={feeSetupStudent.nextPaymentDueDate} onChange={e => setFeeSetupStudent({...feeSetupStudent, nextPaymentDueDate: e.target.value})} style={{ width: '100%', padding: '1rem', borderRadius: '8px', border: '1px solid var(--glass-border)', fontSize: '1.1rem', background: 'transparent' }} />
+
+                <div style={{ background: 'rgba(59, 130, 246, 0.03)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>📅 Installments Configuration</h3>
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        const currentInsts = feeSetupStudent.installments || [];
+                        setFeeSetupStudent({
+                          ...feeSetupStudent,
+                          installments: [...currentInsts, { amount: '', dueDate: '', status: 'Unpaid' }]
+                        });
+                      }}
+                      style={{ padding: '0.5rem 1rem', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}
+                    >
+                      ➕ Add Installment
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    {(feeSetupStudent.installments || []).map((inst, index) => (
+                      <div key={index} style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', background: 'white', padding: '1rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
+                        <div style={{ flex: '1', minWidth: '120px' }}>
+                          <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Installment {index + 1} Amount (₹)</label>
+                          <input 
+                            type="number" 
+                            required 
+                            min="1" 
+                            placeholder="Amount"
+                            value={inst.amount}
+                            onChange={e => {
+                              const updated = [...feeSetupStudent.installments];
+                              updated[index].amount = e.target.value;
+                              setFeeSetupStudent({ ...feeSetupStudent, installments: updated });
+                            }}
+                            style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--glass-border)', color: 'var(--text-main)', background: 'transparent' }}
+                          />
+                        </div>
+                        <div style={{ flex: '1.2', minWidth: '160px' }}>
+                          <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Due Date</label>
+                          <input 
+                            type="date" 
+                            required 
+                            value={inst.dueDate}
+                            onChange={e => {
+                              const updated = [...feeSetupStudent.installments];
+                              updated[index].dueDate = e.target.value;
+                              setFeeSetupStudent({ ...feeSetupStudent, installments: updated });
+                            }}
+                            style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--glass-border)', color: 'var(--text-main)', background: 'transparent' }}
+                          />
+                        </div>
+                        {(feeSetupStudent.installments || []).length > 1 && (
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              const updated = (feeSetupStudent.installments || []).filter((_, i) => i !== index);
+                              setFeeSetupStudent({ ...feeSetupStudent, installments: updated });
+                            }}
+                            style={{ alignSelf: 'flex-end', background: 'rgba(239, 68, 68, 0.08)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '0.5rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                            title="Remove Installment"
+                          >
+                            ❌ Remove
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Summary Metrics */}
+                  {(() => {
+                    const totalCourseFee = Number(feeSetupStudent.totalFees || 0);
+                    const allocatedSum = (feeSetupStudent.installments || []).reduce((sum, inst) => sum + Number(inst.amount || 0), 0);
+                    const remainingVal = totalCourseFee - allocatedSum;
+                    const isFullyAllocated = remainingVal === 0;
+
+                    return (
+                      <div style={{ marginTop: '1.5rem', padding: '1rem', background: isFullyAllocated ? 'rgba(16, 185, 129, 0.06)' : 'rgba(245, 158, 11, 0.06)', borderRadius: '8px', border: `1px dashed ${isFullyAllocated ? '#10b981' : '#f59e0b'}`, display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem', fontWeight: 'bold' }}>
+                        <span style={{ color: 'var(--text-main)' }}>Allocated: ₹{allocatedSum} / ₹{totalCourseFee}</span>
+                        <span style={{ color: isFullyAllocated ? '#10b981' : '#f59e0b' }}>
+                          {isFullyAllocated ? '✓ Fees Fully Allocated' : `Remaining: ₹${remainingVal}`}
+                        </span>
+                      </div>
+                    );
+                  })()}
                 </div>
+
                 <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
                   <button type="button" onClick={() => { setActiveTab('students'); setFeeSetupStudent(null); }} style={{ flex: 1, padding: '1rem', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-main)', fontWeight: 'bold', fontSize: '1.1rem' }}>Cancel</button>
                   <button type="submit" style={{ flex: 1, padding: '1rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1.1rem' }}>Save Fee Structure</button>
@@ -2059,15 +2191,28 @@ function Dashboard({ user, onLogout }) {
                             🔄 Reset Password
                           </button>
                           <button onClick={() => { 
-                            setFeeSetupStudent({ 
-                              userId: student.userId, 
-                              name: student.name, 
-                              totalFees: student.totalFees || '', 
-                              nextPaymentDueDate: student.nextPaymentDueDate ? new Date(student.nextPaymentDueDate).toISOString().split('T')[0] : '' 
-                            }); 
-                            setActiveTab('feeSetup');
-                            setOpenMenuId(null); 
-                          }} className="dropdown-item">
+                             const existingInstallments = Array.isArray(student.installments) && student.installments.length > 0 
+                               ? student.installments.map(inst => ({
+                                   amount: inst.amount || '',
+                                   dueDate: inst.dueDate ? new Date(inst.dueDate).toISOString().split('T')[0] : '',
+                                   status: inst.status || 'Unpaid'
+                                 }))
+                               : [
+                                   { amount: student.totalFees ? Math.round(Number(student.totalFees) / 3) : '', dueDate: '', status: 'Unpaid' },
+                                   { amount: student.totalFees ? Math.round(Number(student.totalFees) / 3) : '', dueDate: '', status: 'Unpaid' },
+                                   { amount: student.totalFees ? (Number(student.totalFees) - 2 * Math.round(Number(student.totalFees) / 3)) : '', dueDate: '', status: 'Unpaid' }
+                                 ];
+
+                             setFeeSetupStudent({ 
+                               userId: student.userId, 
+                               name: student.name, 
+                               totalFees: student.totalFees || '', 
+                               nextPaymentDueDate: student.nextPaymentDueDate ? new Date(student.nextPaymentDueDate).toISOString().split('T')[0] : '',
+                               installments: existingInstallments
+                             }); 
+                             setActiveTab('feeSetup');
+                             setOpenMenuId(null); 
+                           }} className="dropdown-item">
                             💰 Set Fee Structure
                           </button>
                           <button onClick={async () => {
@@ -2142,22 +2287,34 @@ function Dashboard({ user, onLogout }) {
       {showFeeDuePopup && data && (
         <div className="modal-overlay">
           <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center' }}>
-            <h2 style={{ color: '#ef4444', marginBottom: '1rem' }}>⚠️ Fee Payment Due</h2>
+            <h2 style={{ color: '#ef4444', marginBottom: '1rem' }}>⚠️ Fee Installment Due</h2>
             <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>
-              A gentle reminder that your fee payment is due.
+              A gentle reminder that your upcoming course fee installment is due.
             </p>
-            <div style={{ background: 'rgba(239, 68, 68, 0.1)', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
-              <div style={{ marginBottom: '0.5rem' }}>
-                <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Remaining Balance</span>
-                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#ef4444' }}>₹{(data.totalFees || 0) - (data.feesPaid || 0)}</div>
-              </div>
-              <div>
-                <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Due Date</span>
-                <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
-                  {data.nextPaymentDueDate ? new Date(data.nextPaymentDueDate).toLocaleDateString() : 'N/A'}
+            {(() => {
+              const unpaidInst = Array.isArray(data.installments) 
+                ? data.installments.find(inst => inst.status === 'Unpaid') 
+                : null;
+              
+              const dueAmount = unpaidInst ? unpaidInst.amount : ((data.totalFees || 0) - (data.feesPaid || 0));
+
+              return (
+                <div style={{ background: 'rgba(239, 68, 68, 0.05)', padding: '1.2rem', borderRadius: '12px', marginBottom: '1.5rem', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                  <div style={{ marginBottom: '0.75rem' }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', display: 'block' }}>
+                      {unpaidInst ? 'Upcoming Installment Due' : 'Remaining Balance'}
+                    </span>
+                    <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: '#ef4444' }}>₹{dueAmount}</div>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', display: 'block' }}>Due Date</span>
+                    <div style={{ fontSize: '1.15rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
+                      {data.nextPaymentDueDate ? new Date(data.nextPaymentDueDate).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              );
+            })()}
             <div style={{ display: 'flex', gap: '1rem' }}>
               <button onClick={() => setShowFeeDuePopup(false)} style={{ flex: 1, padding: '0.8rem', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-main)', fontWeight: 'bold' }}>Remind Me Later</button>
               <button onClick={() => { setShowFeeDuePopup(false); setActiveTab('payments'); }} style={{ flex: 1, padding: '0.8rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Pay Now</button>
