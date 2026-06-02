@@ -201,10 +201,18 @@ const getAttendance = async (req, res) => {
   try {
     const records = await Attendance.find().sort({ timestamp: -1 });
 
+    // Fetch names to map to studentName
+    const students = await User.find({ role: "student" }, { userId: 1, name: 1 });
+    const studentMap = {};
+    students.forEach((s) => {
+      studentMap[s.userId] = s.name;
+    });
+
     const cleaned = records.map((r) => {
       const d = new Date(r.timestamp);
       return {
         studentId: r.studentId,
+        studentName: studentMap[r.studentId] || "Unknown Student",
         course: r.course || "-",
         date: r.date,
         time: isNaN(d.getTime()) ? "-" : d.toLocaleTimeString(),
@@ -223,6 +231,14 @@ const getAttendance = async (req, res) => {
 const getDailySummary = async (req, res) => {
   try {
     const records = await Attendance.find().sort({ timestamp: 1 });
+    
+    // Fetch names to map to studentName
+    const students = await User.find({ role: "student" }, { userId: 1, name: 1 });
+    const studentMap = {};
+    students.forEach((s) => {
+      studentMap[s.userId] = s.name;
+    });
+
     const summary = {};
 
     records.forEach((r) => {
@@ -230,6 +246,7 @@ const getDailySummary = async (req, res) => {
       if (!summary[key]) {
         summary[key] = {
           studentId: r.studentId,
+          studentName: studentMap[r.studentId] || "Unknown Student",
           course: r.course,
           date: r.date,
           hasIN: false,
@@ -256,6 +273,7 @@ const getDailySummary = async (req, res) => {
 
     const result = Object.values(summary).map((s) => ({
       studentId: s.studentId,
+      studentName: s.studentName,
       course: s.course,
       date: s.date,
       totalHours: (s.totalMs / (1000 * 60 * 60)).toFixed(2),

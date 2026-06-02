@@ -612,6 +612,14 @@ function Dashboard({ user, onLogout }) {
 
     let filtered = sourceData;
 
+    // Create a student map of userId -> name for fast lookup
+    const studentMap = {};
+    if (Array.isArray(students)) {
+      students.forEach(s => {
+        studentMap[s.userId] = s.name;
+      });
+    }
+
     if (attendanceView === 'daily') {
       // Get attendance records for the specific date
       let dailyRecords = filtered.filter(item => item.date === attendanceDate);
@@ -623,11 +631,15 @@ function Dashboard({ user, onLogout }) {
 
         dailyRecords = students.map(student => {
           if (attendedMap[student.userId]) {
-            return attendedMap[student.userId];
+            return {
+              ...attendedMap[student.userId],
+              studentName: student.name || attendedMap[student.userId].studentName || studentMap[student.userId] || 'Unknown Student'
+            };
           } else {
             // Student has no logs for today, so they are genuinely absent
             return {
               studentId: student.userId,
+              studentName: student.name || 'Unknown Student',
               course: student.course,
               date: attendanceDate,
               status: 'Absent',
@@ -635,24 +647,38 @@ function Dashboard({ user, onLogout }) {
             };
           }
         });
+      } else {
+        // Map student name for non-admin view
+        dailyRecords = dailyRecords.map(item => ({
+          ...item,
+          studentName: item.studentName || studentMap[item.studentId] || 'Unknown Student'
+        }));
       }
 
-      // Apply search filter if any
+      // Apply search filter by name if search is populated
       if (attendanceSearch.trim() !== '') {
         const q = attendanceSearch.toLowerCase();
         dailyRecords = dailyRecords.filter(item =>
-          (item.studentId && item.studentId.toLowerCase().includes(q))
+          (item.studentName && item.studentName.toLowerCase().includes(q))
         );
       }
 
       return dailyRecords;
     }
 
-    // Apply search filter for weekly/monthly
+    // Map names for the source weekly/monthly logs
+    const mappedFiltered = filtered.map(item => ({
+      ...item,
+      studentName: item.studentName || studentMap[item.studentId] || 'Unknown Student'
+    }));
+
+    let toProcess = mappedFiltered;
+
+    // Apply search filter by student's name for weekly/monthly
     if (attendanceSearch.trim() !== '') {
       const q = attendanceSearch.toLowerCase();
-      filtered = filtered.filter(item =>
-        (item.studentId && item.studentId.toLowerCase().includes(q))
+      toProcess = toProcess.filter(item =>
+        (item.studentName && item.studentName.toLowerCase().includes(q))
       );
     }
 
@@ -662,12 +688,13 @@ function Dashboard({ user, onLogout }) {
     // Pre-populate with all students so even those with 0 attendance show up
     if (user.role === 'admin' && Array.isArray(students)) {
       students.forEach(student => {
-        // Apply search filter if any
-        if (attendanceSearch.trim() !== '' && !student.userId.toLowerCase().includes(attendanceSearch.toLowerCase())) {
+        // Apply search filter by student's name
+        if (attendanceSearch.trim() !== '' && !student.name.toLowerCase().includes(attendanceSearch.toLowerCase())) {
           return; // Skip if it doesn't match search
         }
         aggregatedMap[student.userId] = {
           studentId: student.userId,
+          studentName: student.name || 'Unknown Student',
           course: student.course,
           totalPresent: 0,
           totalPartial: 0,
@@ -678,7 +705,7 @@ function Dashboard({ user, onLogout }) {
       });
     }
 
-    filtered.forEach(item => {
+    toProcess.forEach(item => {
       const d = new Date(item.date);
       if (isNaN(d.getTime())) return;
 
@@ -699,7 +726,16 @@ function Dashboard({ user, onLogout }) {
 
       if (keyToMatch) {
         if (!aggregatedMap[item.studentId]) {
-          aggregatedMap[item.studentId] = { studentId: item.studentId, course: item.course, totalPresent: 0, totalPartial: 0, totalAbsent: 0, presentDates: [], totalHours: 0 };
+          aggregatedMap[item.studentId] = { 
+            studentId: item.studentId, 
+            studentName: item.studentName || studentMap[item.studentId] || 'Unknown Student', 
+            course: item.course, 
+            totalPresent: 0, 
+            totalPartial: 0, 
+            totalAbsent: 0, 
+            presentDates: [], 
+            totalHours: 0 
+          };
         }
         if (item.status === 'Present') aggregatedMap[item.studentId].totalPresent++;
         else if (item.status === 'Partial') aggregatedMap[item.studentId].totalPartial++;
@@ -765,7 +801,7 @@ function Dashboard({ user, onLogout }) {
     let exportData = [];
     if (attendanceView === 'daily') {
       exportData = aggregatedData.map(record => ({
-        "Student ID": record.studentId,
+        "Student Name": record.studentName || record.studentId || "-",
         "Course": record.course || "-",
         "Status": record.status,
         "Total Hours": formatStudyTime(record.totalHours),
@@ -773,7 +809,7 @@ function Dashboard({ user, onLogout }) {
       }));
     } else {
       exportData = aggregatedData.map(record => ({
-        "Student ID": record.studentId,
+        "Student Name": record.studentName || record.studentId || "-",
         "Course": record.course || "-",
         "Total Present": record.totalPresent,
         "Total Partial": record.totalPartial,
@@ -1122,20 +1158,26 @@ function Dashboard({ user, onLogout }) {
             <section className="recent-activity">
               <h2>{user.role === 'admin' ? 'Today\'s Attendance Summary' : 'Your Check-ins'}</h2>
               <div className="activity-list">
-                {user.role === 'admin' && Array.isArray(data) ? (
-                  data.filter(d => d.date === new Date().toISOString().split('T')[0]).map((record, idx) => (
+                {user.role === 'admin' && Array.isArray(data) ? (() => {
+                  const studentMap = {};
+                  if (Array.isArray(students)) {
+                    students.forEach(s => {
+                      studentMap[s.userId] = s.name;
+                    });
+                  }
+                  return data.filter(d => d.date === new Date().toISOString().split('T')[0]).map((record, idx) => (
                     <div key={idx} className="activity-item">
                       <div className="activity-info">
                         <div className="activity-dot" style={{ background: record.status === 'Present' ? '#10b981' : record.status === 'Partial' ? '#f59e0b' : '#ef4444' }}></div>
                         <div>
-                          <strong>{record.studentId}</strong>
-                          <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Course: {record.course || '-'}</div>
+                          <strong>{record.studentName || studentMap[record.studentId] || record.studentId || 'Unknown Student'}</strong>
+                          <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>ID: {record.studentId} • Course: {record.course || '-'}</div>
                         </div>
                       </div>
                       <div className="activity-date" style={{ fontWeight: 'bold', color: record.status === 'Present' ? '#10b981' : record.status === 'Partial' ? '#f59e0b' : '#ef4444' }}>{record.status}</div>
                     </div>
-                  ))
-                ) : (
+                  ));
+                })() : (
                   data?.todayLogs?.map((log, idx) => (
                     <div key={idx} className="activity-item">
                       <div className="activity-info">
@@ -1343,7 +1385,7 @@ function Dashboard({ user, onLogout }) {
                 {user.role === 'admin' && (
                   <input
                     type="text"
-                    placeholder="Search Student ID..."
+                    placeholder="Search by student name..."
                     value={attendanceSearch}
                     onChange={(e) => setAttendanceSearch(e.target.value)}
                     style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }}
@@ -1396,8 +1438,8 @@ function Dashboard({ user, onLogout }) {
                       <div className="activity-info">
                         <div className="activity-dot" style={{ background: attendanceView === 'daily' ? (record.status === 'Present' ? '#10b981' : record.status === 'Partial' ? '#f59e0b' : '#ef4444') : '#3b82f6' }}></div>
                         <div>
-                          <strong>{record.studentId}</strong>
-                          <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Course: {record.course || '-'}</div>
+                          <strong>{record.studentName || record.studentId || 'Unknown Student'}</strong>
+                          <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>ID: {record.studentId} • Course: {record.course || '-'}</div>
                         </div>
                       </div>
 

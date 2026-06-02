@@ -40,8 +40,8 @@
       </header>
       
       <div class="filters">
-        <label for="studentId">Student ID Filter: </label>
-        <input type="text" id="studentId" placeholder="e.g. 24BCA101" />
+        <label for="studentName">Student Name Filter: </label>
+        <input type="text" id="studentName" placeholder="e.g. John Doe" />
         <button onclick="loadDailySummaryChart()">Load Summary</button>
       </div>
 
@@ -60,14 +60,14 @@
       let chartInstance = null;
 
       async function loadDailySummaryChart() {
-         const studentFilter = document.getElementById("studentId").value.trim();
+         const nameFilter = document.getElementById("studentName").value.trim().toLowerCase();
           try {
              const res = await fetch("http://localhost:5000/admin/daily-summary");
              const data = await res.json();
              
              let filteredData = data;
-             if (studentFilter) {
-               filteredData = data.filter(d => d.studentId === studentFilter);
+             if (nameFilter) {
+               filteredData = data.filter(d => d.studentName && d.studentName.toLowerCase().includes(nameFilter));
              }
 
              // Count status

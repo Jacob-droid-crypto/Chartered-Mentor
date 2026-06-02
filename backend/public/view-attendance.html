@@ -14,9 +14,20 @@
     <div class="dashboard-container">
       <h2>Attendance Records</h2>
 
-      <table border="1" cellpadding="10" cellspacing="0">
+      <div style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+        <div>
+          <label for="nameSearch" style="font-weight: bold; margin-right: 5px;">Search by Name: </label>
+          <input type="text" id="nameSearch" placeholder="e.g. John Doe" oninput="filterTable()" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc; min-width: 250px;" />
+        </div>
+        <button onclick="downloadCSV()" style="padding: 8px 16px; background-color: #28a745; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">
+          📥 Download CSV
+        </button>
+      </div>
+
+      <table border="1" cellpadding="10" cellspacing="0" style="width: 100%; border-collapse: collapse;">
         <thead>
           <tr>
+            <th>Student Name</th>
             <th>Student ID</th>
             <th>Course</th>
             <th>Date</th>
@@ -26,43 +37,92 @@
         </thead>
         <tbody id="attendanceTable">
           <tr>
-            <td colspan="5">Loading...</td>
+            <td colspan="6">Loading...</td>
           </tr>
         </tbody>
       </table>
     </div>
 
     <script>
+      let allRecords = [];
+
       fetch("http://localhost:5000/admin/attendance")
         .then((res) => res.json())
         .then((data) => {
-          const table = document.getElementById("attendanceTable");
-          table.innerHTML = "";
-
-          if (data.length === 0) {
-            table.innerHTML =
-              "<tr><td colspan='5'>No attendance records</td></tr>";
-            return;
-          }
-
-          data.forEach((row) => {
-            const tr = document.createElement("tr");
-
-            tr.innerHTML = `
-              <td>${row.studentId || "-"}</td>
-              <td>${row.course || "-"}</td>
-              <td>${row.date || "-"}</td>
-              <td>${row.time || "-"}</td>
-              <td>${row.type || "-"}</td>
-            `;
-
-            table.appendChild(tr);
-          });
+          allRecords = data;
+          renderTable(allRecords);
         })
         .catch(() => {
           document.getElementById("attendanceTable").innerHTML =
-            "<tr><td colspan='5'>Failed to load attendance</td></tr>";
+            "<tr><td colspan='6'>Failed to load attendance</td></tr>";
         });
+
+      function renderTable(data) {
+        const table = document.getElementById("attendanceTable");
+        table.innerHTML = "";
+
+        if (data.length === 0) {
+          table.innerHTML =
+            "<tr><td colspan='6'>No attendance records</td></tr>";
+          return;
+        }
+
+        data.forEach((row) => {
+          const tr = document.createElement("tr");
+
+          tr.innerHTML = `
+            <td><strong>${row.studentName || "Unknown Student"}</strong></td>
+            <td>${row.studentId || "-"}</td>
+            <td>${row.course || "-"}</td>
+            <td>${row.date || "-"}</td>
+            <td>${row.time || "-"}</td>
+            <td>${row.type || "-"}</td>
+          `;
+
+          table.appendChild(tr);
+        });
+      }
+
+      function filterTable() {
+        const query = document.getElementById("nameSearch").value.toLowerCase().trim();
+        const filtered = allRecords.filter(row => 
+          (row.studentName || "").toLowerCase().includes(query)
+        );
+        renderTable(filtered);
+      }
+
+      function downloadCSV() {
+        const query = document.getElementById("nameSearch").value.toLowerCase().trim();
+        const filtered = allRecords.filter(row => 
+          (row.studentName || "").toLowerCase().includes(query)
+        );
+
+        if (filtered.length === 0) {
+          alert("No records to download.");
+          return;
+        }
+
+        let csvContent = "data:text/csv;charset=utf-8,";
+        csvContent += "Student Name,Student ID,Course,Date,Time,Type\n";
+
+        filtered.forEach(row => {
+          const name = (row.studentName || "Unknown Student").replace(/,/g, "");
+          const id = (row.studentId || "-").replace(/,/g, "");
+          const course = (row.course || "-").replace(/,/g, "");
+          const date = (row.date || "-").replace(/,/g, "");
+          const time = (row.time || "-").replace(/,/g, "");
+          const type = (row.type || "-").replace(/,/g, "");
+          csvContent += `"${name}","${id}","${course}","${date}","${time}","${type}"\n`;
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `Attendance_Report_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
 
       function goBack() {
         window.location.href = "admin-dashboard.html";
