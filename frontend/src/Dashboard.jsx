@@ -911,6 +911,7 @@ function Dashboard({ user, onLogout }) {
         row[`Inst ${i + 1} Amount (₹)`] = inst ? inst.amount : "-";
         row[`Inst ${i + 1} Status`] = inst ? inst.status : "-";
         row[`Inst ${i + 1} Due Date`] = inst && inst.dueDate ? new Date(inst.dueDate).toLocaleDateString() : "-";
+        row[`Inst ${i + 1} Payment Date`] = inst && inst.status === 'Paid' && inst.paidDate ? new Date(inst.paidDate).toLocaleDateString() : "-";
       }
 
       return row;
