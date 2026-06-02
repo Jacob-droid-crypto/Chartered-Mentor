@@ -808,14 +808,64 @@ function Dashboard({ user, onLogout }) {
         "Date": record.date
       }));
     } else {
-      exportData = aggregatedData.map(record => ({
-        "Student Name": record.studentName || record.studentId || "-",
-        "Course": record.course || "-",
-        "Total Present": record.totalPresent,
-        "Total Partial": record.totalPartial,
-        "Total Absent": record.totalAbsent,
-        "Study Hours": formatStudyTime(record.totalHours)
-      }));
+      // 1. Generate date list dynamically
+      const dateList = [];
+      if (attendanceView === 'weekly') {
+        const targetDate = new Date(attendanceDate);
+        const startOfWeek = new Date(targetDate);
+        startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Sunday
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(startOfWeek);
+          d.setDate(startOfWeek.getDate() + i);
+          dateList.push(d.toISOString().split('T')[0]);
+        }
+      } else if (attendanceView === 'monthly') {
+        const [year, month] = attendanceDate.split('-');
+        const y = parseInt(year);
+        const m = parseInt(month) - 1;
+        const numDays = new Date(y, m + 1, 0).getDate();
+        for (let i = 1; i <= numDays; i++) {
+          const dayStr = String(i).padStart(2, '0');
+          const monthStr = String(m + 1).padStart(2, '0');
+          dateList.push(`${y}-${monthStr}-${dayStr}`);
+        }
+      }
+
+      // 2. Build map of student date logs
+      const studentDateLogs = {};
+      const sourceData = Array.isArray(data) ? data : (data?.attendanceSummary || []);
+      sourceData.forEach(item => {
+        if (!studentDateLogs[item.studentId]) {
+          studentDateLogs[item.studentId] = {};
+        }
+        studentDateLogs[item.studentId][item.date] = item;
+      });
+
+      // 3. Construct rows
+      exportData = aggregatedData.map(record => {
+        const row = {
+          "Student Name": record.studentName || record.studentId || "-",
+          "Course": record.course || "-",
+          "Total Present": record.totalPresent,
+          "Total Partial": record.totalPartial,
+          "Total Absent": record.totalAbsent,
+          "Total Study Hours": formatStudyTime(record.totalHours)
+        };
+
+        // Add dynamically generated date columns chronologically
+        dateList.forEach(dateStr => {
+          const logsForDate = studentDateLogs[record.studentId] || {};
+          const log = logsForDate[dateStr];
+          
+          if (log && (log.status === 'Present' || log.status === 'Partial')) {
+            row[dateStr] = formatStudyTime(log.totalHours);
+          } else {
+            row[dateStr] = "Leave";
+          }
+        });
+
+        return row;
+      });
     }
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
