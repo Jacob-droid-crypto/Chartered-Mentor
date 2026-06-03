@@ -1424,6 +1424,11 @@ function Dashboard({ user, onLogout }) {
                       <h3>Absent Days (This Month)</h3>
                       <div className="value">{stats.monthAbsentCount} {stats.monthAbsentCount === 1 ? 'day' : 'days'}</div>
                     </div>
+                    <div className="card">
+                      <div className="card-icon" style={{ background: 'rgba(236, 72, 153, 0.1)', color: 'var(--secondary-color)' }}>📉</div>
+                      <h3>Shortfall Days (This Month)</h3>
+                      <div className="value">{stats.lowHoursMonth.length} {stats.lowHoursMonth.length === 1 ? 'day' : 'days'}</div>
+                    </div>
                   </div>
                 </>
               );
