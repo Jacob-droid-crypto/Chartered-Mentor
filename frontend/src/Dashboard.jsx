@@ -2498,6 +2498,18 @@ function Dashboard({ user, onLogout }) {
                               }} style={{ padding: '0.3rem 0.8rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>Reject</button>
                             </div>
                           )}
+                          {(fee.status === 'Verified' || fee.status === 'Paid') && (
+                            <button onClick={async () => {
+                              if (!window.confirm(`Are you sure you want to revert/reject this payment of ₹${fee.amount}? This will mark it as Rejected, subtract the amount from the student's total paid fees, and update their installment statuses.`)) return;
+                              try {
+                                const res = await fetch(`/admin/student/${fee.studentId}/payment/${fee._id}/reject`, {
+                                  method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
+                                });
+                                if (!res.ok) throw new Error(await res.text());
+                                fetchStudentsData();
+                              } catch(e) { alert('Error: ' + e.message); }
+                            }} style={{ padding: '0.3rem 0.8rem', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>Revert</button>
+                          )}
                         </div>
                       </div>
                     ))}

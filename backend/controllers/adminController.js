@@ -648,14 +648,18 @@ const rejectStudentPayment = async (req, res) => {
     const payment = user.feeHistory.id(paymentId);
     if (!payment) return res.status(404).json({ message: "Payment record not found" });
     
-    if (payment.status !== "Pending") {
-      return res.status(400).json({ message: "Payment is already processed" });
+    // Revert balance if payment was already approved or recorded as paid
+    if (payment.status === "Verified" || payment.status === "Paid") {
+      user.feesPaid = Math.max(0, (user.feesPaid || 0) - Number(payment.amount));
     }
     
     payment.status = "Rejected";
     
+    // Recalculate installments paid status
+    updateInstallmentStatus(user);
+    
     await user.save();
-    res.json({ message: "Payment rejected", user });
+    res.json({ message: "Payment rejected and ledger updated", user });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
