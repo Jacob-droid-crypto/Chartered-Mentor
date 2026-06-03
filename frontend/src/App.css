@@ -22,7 +22,7 @@
   display: flex;
   align-items: center;
   gap: 1rem;
-  margin-bottom: 3rem;
+  margin-bottom: 1.5rem;
 }
 
 .logo-icon {
@@ -53,10 +53,13 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: 1.5rem;
 }
 
 .nav-item {
-  padding: 1rem;
+  padding: 0.75rem 1rem;
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
