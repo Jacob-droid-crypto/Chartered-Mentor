@@ -3,7 +3,7 @@ const router = express.Router();
 const multer = require("multer");
 
 const storage = multer.memoryStorage();
-const upload = multer({ 
+const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
@@ -41,3 +41,9 @@ router.post("/student/:studentId/payment/:paymentId/approve", protect, adminOnly
 router.post("/student/:studentId/payment/:paymentId/reject", protect, adminOnly, rejectStudentPayment);
 
 module.exports = router;
+
+
+
+
+
+

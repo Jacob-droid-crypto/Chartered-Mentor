@@ -5,6 +5,7 @@ const nodemailer = require("nodemailer");
 const { OAuth2Client } = require("google-auth-library");
 const User = require("../models/User");
 const Attendance = require("../models/Attendance");
+const Schedule = require("../models/Schedule");
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -786,6 +787,41 @@ const downloadStudentAnswerPaper = async (req, res) => {
   }
 };
 
+/* ================= STUDENT SCHEDULES ================= */
+const getStudentSchedules = async (req, res) => {
+  try {
+    const user = req.user;
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const schedules = await Schedule.find({ target: user.userId }).sort({ date: 1, startTime: 1 });
+    res.json(schedules);
+  } catch (error) {
+    console.error("Get student schedules error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const toggleScheduleStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = req.user;
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const schedule = await Schedule.findOne({ _id: id, target: user.userId });
+    if (!schedule) {
+      return res.status(404).json({ message: "Schedule not found or unauthorized" });
+    }
+
+    schedule.status = schedule.status === "Pending" ? "Completed" : "Pending";
+    await schedule.save();
+
+    res.json({ message: `Schedule marked as ${schedule.status}`, schedule });
+  } catch (error) {
+    console.error("Toggle schedule status error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   loginStudent,
   changePassword,
@@ -802,5 +838,7 @@ module.exports = {
   submitAnswerPaper,
   downloadStudentAnswerPaper,
   submitPayment,
-  manualAttendance
+  manualAttendance,
+  getStudentSchedules,
+  toggleScheduleStatus
 };

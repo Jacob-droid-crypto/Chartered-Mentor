@@ -507,6 +507,7 @@ function Dashboard({ user, onLogout }) {
   };
 
   const [papers, setPapers] = useState([]);
+  const [schedules, setSchedules] = useState([]);
   
   const fetchPapers = async () => {
     try {
@@ -516,6 +517,19 @@ function Dashboard({ user, onLogout }) {
       });
       const result = await response.json();
       if (response.ok) setPapers(result);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchSchedules = async () => {
+    try {
+      const endpoint = user.role === 'admin' ? '/admin/schedules' : '/student/schedules';
+      const response = await fetch(endpoint, {
+        headers: { 'Authorization': `Bearer ${user.token}` }
+      });
+      const result = await response.json();
+      if (response.ok) setSchedules(result);
     } catch (err) {
       console.error(err);
     }
@@ -543,6 +557,10 @@ function Dashboard({ user, onLogout }) {
     }
     if (activeTab === 'papers') {
       fetchPapers();
+      if (user.role === 'admin') fetchStudentsData();
+    }
+    if (activeTab === 'schedules') {
+      fetchSchedules();
       if (user.role === 'admin') fetchStudentsData();
     }
     if (activeTab === 'payments') {
@@ -1227,6 +1245,9 @@ function Dashboard({ user, onLogout }) {
               <li className={`nav-item ${activeTab === 'papers' ? 'active' : ''}`} onClick={() => setActiveTab('papers')}>
                 <span>📄</span> Papers
               </li>
+              <li className={`nav-item ${activeTab === 'schedules' ? 'active' : ''}`} onClick={() => setActiveTab('schedules')}>
+                <span>🗓️</span> Schedules
+              </li>
               <li className={`nav-item ${activeTab === 'payments' ? 'active' : ''}`} onClick={() => setActiveTab('payments')}>
                 <span>💳</span> Payments
               </li>
@@ -1256,6 +1277,15 @@ function Dashboard({ user, onLogout }) {
                 setActiveTab('papers');
               }}>
                 <span>📄</span> Exam Papers
+              </li>
+              <li className={`nav-item ${activeTab === 'schedules' ? 'active' : ''}`} onClick={() => {
+                if (data && !data.profileCompleted) {
+                  alert('Please complete your profile details first to unlock all dashboard features.');
+                  return;
+                }
+                setActiveTab('schedules');
+              }}>
+                <span>🗓️</span> My Schedule
               </li>
               <li className={`nav-item ${activeTab === 'payments' ? 'active' : ''}`} onClick={() => {
                 if (data && !data.profileCompleted) {
@@ -1296,6 +1326,7 @@ function Dashboard({ user, onLogout }) {
                 : activeTab === 'attendance' ? 'Attendance Records'
                 : activeTab === 'profile' ? 'My Profile'
                 : activeTab === 'papers' ? 'Question Papers'
+                : activeTab === 'schedules' ? (user.role === 'admin' ? 'Student Schedules' : 'My Study Schedule')
                 : activeTab === 'payments' ? (user.role === 'admin' ? 'Fee Ledger' : 'My Payments')
                 : activeTab === 'feeSetup' && feeSetupStudent ? `Fee Structure: ${feeSetupStudent.name}`
                 : activeTab === 'study_tracker' ? 'Study Goal Tracker'
@@ -1308,6 +1339,7 @@ function Dashboard({ user, onLogout }) {
                 : activeTab === 'attendance' ? 'View and track your attendance logs.'
                 : activeTab === 'profile' ? 'Update your personal details and photo.'
                 : activeTab === 'papers' ? 'Manage and download scheduled question papers.'
+                : activeTab === 'schedules' ? (user.role === 'admin' ? 'Create and manage study plans, classes, and tests for students.' : 'Track your study checklist, scheduled classes, and exams.')
                 : activeTab === 'payments' ? 'View fee payment history and balances.'
                 : activeTab === 'feeSetup' ? 'Configure total fees and next due date.'
                 : activeTab === 'study_tracker' ? 'Track days where you studied less than your configured daily target hours.'
@@ -2033,6 +2065,317 @@ function Dashboard({ user, onLogout }) {
                 {papers.length === 0 && <p style={{ color: 'var(--text-muted)' }}>No papers available.</p>}
               </div>
             </div>
+          </>
+        ) : activeTab === 'schedules' ? (
+          <>
+            {user.role === 'admin' ? (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                  <h2>Manage Student Schedules</h2>
+                </div>
+                
+                <div className="card" style={{ marginBottom: '2rem' }}>
+                  <h3 style={{ marginBottom: '1.5rem' }}>Schedule New Activity</h3>
+                  <form 
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      const body = {
+                        title: e.target.title.value,
+                        description: e.target.description.value,
+                        target: e.target.target.value,
+                        date: e.target.date.value,
+                        startTime: e.target.startTime.value,
+                        endTime: e.target.endTime.value
+                      };
+
+                      try {
+                        setLoading(true);
+                        const res = await fetch('/admin/schedule', {
+                          method: 'POST',
+                          headers: { 
+                            'Authorization': `Bearer ${user.token}`,
+                            'Content-Type': 'application/json'
+                          },
+                          body: JSON.stringify(body)
+                        });
+                        const resData = await res.json();
+                        if(!res.ok) throw new Error(resData.message);
+                        alert('Schedule created successfully!');
+                        e.target.reset();
+                        fetchSchedules();
+                      } catch(err) {
+                        alert('Scheduling failed: ' + err.message);
+                      } finally {
+                        setLoading(false);
+                      }
+                    }} 
+                    style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}
+                  >
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.2rem' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Task Title</label>
+                        <input type="text" name="title" placeholder="e.g. Study Physics Chapter 1" required style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Target Student</label>
+                        <select name="target" required style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }}>
+                          <option value="">Select a Student...</option>
+                          {students && students.map(s => (
+                            <option key={s.userId} value={s.userId}>{s.name} ({s.userId})</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Description / Notes (Optional)</label>
+                      <textarea name="description" placeholder="Add specific task instructions or notes here..." rows="2" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', resize: 'vertical' }} />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.2rem' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Date</label>
+                        <input type="date" name="date" required style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Start Time (Optional)</label>
+                        <input type="time" name="startTime" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>End Time (Optional)</label>
+                        <input type="time" name="endTime" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                      </div>
+                    </div>
+
+                    <button type="submit" style={{ padding: '0.75rem', background: 'var(--primary-color)', color: 'white', borderRadius: '8px', border: 'none', fontWeight: 'bold', cursor: 'pointer', marginTop: '0.5rem' }}>Schedule Activity</button>
+                  </form>
+                </div>
+
+                <div className="card">
+                  <h3 style={{ marginBottom: '1.5rem' }}>All Scheduled Activities</h3>
+                  <div className="activity-list">
+                    {schedules.map(sched => {
+                      const isCompleted = sched.status === 'Completed';
+                      const targetStudent = students.find(s => s.userId === sched.target);
+                      const studentName = targetStudent ? targetStudent.name : sched.target;
+
+                      return (
+                        <div key={sched._id} className="activity-item" style={{ 
+                          display: 'flex', 
+                          justifyContent: 'space-between', 
+                          alignItems: 'center', 
+                          padding: '1.2rem', 
+                          background: 'white', 
+                          border: '1px solid var(--glass-border)',
+                          borderRadius: '12px',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.01)'
+                        }}>
+                          <div>
+                            <strong style={{ fontSize: '1.1rem', color: 'var(--text-main)' }}>{sched.title}</strong>
+                            {sched.description && <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>{sched.description}</p>}
+                            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.4rem', display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
+                              <span>Target: <strong>{studentName} ({sched.target})</strong></span>
+                              <span>Date: <strong>{new Date(sched.date).toLocaleDateString()}</strong></span>
+                              {(sched.startTime || sched.endTime) && (
+                                <span>Time: <strong>{sched.startTime || '--:--'} - {sched.endTime || '--:--'}</strong></span>
+                              )}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <span style={{ 
+                              fontSize: '0.8rem', 
+                              fontWeight: 'bold',
+                              padding: '4px 10px', 
+                              borderRadius: '12px',
+                              color: isCompleted ? '#10b981' : '#f59e0b',
+                              background: isCompleted ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)'
+                            }}>
+                              {sched.status}
+                            </span>
+                            <button 
+                              onClick={async () => {
+                                if(!window.confirm('Delete this schedule?')) return;
+                                try {
+                                  const res = await fetch(`/admin/schedule/${sched._id}`, { 
+                                    method: 'DELETE', 
+                                    headers: { 'Authorization': `Bearer ${user.token}` }
+                                  });
+                                  if(res.ok) fetchSchedules();
+                                } catch(e) {
+                                  console.error(e);
+                                }
+                              }} 
+                              style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '1.2rem', padding: '0 0.5rem' }}
+                              title="Delete Schedule"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {schedules.length === 0 && <p style={{ color: 'var(--text-muted)' }}>No scheduled activities found.</p>}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                  <h2>My Study Schedule</h2>
+                </div>
+                
+                {/* Completion Banner */}
+                {(() => {
+                  const completedCount = schedules.filter(s => s.status === 'Completed').length;
+                  const totalCount = schedules.length;
+                  const completionPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+                  
+                  const todayStr = new Date().toISOString().split('T')[0];
+                  const todaySchedules = schedules.filter(s => {
+                    const sDate = new Date(s.date).toISOString().split('T')[0];
+                    return sDate === todayStr;
+                  });
+                  const upcomingSchedules = schedules.filter(s => {
+                    const sDate = new Date(s.date).toISOString().split('T')[0];
+                    return sDate > todayStr;
+                  });
+                  const pastSchedules = schedules.filter(s => {
+                    const sDate = new Date(s.date).toISOString().split('T')[0];
+                    return sDate < todayStr;
+                  });
+
+                  const renderStudentScheduleItem = (sched) => {
+                    const isCompleted = sched.status === 'Completed';
+                    return (
+                      <div key={sched._id} className="activity-item" style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center', 
+                        padding: '1.2rem', 
+                        background: isCompleted ? 'rgba(16, 185, 129, 0.02)' : 'white', 
+                        border: isCompleted ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid var(--glass-border)',
+                        borderRadius: '12px',
+                        transition: 'all 0.2s ease',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.01)'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
+                          <input 
+                            type="checkbox" 
+                            checked={isCompleted} 
+                            onChange={async () => {
+                              try {
+                                const res = await fetch(`/student/schedule/${sched._id}/toggle`, {
+                                  method: 'POST',
+                                  headers: { 
+                                    'Authorization': `Bearer ${user.token}`,
+                                    'Content-Type': 'application/json'
+                                  }
+                                });
+                                if (res.ok) {
+                                  fetchSchedules();
+                                }
+                              } catch(e) {
+                                console.error(e);
+                              }
+                            }}
+                            style={{ width: '20px', height: '20px', cursor: 'pointer', accentColor: 'var(--primary-color)' }}
+                          />
+                          <div style={{ flex: 1 }}>
+                            <strong style={{ 
+                              fontSize: '1.05rem', 
+                              color: isCompleted ? 'var(--text-muted)' : 'var(--text-main)',
+                              textDecoration: isCompleted ? 'line-through' : 'none'
+                            }}>
+                              {sched.title}
+                            </strong>
+                            {sched.description && (
+                              <p style={{ 
+                                fontSize: '0.85rem', 
+                                color: 'var(--text-muted)', 
+                                marginTop: '0.2rem',
+                                textDecoration: isCompleted ? 'line-through' : 'none'
+                              }}>
+                                {sched.description}
+                              </p>
+                            )}
+                            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.4rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                              <span>📅 {new Date(sched.date).toLocaleDateString()}</span>
+                              {(sched.startTime || sched.endTime) && (
+                                <span>⏰ {sched.startTime || '--:--'} - {sched.endTime || '--:--'}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div>
+                          <span style={{ 
+                            fontSize: '0.8rem', 
+                            fontWeight: 'bold',
+                            padding: '4px 10px', 
+                            borderRadius: '12px',
+                            color: isCompleted ? '#10b981' : '#f59e0b',
+                            background: isCompleted ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)'
+                          }}>
+                            {sched.status}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  };
+
+                  return (
+                    <>
+                      <div className="card" style={{ marginBottom: '2rem', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontWeight: '600', fontSize: '1.1rem' }}>Overall Progress Tracker</span>
+                          <span style={{ color: 'var(--primary-color)', fontWeight: 'bold', fontSize: '1.2rem' }}>{completionPercent}% Completed</span>
+                        </div>
+                        <div style={{ width: '100%', background: 'rgba(0,0,0,0.05)', borderRadius: '20px', height: '12px', overflow: 'hidden' }}>
+                          <div style={{ width: `${completionPercent}%`, background: 'linear-gradient(90deg, var(--primary-color), var(--secondary-color))', height: '100%', borderRadius: '20px', transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)' }}></div>
+                        </div>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                          {completedCount} of {totalCount} tasks completed. Keep pushing toward your daily goals!
+                        </p>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                        {/* Today's Tasks */}
+                        <div className="card">
+                          <h3 style={{ marginBottom: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary-color)' }}>
+                            <span>📅</span> Today's Tasks ({todaySchedules.length})
+                          </h3>
+                          <div className="activity-list">
+                            {todaySchedules.map(renderStudentScheduleItem)}
+                            {todaySchedules.length === 0 && <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', padding: '0.5rem' }}>No tasks scheduled for today.</p>}
+                          </div>
+                        </div>
+
+                        {/* Upcoming Tasks */}
+                        <div className="card">
+                          <h3 style={{ marginBottom: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#10b981' }}>
+                            <span>🚀</span> Upcoming Tasks ({upcomingSchedules.length})
+                          </h3>
+                          <div className="activity-list">
+                            {upcomingSchedules.map(renderStudentScheduleItem)}
+                            {upcomingSchedules.length === 0 && <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', padding: '0.5rem' }}>No upcoming tasks scheduled.</p>}
+                          </div>
+                        </div>
+
+                        {/* Past Tasks */}
+                        <div className="card" style={{ opacity: 0.85 }}>
+                          <h3 style={{ marginBottom: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)' }}>
+                            <span>⏳</span> Past Tasks ({pastSchedules.length})
+                          </h3>
+                          <div className="activity-list">
+                            {pastSchedules.map(renderStudentScheduleItem)}
+                            {pastSchedules.length === 0 && <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', padding: '0.5rem' }}>No past tasks recorded.</p>}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
+              </>
+            )}
           </>
         ) : activeTab === 'payments' ? (
           <>

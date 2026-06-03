@@ -5,6 +5,7 @@ const Attendance = require("../models/Attendance");
 const PaymentConfig = require("../models/PaymentConfig");
 const QuestionPaper = require("../models/QuestionPaper");
 const GoalConfig = require("../models/GoalConfig");
+const Schedule = require("../models/Schedule");
 
 const generateToken = (userId, role) => {
   return jwt.sign({ userId, role }, process.env.JWT_SECRET || "fallback_secret", {
@@ -336,6 +337,9 @@ const deleteStudent = async (req, res) => {
     
     // Also clear out their scheduled question papers (base64 storage recovery)
     await QuestionPaper.deleteMany({ target: id });
+
+    // Also clear out their schedules
+    await Schedule.deleteMany({ target: id });
 
     res.json({ message: "Student deleted successfully" });
   } catch (err) {
@@ -714,6 +718,56 @@ const updateGoalConfig = async (req, res) => {
   }
 };
 
+/* ================= SCHEDULES ================= */
+const createSchedule = async (req, res) => {
+  try {
+    const { title, description, target, date, startTime, endTime } = req.body;
+
+    if (!title || !target || !date) {
+      return res.status(400).json({ message: "Title, target student, and date are required" });
+    }
+
+    const schedule = await Schedule.create({
+      title,
+      description: description || "",
+      target,
+      date: new Date(date),
+      startTime: startTime || "",
+      endTime: endTime || "",
+      status: "Pending",
+    });
+
+    res.status(201).json({ message: "Schedule created successfully", schedule });
+  } catch (error) {
+    console.error("Create schedule error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const getAdminSchedules = async (req, res) => {
+  try {
+    const schedules = await Schedule.find({}).sort({ date: 1, startTime: 1 });
+    res.json(schedules);
+  } catch (error) {
+    console.error("Get admin schedules error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const deleteSchedule = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await Schedule.findByIdAndDelete(id);
+    if (!deleted) {
+      return res.status(404).json({ message: "Schedule not found" });
+    }
+    res.json({ message: "Schedule deleted successfully" });
+  } catch (error) {
+    console.error("Delete schedule error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   loginAdmin,
   addStudent,
@@ -735,5 +789,8 @@ module.exports = {
   rejectStudentPayment,
   updateStudentProfileByAdmin,
   getGoalConfig,
-  updateGoalConfig
+  updateGoalConfig,
+  createSchedule,
+  getAdminSchedules,
+  deleteSchedule
 };
