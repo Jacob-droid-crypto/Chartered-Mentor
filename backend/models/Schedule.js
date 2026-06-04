@@ -31,6 +31,22 @@ const scheduleSchema = new mongoose.Schema({
     enum: ["Pending", "Completed"],
     default: "Pending",
   },
+  fileName: {
+    type: String,
+    default: null,
+  },
+  fileType: {
+    type: String,
+    default: null,
+  },
+  fileData: {
+    type: String,
+    default: null,
+  },
+  openedAt: {
+    type: Date,
+    default: null,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

@@ -793,7 +793,10 @@ const getStudentSchedules = async (req, res) => {
     const user = req.user;
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    const schedules = await Schedule.find({ target: user.userId }).sort({ date: 1, startTime: 1 });
+    const threshold = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+    await Schedule.deleteMany({ openedAt: { $ne: null, $lte: threshold } });
+
+    const schedules = await Schedule.find({ target: user.userId }, { fileData: 0 }).sort({ date: 1 });
     res.json(schedules);
   } catch (error) {
     console.error("Get student schedules error:", error);
@@ -822,6 +825,37 @@ const toggleScheduleStatus = async (req, res) => {
   }
 };
 
+const downloadScheduleFile = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = req.user;
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const schedule = await Schedule.findOne({ _id: id, target: user.userId });
+    if (!schedule) {
+      return res.status(404).json({ message: "Schedule not found or unauthorized" });
+    }
+
+    if (!schedule.fileData) {
+      return res.status(404).json({ message: "No file associated with this schedule" });
+    }
+
+    // Set openedAt if not already marked
+    if (!schedule.openedAt) {
+      schedule.openedAt = new Date();
+      await schedule.save();
+    }
+
+    const buffer = Buffer.from(schedule.fileData, "base64");
+    res.setHeader("Content-Type", schedule.fileType || "application/octet-stream");
+    res.setHeader("Content-Disposition", `attachment; filename="${schedule.fileName || "schedule-file"}"`);
+    res.send(buffer);
+  } catch (error) {
+    console.error("Download schedule file error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   loginStudent,
   changePassword,
@@ -840,5 +874,6 @@ module.exports = {
   submitPayment,
   manualAttendance,
   getStudentSchedules,
-  toggleScheduleStatus
+  toggleScheduleStatus,
+  downloadScheduleFile
 };

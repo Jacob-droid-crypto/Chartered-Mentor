@@ -8,7 +8,7 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
-const { loginAdmin, addStudent, getAttendance, getDailySummary, getStudents, deleteStudent, resetPassword, getProfile, uploadQuestionPaper, getAdminPapers, deletePaper, downloadAnswerPaper, getPaymentConfig, updatePaymentConfig, updateStudentFees, addStudentPayment, approveStudentPayment, rejectStudentPayment, editStudentPayment, revertStudentPayment, updateStudentProfileByAdmin, getGoalConfig, updateGoalConfig, manualCheckout } = require("../controllers/adminController");
+const { loginAdmin, addStudent, getAttendance, getDailySummary, getStudents, deleteStudent, resetPassword, getProfile, uploadQuestionPaper, getAdminPapers, deletePaper, downloadAnswerPaper, getPaymentConfig, updatePaymentConfig, updateStudentFees, addStudentPayment, approveStudentPayment, rejectStudentPayment, editStudentPayment, revertStudentPayment, updateStudentProfileByAdmin, getGoalConfig, updateGoalConfig, manualCheckout, createSchedule, getAdminSchedules, deleteSchedule, downloadScheduleFileAdmin } = require("../controllers/adminController");
 const { updateProfile } = require("../controllers/studentController");
 const { protect, adminOnly } = require("../middleware/authMiddleware");
 
@@ -22,6 +22,12 @@ router.post("/attendance/manual-checkout", protect, adminOnly, manualCheckout);
 router.get("/daily-summary", protect, adminOnly, getDailySummary);
 router.post("/profile", protect, adminOnly, updateProfile);
 router.get("/profile", protect, adminOnly, getProfile);
+
+// Schedules
+router.post("/schedule", protect, adminOnly, upload.single("file"), createSchedule);
+router.get("/schedules", protect, adminOnly, getAdminSchedules);
+router.delete("/schedule/:id", protect, adminOnly, deleteSchedule);
+router.get("/schedule/:id/download", protect, adminOnly, downloadScheduleFileAdmin);
 
 // Papers
 router.post("/upload-paper", protect, adminOnly, upload.single("file"), uploadQuestionPaper);

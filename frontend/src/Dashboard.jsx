@@ -2308,24 +2308,28 @@ function Dashboard({ user, onLogout }) {
                   <form 
                     onSubmit={async (e) => {
                       e.preventDefault();
-                      const body = {
-                        title: e.target.title.value,
-                        description: e.target.description.value,
-                        target: e.target.target.value,
-                        date: e.target.date.value,
-                        startTime: e.target.startTime.value,
-                        endTime: e.target.endTime.value
-                      };
+                      const file = e.target.file.files[0];
+                      if (file && file.size > 4 * 1024 * 1024) {
+                        alert("File size exceeds Vercel's 4.5MB upload limit. Please upload a smaller file under 4MB.");
+                        return;
+                      }
+
+                      const formData = new FormData();
+                      formData.append('title', e.target.title.value);
+                      formData.append('target', e.target.target.value);
+                      formData.append('date', e.target.date.value);
+                      if (file) {
+                        formData.append('file', file);
+                      }
 
                       try {
                         setLoading(true);
                         const res = await fetch('/admin/schedule', {
                           method: 'POST',
                           headers: { 
-                            'Authorization': `Bearer ${user.token}`,
-                            'Content-Type': 'application/json'
+                            'Authorization': `Bearer ${user.token}`
                           },
-                          body: JSON.stringify(body)
+                          body: formData
                         });
                         const resData = await res.json();
                         if(!res.ok) throw new Error(resData.message);
@@ -2342,8 +2346,8 @@ function Dashboard({ user, onLogout }) {
                   >
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.2rem' }}>
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Task Title</label>
-                        <input type="text" name="title" placeholder="e.g. Study Physics Chapter 1" required style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Task Title / Heading</label>
+                        <input type="text" name="title" placeholder="e.g. Weekly Study Plan" required style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
                       </div>
                       <div>
                         <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Target Student</label>
@@ -2356,23 +2360,14 @@ function Dashboard({ user, onLogout }) {
                       </div>
                     </div>
 
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Description / Notes (Optional)</label>
-                      <textarea name="description" placeholder="Add specific task instructions or notes here..." rows="2" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', resize: 'vertical' }} />
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.2rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.2rem' }}>
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Date</label>
+                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Start Date</label>
                         <input type="date" name="date" required style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Start Time (Optional)</label>
-                        <input type="time" name="startTime" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>End Time (Optional)</label>
-                        <input type="time" name="endTime" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Upload Document / File</label>
+                        <input type="file" name="file" required style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
                       </div>
                     </div>
 
@@ -2401,16 +2396,45 @@ function Dashboard({ user, onLogout }) {
                         }}>
                           <div>
                             <strong style={{ fontSize: '1.1rem', color: 'var(--text-main)' }}>{sched.title}</strong>
-                            {sched.description && <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>{sched.description}</p>}
                             <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.4rem', display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
                               <span>Target: <strong>{studentName} ({sched.target})</strong></span>
-                              <span>Date: <strong>{new Date(sched.date).toLocaleDateString()}</strong></span>
-                              {(sched.startTime || sched.endTime) && (
-                                <span>Time: <strong>{sched.startTime || '--:--'} - {sched.endTime || '--:--'}</strong></span>
+                              <span>Start Date: <strong>{new Date(sched.date).toLocaleDateString()}</strong></span>
+                              {sched.openedAt ? (
+                                <span style={{ color: '#10b981', fontWeight: '500' }}>
+                                  👁️ Opened: {new Date(sched.openedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              ) : (
+                                <span style={{ color: 'var(--text-muted)' }}>💤 Unopened</span>
                               )}
                             </div>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            {sched.fileName && (
+                              <button 
+                                onClick={async () => {
+                                  try {
+                                    const res = await fetch(`/admin/schedule/${sched._id}/download`, {
+                                      headers: { 'Authorization': `Bearer ${user.token}` }
+                                    });
+                                    if (!res.ok) throw new Error("Failed to download");
+                                    const blob = await res.blob();
+                                    const url = window.URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = sched.fileName || 'file';
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    a.remove();
+                                  } catch(err) {
+                                    alert("Error downloading file: " + err.message);
+                                  }
+                                }}
+                                style={{ padding: '0.45rem 0.9rem', background: 'rgba(59, 130, 246, 0.08)', color: 'var(--primary-color)', border: '1px solid rgba(59, 130, 246, 0.2)', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 'bold' }}
+                                title="Download Attached File"
+                              >
+                                Attachment 📥
+                              </button>
+                            )}
                             <span style={{ 
                               fontSize: '0.8rem', 
                               fontWeight: 'bold',
@@ -2517,25 +2541,70 @@ function Dashboard({ user, onLogout }) {
                             }}>
                               {sched.title}
                             </strong>
-                            {sched.description && (
-                              <p style={{ 
-                                fontSize: '0.85rem', 
-                                color: 'var(--text-muted)', 
-                                marginTop: '0.2rem',
-                                textDecoration: isCompleted ? 'line-through' : 'none'
-                              }}>
-                                {sched.description}
-                              </p>
-                            )}
+                            {(() => {
+                              if (!sched.openedAt) return null;
+                              const msElapsed = new Date().getTime() - new Date(sched.openedAt).getTime();
+                              const hoursLeft = Math.max(0, 48 - (msElapsed / (1000 * 60 * 60)));
+                              return (
+                                <span style={{ 
+                                  marginLeft: '0.8rem', 
+                                  fontSize: '0.75rem', 
+                                  color: '#ef4444', 
+                                  background: 'rgba(239, 68, 68, 0.08)', 
+                                  border: '1px solid rgba(239, 68, 68, 0.2)',
+                                  padding: '2px 8px', 
+                                  borderRadius: '10px', 
+                                  fontWeight: 'bold',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}>
+                                  ⏱️ Disappears in {hoursLeft > 24 ? `${Math.round(hoursLeft)}h` : `${Math.floor(hoursLeft)}h ${Math.round((hoursLeft % 1) * 60)}m`}
+                                </span>
+                              );
+                            })()}
                             <div style={{ display: 'flex', gap: '1rem', marginTop: '0.4rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                              <span>📅 {new Date(sched.date).toLocaleDateString()}</span>
-                              {(sched.startTime || sched.endTime) && (
-                                <span>⏰ {sched.startTime || '--:--'} - {sched.endTime || '--:--'}</span>
-                              )}
+                              <span>📅 Start Date: {new Date(sched.date).toLocaleDateString()}</span>
                             </div>
                           </div>
                         </div>
-                        <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                          {sched.fileName && (
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const res = await fetch(`/student/schedule/${sched._id}/download`, {
+                                    headers: { 'Authorization': `Bearer ${user.token}` }
+                                  });
+                                  if (!res.ok) throw new Error("Failed to download");
+                                  const blob = await res.blob();
+                                  const url = window.URL.createObjectURL(blob);
+                                  const a = document.createElement('a');
+                                  a.href = url;
+                                  a.download = sched.fileName || 'file';
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  a.remove();
+                                  fetchSchedules();
+                                } catch(err) {
+                                  alert("Error downloading file: " + err.message);
+                                }
+                              }}
+                              style={{
+                                padding: '0.45rem 1rem',
+                                background: 'var(--primary-color)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '6px',
+                                fontSize: '0.8rem',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                boxShadow: '0 4px 10px rgba(59, 130, 246, 0.2)'
+                              }}
+                            >
+                              Download File 📥
+                            </button>
+                          )}
                           <span style={{ 
                             fontSize: '0.8rem', 
                             fontWeight: 'bold',

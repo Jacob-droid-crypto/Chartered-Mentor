@@ -841,20 +841,32 @@ const updateGoalConfig = async (req, res) => {
 /* ================= SCHEDULES ================= */
 const createSchedule = async (req, res) => {
   try {
-    const { title, description, target, date, startTime, endTime } = req.body;
+    const { title, target, date } = req.body;
 
     if (!title || !target || !date) {
-      return res.status(400).json({ message: "Title, target student, and date are required" });
+      return res.status(400).json({ message: "Heading, target student, and date are required" });
     }
+
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    const fileData = req.file.buffer.toString("base64");
+    const fileName = req.file.originalname;
+    const fileType = req.file.mimetype;
 
     const schedule = await Schedule.create({
       title,
-      description: description || "",
+      description: "",
       target,
       date: new Date(date),
-      startTime: startTime || "",
-      endTime: endTime || "",
+      startTime: "",
+      endTime: "",
       status: "Pending",
+      fileName,
+      fileType,
+      fileData,
+      openedAt: null
     });
 
     res.status(201).json({ message: "Schedule created successfully", schedule });
@@ -866,7 +878,10 @@ const createSchedule = async (req, res) => {
 
 const getAdminSchedules = async (req, res) => {
   try {
-    const schedules = await Schedule.find({}).sort({ date: 1, startTime: 1 });
+    const threshold = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+    await Schedule.deleteMany({ openedAt: { $ne: null, $lte: threshold } });
+
+    const schedules = await Schedule.find({}, { fileData: 0 }).sort({ date: 1 });
     res.json(schedules);
   } catch (error) {
     console.error("Get admin schedules error:", error);
@@ -884,6 +899,28 @@ const deleteSchedule = async (req, res) => {
     res.json({ message: "Schedule deleted successfully" });
   } catch (error) {
     console.error("Delete schedule error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const downloadScheduleFileAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const schedule = await Schedule.findById(id);
+    if (!schedule) {
+      return res.status(404).json({ message: "Schedule not found" });
+    }
+
+    if (!schedule.fileData) {
+      return res.status(404).json({ message: "No file associated with this schedule" });
+    }
+
+    const buffer = Buffer.from(schedule.fileData, "base64");
+    res.setHeader("Content-Type", schedule.fileType || "application/octet-stream");
+    res.setHeader("Content-Disposition", `attachment; filename="${schedule.fileName || "schedule-file"}"`);
+    res.send(buffer);
+  } catch (error) {
+    console.error("Download schedule file admin error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -915,5 +952,6 @@ module.exports = {
   createSchedule,
   getAdminSchedules,
   deleteSchedule,
-  manualCheckout
+  manualCheckout,
+  downloadScheduleFileAdmin
 };
