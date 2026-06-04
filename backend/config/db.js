@@ -51,6 +51,10 @@ async function createAdminAndStaffIfNotExists() {
       });
 
       console.log("✅ Default Staff Created");
+    } else if (staff.role !== "staff") {
+      staff.role = "staff";
+      await staff.save();
+      console.log("✅ STAFF001 role updated to staff");
     }
   } catch (error) {
     console.error("Admin/Staff creation error:", error);

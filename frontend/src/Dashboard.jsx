@@ -737,7 +737,10 @@ function Dashboard({ user, onLogout }) {
     const isAdminOrStaff = user.role === 'admin' || user.role === 'staff';
     if (activeTab === 'dashboard') {
       fetchDashboardData();
-      if (isAdminOrStaff) fetchStudentsData();
+      if (isAdminOrStaff) {
+        fetchStudentsData();
+        fetchPapers();
+      }
       if (user.role === 'student') {
         fetchPaymentConfig();
         fetchGoalConfig();
@@ -796,6 +799,89 @@ function Dashboard({ user, onLogout }) {
     } catch (err) {
       console.error("Fetch goal config error:", err);
     }
+  };
+
+  const getStaffNotifications = () => {
+    const notifications = [];
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    // Create a student map of userId -> name for fast lookup
+    const studentMap = {};
+    if (Array.isArray(students)) {
+      students.forEach(s => {
+        studentMap[s.userId] = s.name;
+      });
+    }
+
+    // 1. Present Students: currently INSIDE the campus
+    if (Array.isArray(students)) {
+      students.forEach(student => {
+        if (student.currentStatus === 'Inside') {
+          notifications.push({
+            id: `present-${student.userId}`,
+            type: 'present',
+            icon: '🟢',
+            message: `Student ${student.name} (${student.userId}) is currently INSIDE the campus.`,
+            severity: 'success',
+            rawTime: Date.now()
+          });
+        }
+      });
+    }
+
+    // 2. Study Hours Milestones & Warnings (Today)
+    if (Array.isArray(data)) {
+      const todayLogs = data.filter(d => d.date === todayStr);
+      todayLogs.forEach(record => {
+        const hours = parseFloat(record.totalHours || 0);
+        const name = record.studentName || studentMap[record.studentId] || record.studentId;
+        if (hours >= 10) {
+          notifications.push({
+            id: `high-hours-${record.studentId}`,
+            type: 'milestone',
+            icon: '🔥',
+            message: `Student ${name} (${record.studentId}) completed ${hours.toFixed(2)} study hours today.`,
+            severity: 'info',
+            rawTime: Date.now() - 1000
+          });
+        } else if (hours > 0 && hours < 3) {
+          notifications.push({
+            id: `low-hours-${record.studentId}`,
+            type: 'warning',
+            icon: '⚠️',
+            message: `Student ${name} (${record.studentId}) has low study hours today (${hours.toFixed(2)} hrs).`,
+            severity: 'warning',
+            rawTime: Date.now() - 2000
+          });
+        }
+      });
+    }
+
+    // 3. Exams / Answer Sheet Uploads (within last 48 hours)
+    if (Array.isArray(papers)) {
+      const fortyEightHoursAgo = Date.now() - 48 * 60 * 60 * 1000;
+      papers.forEach(paper => {
+        if (paper.answerUploadedAt) {
+          const uploadTime = new Date(paper.answerUploadedAt).getTime();
+          if (uploadTime >= fortyEightHoursAgo) {
+            const studentName = studentMap[paper.target] || paper.target;
+            const timeStr = new Date(paper.answerUploadedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const dateStr = new Date(paper.answerUploadedAt).toLocaleDateString([], { month: 'short', day: 'numeric' });
+            notifications.push({
+              id: `paper-${paper._id}`,
+              type: 'exam',
+              icon: '📄',
+              message: `Answer Sheet Uploaded: Student ${studentName} (${paper.target}) uploaded answer sheet for "${paper.title}" on ${dateStr} at ${timeStr}.`,
+              severity: 'neutral',
+              rawTime: uploadTime
+            });
+          }
+        }
+      });
+    }
+
+    // Sort notifications: present first, then warnings/milestones, then exams (sorted by rawTime desc)
+    return notifications.sort((a, b) => b.rawTime - a.rawTime);
   };
 
   const fetchProfileData = async () => {
@@ -1534,7 +1620,7 @@ function Dashboard({ user, onLogout }) {
                 : activeTab === 'attendance' ? 'Attendance Records'
                 : activeTab === 'profile' ? 'My Profile'
                 : activeTab === 'papers' ? 'Question Papers'
-                : activeTab === 'schedules' ? (user.role === 'admin' ? 'Student Schedules' : 'My Study Schedule')
+                : activeTab === 'schedules' ? ((user.role === 'admin' || user.role === 'staff') ? 'Student Schedules' : 'My Study Schedule')
                 : activeTab === 'payments' ? (user.role === 'admin' ? 'Fee Ledger' : 'My Payments')
                 : activeTab === 'feeSetup' && feeSetupStudent ? `Fee Structure: ${feeSetupStudent.name}`
                 : activeTab === 'study_tracker' ? 'Study Goal Tracker'
@@ -1542,12 +1628,12 @@ function Dashboard({ user, onLogout }) {
                 : 'Campus QR'}
             </h1>
             <p>
-              {activeTab === 'dashboard' ? `Role: ${user.role === 'admin' ? 'Administrator' : 'Student (ID: ' + user.userId + ')'}`
+              {activeTab === 'dashboard' ? `Role: ${user.role === 'admin' ? 'Administrator' : user.role === 'staff' ? 'Staff' : 'Student (ID: ' + user.userId + ')'}`
                 : activeTab === 'students' ? 'Add new students or remove existing ones from the system.'
                 : activeTab === 'attendance' ? 'View and track your attendance logs.'
                 : activeTab === 'profile' ? 'Update your personal details and photo.'
                 : activeTab === 'papers' ? 'Manage and download scheduled question papers.'
-                : activeTab === 'schedules' ? (user.role === 'admin' ? 'Create and manage study plans, classes, and tests for students.' : 'Track your study checklist, scheduled classes, and exams.')
+                : activeTab === 'schedules' ? ((user.role === 'admin' || user.role === 'staff') ? 'Create and manage study plans, classes, and tests for students.' : 'Track your study checklist, scheduled classes, and exams.')
                 : activeTab === 'payments' ? 'View fee payment history and balances.'
                 : activeTab === 'feeSetup' ? 'Configure total fees and next due date.'
                 : activeTab === 'study_tracker' ? 'Track days where you studied less than your configured daily target hours.'
@@ -1642,7 +1728,7 @@ function Dashboard({ user, onLogout }) {
               );
             })()}
 
-            {user.role === 'admin' && (
+            {(user.role === 'admin' || user.role === 'staff') && (
               <div className="dashboard-cards" style={{ marginBottom: '2rem' }}>
                 <div className="card">
                   <div className="card-icon">👨‍🎓</div>
@@ -1657,7 +1743,57 @@ function Dashboard({ user, onLogout }) {
               </div>
             )}
 
-            {user.role === 'admin' && (
+            {(user.role === 'admin' || user.role === 'staff') && (() => {
+              const alerts = getStaffNotifications();
+              return (
+                <div className="card" style={{ marginBottom: '2rem', padding: '1.5rem 2rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.75rem' }}>
+                    <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.25rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      🔔 Staff Alerts & Notifications
+                    </h3>
+                    <span style={{ fontSize: '0.85rem', background: 'var(--primary-color)', color: 'white', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold' }}>
+                      {alerts.length} Active
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '350px', overflowY: 'auto', paddingRight: '0.5rem' }}>
+                    {alerts.length > 0 ? (
+                      alerts.map((alert) => (
+                        <div 
+                          key={alert.id} 
+                          style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '1rem', 
+                            padding: '1rem 1.25rem', 
+                            borderRadius: '12px', 
+                            background: alert.severity === 'warning' ? 'rgba(239, 68, 68, 0.04)' 
+                                      : alert.severity === 'success' ? 'rgba(16, 185, 129, 0.04)'
+                                      : alert.severity === 'info' ? 'rgba(59, 130, 246, 0.04)'
+                                      : 'rgba(0, 0, 0, 0.02)',
+                            border: alert.severity === 'warning' ? '1px solid rgba(239, 68, 68, 0.15)'
+                                   : alert.severity === 'success' ? '1px solid rgba(16, 185, 129, 0.15)'
+                                   : alert.severity === 'info' ? '1px solid rgba(59, 130, 246, 0.15)'
+                                   : '1px solid var(--glass-border)',
+                          }}
+                        >
+                          <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>{alert.icon}</span>
+                          <div style={{ flexGrow: 1, fontSize: '0.95rem', color: 'var(--text-main)', lineHeight: '1.4' }}>
+                            {alert.message}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--text-muted)' }}>
+                        <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>✨</span>
+                        No notifications or alerts today. Everything is running smoothly!
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {(user.role === 'admin' || user.role === 'staff') && (
               <div className="charts-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
                 <div className="card" style={{ padding: '2rem' }}>
                   <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-main)', fontSize: '1.2rem', fontWeight: '600' }}>Attendance Distribution</h3>
@@ -1744,9 +1880,9 @@ function Dashboard({ user, onLogout }) {
             )}
 
             <section className="recent-activity">
-              <h2>{user.role === 'admin' ? 'Today\'s Attendance Summary' : 'Your Check-ins'}</h2>
+              <h2>{(user.role === 'admin' || user.role === 'staff') ? 'Today\'s Attendance Summary' : 'Your Check-ins'}</h2>
               <div className="activity-list">
-                {user.role === 'admin' && Array.isArray(data) ? (() => {
+                {(user.role === 'admin' || user.role === 'staff') && Array.isArray(data) ? (() => {
                   const studentMap = {};
                   if (Array.isArray(students)) {
                     students.forEach(s => {
