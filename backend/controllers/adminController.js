@@ -666,6 +666,68 @@ const rejectStudentPayment = async (req, res) => {
   }
 };
 
+const editStudentPayment = async (req, res) => {
+  try {
+    const { studentId, paymentId } = req.params;
+    const { amount, date, status, receiptNo } = req.body;
+    
+    const user = await User.findOne({ userId: studentId, role: "student" });
+    if (!user) return res.status(404).json({ message: "Student not found" });
+    
+    const payment = user.feeHistory.id(paymentId);
+    if (!payment) return res.status(404).json({ message: "Payment record not found" });
+    
+    if (amount !== undefined) payment.amount = Number(amount);
+    if (date !== undefined) payment.date = new Date(date);
+    if (status !== undefined) payment.status = status;
+    if (receiptNo !== undefined) payment.receiptNo = receiptNo;
+    
+    // Recalculate total feesPaid from all Verified or Paid payments
+    user.feesPaid = user.feeHistory
+      .filter(p => p.status === "Verified" || p.status === "Paid")
+      .reduce((sum, p) => sum + Number(p.amount), 0);
+      
+    // Recalculate installments paid status
+    updateInstallmentStatus(user);
+    
+    await user.save();
+    res.json({ message: "Payment updated successfully", user });
+  } catch (err) {
+    console.error("Edit student payment error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const revertStudentPayment = async (req, res) => {
+  try {
+    const { studentId, paymentId } = req.params;
+    
+    const user = await User.findOne({ userId: studentId, role: "student" });
+    if (!user) return res.status(404).json({ message: "Student not found" });
+    
+    const payment = user.feeHistory.id(paymentId);
+    if (!payment) return res.status(404).json({ message: "Payment record not found" });
+    
+    payment.status = "Pending";
+    
+    // Recalculate total feesPaid from all Verified or Paid payments
+    user.feesPaid = user.feeHistory
+      .filter(p => p.status === "Verified" || p.status === "Paid")
+      .reduce((sum, p) => sum + Number(p.amount), 0);
+      
+    // Recalculate installments paid status
+    updateInstallmentStatus(user);
+    
+    await user.save();
+    res.json({ message: "Payment reverted to pending (unmarked) successfully", user });
+  } catch (err) {
+    console.error("Revert student payment error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+
 const updateStudentProfileByAdmin = async (req, res) => {
   try {
     const { studentId } = req.params;
@@ -791,6 +853,8 @@ module.exports = {
   addStudentPayment,
   approveStudentPayment,
   rejectStudentPayment,
+  editStudentPayment,
+  revertStudentPayment,
   updateStudentProfileByAdmin,
   getGoalConfig,
   updateGoalConfig,

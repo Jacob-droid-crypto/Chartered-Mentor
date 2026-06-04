@@ -408,6 +408,7 @@ function Dashboard({ user, onLogout }) {
   const [showPayModal, setShowPayModal] = useState(false);
   const [feeSetupStudent, setFeeSetupStudent] = useState(null);
   const [showFeeDuePopup, setShowFeeDuePopup] = useState(false);
+  const [editingPayment, setEditingPayment] = useState(null);
 
   // Reusable submit logic for attendance
   const submitAttendance = async (qrData) => {
@@ -499,6 +500,12 @@ function Dashboard({ user, onLogout }) {
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || 'Failed to fetch students');
       setStudents(result);
+      if (viewingProfileStudent) {
+        const updated = result.find(s => s.userId === viewingProfileStudent.userId);
+        if (updated) {
+          setViewingProfileStudent(updated);
+        }
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -2476,40 +2483,51 @@ function Dashboard({ user, onLogout }) {
                         <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
                           <div style={{ fontWeight: 'bold', color: fee.status === 'Pending' ? '#f59e0b' : (fee.status === 'Rejected' ? '#ef4444' : '#10b981') }}>{fee.status}</div>
                           <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{new Date(fee.date).toLocaleDateString()}</div>
-                          {fee.status === 'Pending' && (
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                            <button onClick={() => setEditingPayment({
+                              studentId: fee.studentId,
+                              studentName: fee.studentName,
+                              paymentId: fee._id,
+                              amount: fee.amount,
+                              date: fee.date,
+                              receiptNo: fee.receiptNo || '',
+                              status: fee.status
+                            })} style={{ padding: '0.3rem 0.8rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>✏️ Edit</button>
+                            {fee.status === 'Pending' && (
+                              <>
+                                <button onClick={async () => {
+                                  try {
+                                    const res = await fetch(`/admin/student/${fee.studentId}/payment/${fee._id}/approve`, {
+                                      method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
+                                    });
+                                    if (!res.ok) throw new Error(await res.text());
+                                    fetchStudentsData();
+                                  } catch(e) { alert('Error: ' + e.message); }
+                                }} style={{ padding: '0.3rem 0.8rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>Approve</button>
+                                <button onClick={async () => {
+                                  try {
+                                    const res = await fetch(`/admin/student/${fee.studentId}/payment/${fee._id}/reject`, {
+                                      method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
+                                    });
+                                    if (!res.ok) throw new Error(await res.text());
+                                    fetchStudentsData();
+                                  } catch(e) { alert('Error: ' + e.message); }
+                                }} style={{ padding: '0.3rem 0.8rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>Reject</button>
+                              </>
+                            )}
+                            {(fee.status === 'Verified' || fee.status === 'Paid') && (
                               <button onClick={async () => {
+                                if (!window.confirm(`Are you sure you want to revert this payment of ₹${fee.amount}? This will mark it as Pending (unmarked), subtract the amount from the student's total paid fees, and update their installment statuses.`)) return;
                                 try {
-                                  const res = await fetch(`/admin/student/${fee.studentId}/payment/${fee._id}/approve`, {
+                                  const res = await fetch(`/admin/student/${fee.studentId}/payment/${fee._id}/revert`, {
                                     method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
                                   });
                                   if (!res.ok) throw new Error(await res.text());
                                   fetchStudentsData();
                                 } catch(e) { alert('Error: ' + e.message); }
-                              }} style={{ padding: '0.3rem 0.8rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>Approve</button>
-                              <button onClick={async () => {
-                                try {
-                                  const res = await fetch(`/admin/student/${fee.studentId}/payment/${fee._id}/reject`, {
-                                    method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
-                                  });
-                                  if (!res.ok) throw new Error(await res.text());
-                                  fetchStudentsData();
-                                } catch(e) { alert('Error: ' + e.message); }
-                              }} style={{ padding: '0.3rem 0.8rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>Reject</button>
-                            </div>
-                          )}
-                          {(fee.status === 'Verified' || fee.status === 'Paid') && (
-                            <button onClick={async () => {
-                              if (!window.confirm(`Are you sure you want to revert/reject this payment of ₹${fee.amount}? This will mark it as Rejected, subtract the amount from the student's total paid fees, and update their installment statuses.`)) return;
-                              try {
-                                const res = await fetch(`/admin/student/${fee.studentId}/payment/${fee._id}/reject`, {
-                                  method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
-                                });
-                                if (!res.ok) throw new Error(await res.text());
-                                fetchStudentsData();
-                              } catch(e) { alert('Error: ' + e.message); }
-                            }} style={{ padding: '0.3rem 0.8rem', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>Revert</button>
-                          )}
+                              }} style={{ padding: '0.3rem 0.8rem', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>Revert</button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -3461,6 +3479,134 @@ function Dashboard({ user, onLogout }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem', borderRadius: '8px', background: viewingProfileStudent.profileCompleted ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)', color: viewingProfileStudent.profileCompleted ? '#10b981' : '#ef4444', fontWeight: 'bold', fontSize: '0.9rem' }}>
                 <span>{viewingProfileStudent.profileCompleted ? '✅ Profile Completed' : '⚠️ Profile Incomplete'}</span>
               </div>
+
+              {/* Fees & Payments Section */}
+              <div>
+                <h3 style={{ margin: '1rem 0 0.75rem 0', fontSize: '1.1rem', color: 'var(--primary-color)', borderBottom: '1px dashed var(--glass-border)', paddingBottom: '4px' }}>💳 Fees & Payments</h3>
+                
+                {/* Fee Status Summary */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '1rem', background: '#f8fafc', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', border: '1px solid var(--glass-border)' }}>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>Total Fee</span>
+                    <strong style={{ fontSize: '1.1rem', color: 'var(--text-main)' }}>₹{viewingProfileStudent.totalFees || 0}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>Paid</span>
+                    <strong style={{ fontSize: '1.1rem', color: '#10b981' }}>₹{viewingProfileStudent.feesPaid || 0}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>Remaining</span>
+                    <strong style={{ fontSize: '1.1rem', color: '#ef4444' }}>₹{(viewingProfileStudent.totalFees || 0) - (viewingProfileStudent.feesPaid || 0)}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>Next Due</span>
+                    <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)' }}>
+                      {viewingProfileStudent.nextPaymentDueDate ? new Date(viewingProfileStudent.nextPaymentDueDate).toLocaleDateString() : 'N/A'}
+                    </strong>
+                  </div>
+                </div>
+
+                {/* Installments Schedule */}
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <h4 style={{ fontSize: '0.9rem', color: 'var(--text-main)', marginBottom: '0.5rem', fontWeight: 'bold' }}>📅 Installment Schedule</h4>
+                  {viewingProfileStudent.installments && viewingProfileStudent.installments.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      {viewingProfileStudent.installments.map((inst, idx) => (
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white', padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
+                          <span style={{ fontWeight: 'bold', fontSize: '0.85rem', color: 'var(--text-main)' }}>Installment {idx + 1}: ₹{inst.amount}</span>
+                          <div style={{ fontSize: '0.85rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Due: {new Date(inst.dueDate).toLocaleDateString()}</span>
+                            {inst.status === 'Paid' ? (
+                              <span style={{ color: '#10b981', fontWeight: 'bold', padding: '0.1rem 0.4rem', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '4px' }}>Paid</span>
+                            ) : (
+                              <span style={{ color: '#ef4444', fontWeight: 'bold', padding: '0.1rem 0.4rem', background: 'rgba(239, 68, 68, 0.08)', borderRadius: '4px' }}>Unpaid</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No installments configured yet.</p>
+                  )}
+                </div>
+
+                {/* Payment History */}
+                <div>
+                  <h4 style={{ fontSize: '0.9rem', color: 'var(--text-main)', marginBottom: '0.5rem', fontWeight: 'bold' }}>💸 Payment History</h4>
+                  {viewingProfileStudent.feeHistory && viewingProfileStudent.feeHistory.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      {viewingProfileStudent.feeHistory.map((fee, idx) => (
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
+                          <div>
+                            <strong style={{ fontSize: '0.95rem', color: '#10b981' }}>+ ₹{fee.amount}</strong>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                              <span>Receipt: {fee.receiptNo || 'N/A'}</span>
+                              <span style={{ marginLeft: '10px' }}>Date: {new Date(fee.date).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.3rem' }}>
+                            <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: fee.status === 'Pending' ? '#f59e0b' : (fee.status === 'Rejected' ? '#ef4444' : '#10b981') }}>
+                              {fee.status}
+                            </span>
+                            <div style={{ display: 'flex', gap: '0.4rem' }}>
+                              <button
+                                onClick={() => setEditingPayment({
+                                  studentId: viewingProfileStudent.userId,
+                                  studentName: viewingProfileStudent.name,
+                                  paymentId: fee._id,
+                                  amount: fee.amount,
+                                  date: fee.date,
+                                  receiptNo: fee.receiptNo || '',
+                                  status: fee.status
+                                })}
+                                style={{ padding: '2px 6px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}
+                              >
+                                Edit
+                              </button>
+                              {fee.status === 'Pending' && (
+                                <>
+                                  <button onClick={async () => {
+                                    try {
+                                      const res = await fetch(`/admin/student/${viewingProfileStudent.userId}/payment/${fee._id}/approve`, {
+                                        method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
+                                      });
+                                      if (!res.ok) throw new Error(await res.text());
+                                      fetchStudentsData();
+                                    } catch(e) { alert('Error: ' + e.message); }
+                                  }} style={{ padding: '2px 6px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Approve</button>
+                                  <button onClick={async () => {
+                                    try {
+                                      const res = await fetch(`/admin/student/${viewingProfileStudent.userId}/payment/${fee._id}/reject`, {
+                                        method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
+                                      });
+                                      if (!res.ok) throw new Error(await res.text());
+                                      fetchStudentsData();
+                                    } catch(e) { alert('Error: ' + e.message); }
+                                  }} style={{ padding: '2px 6px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Reject</button>
+                                </>
+                              )}
+                              {(fee.status === 'Verified' || fee.status === 'Paid') && (
+                                <button onClick={async () => {
+                                  if (!window.confirm(`Revert payment of ₹${fee.amount} to Pending (unmarked)?`)) return;
+                                  try {
+                                    const res = await fetch(`/admin/student/${viewingProfileStudent.userId}/payment/${fee._id}/revert`, {
+                                      method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
+                                    });
+                                    if (!res.ok) throw new Error(await res.text());
+                                    fetchStudentsData();
+                                  } catch(e) { alert('Error: ' + e.message); }
+                                }} style={{ padding: '2px 6px', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Revert</button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No payment history available.</p>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', borderTop: '1px solid var(--glass-border)', paddingTop: '1rem' }}>
@@ -3468,6 +3614,105 @@ function Dashboard({ user, onLogout }) {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT PAYMENT MODAL */}
+      {editingPayment && (
+        <div className="modal-overlay" onClick={() => setEditingPayment(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px', width: '95%', padding: '2rem', borderRadius: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.75rem' }}>
+              <h2 style={{ margin: 0, fontSize: '1.4rem', color: 'var(--text-main)' }}>Edit Payment</h2>
+              <button onClick={() => setEditingPayment(null)} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-muted)' }}>&times;</button>
+            </div>
+
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              try {
+                setLoading(true);
+                const res = await fetch(`/admin/student/${editingPayment.studentId}/payment/${editingPayment.paymentId}/edit`, {
+                  method: 'POST',
+                  headers: { 
+                    'Authorization': `Bearer ${user.token}`,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    amount: Number(e.target.amount.value),
+                    receiptNo: e.target.receiptNo.value,
+                    date: new Date(e.target.date.value).toISOString(),
+                    status: e.target.status.value
+                  })
+                });
+                const resData = await res.json();
+                if (!res.ok) throw new Error(resData.message || 'Failed to update payment');
+                alert('Payment updated successfully!');
+                fetchStudentsData();
+                setEditingPayment(null);
+              } catch(err) {
+                alert('Error updating payment: ' + err.message);
+              } finally {
+                setLoading(false);
+              }
+            }} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', textAlign: 'left' }}>
+              <div>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block', marginBottom: '0.2rem' }}>Student</span>
+                <strong style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>{editingPayment.studentName} ({editingPayment.studentId})</strong>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Amount (₹)</label>
+                <input 
+                  type="number" 
+                  name="amount" 
+                  defaultValue={editingPayment.amount} 
+                  required 
+                  min="0"
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }} 
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Receipt / Transaction No.</label>
+                <input 
+                  type="text" 
+                  name="receiptNo" 
+                  defaultValue={editingPayment.receiptNo} 
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }} 
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Date</label>
+                <input 
+                  type="date" 
+                  name="date" 
+                  defaultValue={editingPayment.date ? new Date(editingPayment.date).toISOString().split('T')[0] : ''} 
+                  required 
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }} 
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Status</label>
+                <select 
+                  name="status" 
+                  defaultValue={editingPayment.status} 
+                  required 
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }}
+                >
+                  <option value="Pending">Pending</option>
+                  <option value="Verified">Verified</option>
+                  <option value="Paid">Paid</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                <button type="button" onClick={() => setEditingPayment(null)} style={{ flex: 1, padding: '0.8rem', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-main)', fontWeight: 'bold' }}>Cancel</button>
+                <button type="submit" style={{ flex: 1, padding: '0.8rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Save Changes</button>
+              </div>
+            </form>
           </div>
         </div>
       )}

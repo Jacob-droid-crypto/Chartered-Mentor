@@ -8,7 +8,7 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
-const { loginAdmin, addStudent, getAttendance, getDailySummary, getStudents, deleteStudent, resetPassword, getProfile, uploadQuestionPaper, getAdminPapers, deletePaper, downloadAnswerPaper, getPaymentConfig, updatePaymentConfig, updateStudentFees, addStudentPayment, approveStudentPayment, rejectStudentPayment, updateStudentProfileByAdmin, getGoalConfig, updateGoalConfig } = require("../controllers/adminController");
+const { loginAdmin, addStudent, getAttendance, getDailySummary, getStudents, deleteStudent, resetPassword, getProfile, uploadQuestionPaper, getAdminPapers, deletePaper, downloadAnswerPaper, getPaymentConfig, updatePaymentConfig, updateStudentFees, addStudentPayment, approveStudentPayment, rejectStudentPayment, editStudentPayment, revertStudentPayment, updateStudentProfileByAdmin, getGoalConfig, updateGoalConfig } = require("../controllers/adminController");
 const { updateProfile } = require("../controllers/studentController");
 const { protect, adminOnly } = require("../middleware/authMiddleware");
 
@@ -39,6 +39,8 @@ router.post("/student/:studentId/profile", protect, adminOnly, updateStudentProf
 // Payment Approvals
 router.post("/student/:studentId/payment/:paymentId/approve", protect, adminOnly, approveStudentPayment);
 router.post("/student/:studentId/payment/:paymentId/reject", protect, adminOnly, rejectStudentPayment);
+router.post("/student/:studentId/payment/:paymentId/edit", protect, adminOnly, editStudentPayment);
+router.post("/student/:studentId/payment/:paymentId/revert", protect, adminOnly, revertStudentPayment);
 
 module.exports = router;
 
