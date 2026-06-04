@@ -508,6 +508,10 @@ function Dashboard({ user, onLogout }) {
   const [showFeeDuePopup, setShowFeeDuePopup] = useState(false);
   const [editingPayment, setEditingPayment] = useState(null);
 
+  // Manual Checkout UI States
+  const [showManualCheckoutModal, setShowManualCheckoutModal] = useState(false);
+  const [manualCheckoutData, setManualCheckoutData] = useState({ studentId: '', studentName: '', date: '', checkoutTime: '18:00', checkInTimeDisplay: '' });
+
   // Reusable submit logic for attendance
   const submitAttendance = async (qrData) => {
     if (!navigator.geolocation) {
@@ -555,6 +559,95 @@ function Dashboard({ user, onLogout }) {
       if (response.ok) fetchDashboardData();
     } catch (err) {
       alert('Failed to log attendance');
+    }
+  };
+
+  const handleOpenManualCheckout = async (record) => {
+    setManualCheckoutData({
+      studentId: record.studentId,
+      studentName: record.studentName || 'Unknown Student',
+      date: record.date,
+      checkoutTime: '18:00',
+      checkInTimeDisplay: 'Loading...',
+    });
+    setShowManualCheckoutModal(true);
+
+    try {
+      const res = await fetch(`/admin/attendance`, {
+        headers: { 'Authorization': `Bearer ${user.token}` }
+      });
+      if (res.ok) {
+        const logs = await res.json();
+        const dailyLogs = logs.filter(log => log.studentId === record.studentId && log.date === record.date);
+        
+        const inLog = dailyLogs.find(log => log.type === 'IN');
+        const outLog = dailyLogs.find(log => log.type === 'OUT');
+        
+        let checkInDisplay = 'No Check-In record found';
+        if (inLog) {
+          const inDate = new Date(inLog.timestamp);
+          checkInDisplay = isNaN(inDate.getTime()) ? (inLog.time || '-') : inDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        
+        let initialCheckoutTime = '18:00';
+        if (outLog) {
+          const outDate = new Date(outLog.timestamp);
+          if (!isNaN(outDate.getTime())) {
+            const h = String(outDate.getHours()).padStart(2, '0');
+            const m = String(outDate.getMinutes()).padStart(2, '0');
+            initialCheckoutTime = `${h}:${m}`;
+          }
+        } else if (inLog) {
+          const inDate = new Date(inLog.timestamp);
+          if (!isNaN(inDate.getTime())) {
+            const defaultOut = new Date(inDate.getTime() + 9 * 60 * 60 * 1000);
+            const h = String(defaultOut.getHours()).padStart(2, '0');
+            const m = String(defaultOut.getMinutes()).padStart(2, '0');
+            initialCheckoutTime = `${h}:${m}`;
+          }
+        }
+        
+        setManualCheckoutData(prev => ({
+          ...prev,
+          checkInTimeDisplay: checkInDisplay,
+          checkoutTime: initialCheckoutTime
+        }));
+      } else {
+        setManualCheckoutData(prev => ({
+          ...prev,
+          checkInTimeDisplay: 'Error loading check-in time'
+        }));
+      }
+    } catch (err) {
+      console.error("Error fetching check-in time:", err);
+      setManualCheckoutData(prev => ({
+        ...prev,
+        checkInTimeDisplay: 'Error loading check-in time'
+      }));
+    }
+  };
+
+  const handleManualCheckoutSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const { studentId, date, checkoutTime } = manualCheckoutData;
+      const res = await fetch(`/admin/attendance/manual-checkout`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${user.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ studentId, date, checkoutTime })
+      });
+      const d = await res.json();
+      if (!res.ok) {
+        throw new Error(d.message || 'Failed to submit manual checkout');
+      }
+      alert(d.message || 'Check-out marked successfully!');
+      setShowManualCheckoutModal(false);
+      fetchDashboardData();
+    } catch (err) {
+      alert(err.message);
     }
   };
 
@@ -1935,13 +2028,34 @@ function Dashboard({ user, onLogout }) {
                         const dayKey = dayKeys[dayOfWeek];
                         const targetHours = goalConfig[dayKey] !== undefined ? goalConfig[dayKey] : 12;
                         return (
-                          <div className="activity-date" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.2rem' }}>
-                            <span style={{ fontWeight: 'bold', color: record.status === 'Present' ? '#10b981' : record.status === 'Partial' ? '#f59e0b' : '#ef4444' }}>
-                              {record.status} ({formatStudyTime(record.totalHours)})
-                            </span>
-                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>
-                              Target: {targetHours > 0 ? `${targetHours} hrs` : 'Holiday'} • {record.date}
-                            </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <div className="activity-date" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.2rem' }}>
+                              <span style={{ fontWeight: 'bold', color: record.status === 'Present' ? '#10b981' : record.status === 'Partial' ? '#f59e0b' : '#ef4444' }}>
+                                {record.status} ({formatStudyTime(record.totalHours)})
+                              </span>
+                              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>
+                                Target: {targetHours > 0 ? `${targetHours} hrs` : 'Holiday'} • {record.date}
+                              </span>
+                            </div>
+                            {user.role === 'admin' && (record.status === 'Partial' || record.status === 'Present') && (
+                              <button
+                                onClick={() => handleOpenManualCheckout(record)}
+                                style={{
+                                  padding: '0.45rem 0.9rem',
+                                  background: record.status === 'Partial' ? '#f59e0b' : 'transparent',
+                                  border: record.status === 'Partial' ? 'none' : '1px solid #3b82f6',
+                                  color: record.status === 'Partial' ? 'white' : '#3b82f6',
+                                  borderRadius: '6px',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 'bold',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s',
+                                  boxShadow: record.status === 'Partial' ? '0 4px 10px rgba(245, 158, 11, 0.2)' : 'none'
+                                }}
+                              >
+                                {record.status === 'Partial' ? 'Mark OUT 🕒' : 'Edit OUT ✏️'}
+                              </button>
+                            )}
                           </div>
                         );
                       })() : (
@@ -3814,6 +3928,51 @@ function Dashboard({ user, onLogout }) {
               <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
                 <button type="button" onClick={() => setEditingPayment(null)} style={{ flex: 1, padding: '0.8rem', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-main)', fontWeight: 'bold' }}>Cancel</button>
                 <button type="submit" style={{ flex: 1, padding: '0.8rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Save Changes</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MANUAL CHECK-OUT MODAL */}
+      {showManualCheckoutModal && manualCheckoutData && (
+        <div className="modal-overlay" onClick={() => setShowManualCheckoutModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px', width: '90%' }}>
+            <h2 style={{ marginBottom: '1rem', color: 'var(--text-main)' }}>🕒 Manual Check-Out</h2>
+            <p className="subtitle" style={{ marginBottom: '1.5rem', color: 'var(--text-muted)' }}>
+              Set check-out time for the student's daily record.
+            </p>
+
+            <div style={{ background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--glass-border)', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Student</span>
+                <strong style={{ color: 'var(--text-main)', fontSize: '0.85rem' }}>{manualCheckoutData.studentName} ({manualCheckoutData.studentId})</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Date</span>
+                <strong style={{ color: 'var(--text-main)', fontSize: '0.85rem' }}>{manualCheckoutData.date}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed var(--glass-border)', paddingTop: '0.5rem', marginTop: '0.2rem' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Recorded Check-In</span>
+                <strong style={{ color: '#10b981', fontSize: '0.85rem' }}>{manualCheckoutData.checkInTimeDisplay}</strong>
+              </div>
+            </div>
+
+            <form onSubmit={handleManualCheckoutSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem', fontWeight: 'bold' }}>Check-Out Time</label>
+                <input 
+                  type="time" 
+                  value={manualCheckoutData.checkoutTime} 
+                  onChange={(e) => setManualCheckoutData({ ...manualCheckoutData, checkoutTime: e.target.value })}
+                  required 
+                  style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)', fontSize: '1rem' }} 
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+                <button type="button" onClick={() => setShowManualCheckoutModal(false)} style={{ flex: 1, padding: '0.8rem', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-main)', fontWeight: 'bold' }}>Cancel</button>
+                <button type="submit" style={{ flex: 1, padding: '0.8rem', background: '#f59e0b', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(245, 158, 11, 0.2)' }}>Confirm Check-Out</button>
               </div>
             </form>
           </div>

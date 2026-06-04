@@ -219,6 +219,7 @@ const getAttendance = async (req, res) => {
         date: r.date,
         time: isNaN(d.getTime()) ? "-" : d.toLocaleTimeString(),
         type: r.type || "-",
+        timestamp: r.timestamp
       };
     });
 
@@ -286,6 +287,59 @@ const getDailySummary = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* ================= ADMIN - MANUAL CHECK-OUT ================= */
+const manualCheckout = async (req, res) => {
+  try {
+    const { studentId, date, checkoutTime } = req.body;
+
+    if (!studentId || !date || !checkoutTime) {
+      return res.status(400).json({ message: "All fields (studentId, date, checkoutTime) are required" });
+    }
+
+    const student = await User.findOne({ userId: studentId, role: "student" });
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    // Check if the student has an "IN" record on this date
+    const inRecord = await Attendance.findOne({ studentId, date, type: "IN" });
+    if (!inRecord) {
+      return res.status(400).json({ message: "Student must have a Check-In record (IN) on this date to mark Check-OUT manually." });
+    }
+
+    // Construct the timestamp for the OUT record in local time
+    const timestamp = new Date(`${date}T${checkoutTime}:00`);
+    if (isNaN(timestamp.getTime())) {
+      return res.status(400).json({ message: "Invalid date or time format" });
+    }
+
+    // Ensure checkout timestamp is after check-in timestamp
+    if (timestamp <= new Date(inRecord.timestamp)) {
+      return res.status(400).json({ message: "Check-out time must be after check-in time." });
+    }
+
+    // Look for an existing "OUT" record
+    let outRecord = await Attendance.findOne({ studentId, date, type: "OUT" });
+    if (outRecord) {
+      outRecord.timestamp = timestamp;
+      await outRecord.save();
+    } else {
+      await Attendance.create({
+        studentId,
+        course: student.course,
+        type: "OUT",
+        date,
+        timestamp
+      });
+    }
+
+    res.json({ message: "Check-out time recorded successfully" });
+  } catch (err) {
+    console.error("Manual Checkout Error:", err);
+    res.status(500).json({ message: "Server error: " + err.message });
   }
 };
 
@@ -860,5 +914,6 @@ module.exports = {
   updateGoalConfig,
   createSchedule,
   getAdminSchedules,
-  deleteSchedule
+  deleteSchedule,
+  manualCheckout
 };
