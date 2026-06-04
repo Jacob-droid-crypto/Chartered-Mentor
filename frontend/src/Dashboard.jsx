@@ -654,7 +654,7 @@ function Dashboard({ user, onLogout }) {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      let endpoint = user.role === 'admin' ? '/admin/daily-summary' : `/student/dashboard/${user.userId}`;
+      let endpoint = (user.role === 'admin' || user.role === 'staff') ? '/admin/daily-summary' : `/student/dashboard/${user.userId}`;
       const response = await fetch(`${endpoint}`, {
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
@@ -709,7 +709,7 @@ function Dashboard({ user, onLogout }) {
   
   const fetchPapers = async () => {
     try {
-      const endpoint = user.role === 'admin' ? '/admin/papers' : '/student/papers';
+      const endpoint = (user.role === 'admin' || user.role === 'staff') ? '/admin/papers' : '/student/papers';
       const response = await fetch(endpoint, {
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
@@ -722,7 +722,7 @@ function Dashboard({ user, onLogout }) {
 
   const fetchSchedules = async () => {
     try {
-      const endpoint = user.role === 'admin' ? '/admin/schedules' : '/student/schedules';
+      const endpoint = (user.role === 'admin' || user.role === 'staff') ? '/admin/schedules' : '/student/schedules';
       const response = await fetch(endpoint, {
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
@@ -734,36 +734,37 @@ function Dashboard({ user, onLogout }) {
   };
 
   useEffect(() => {
+    const isAdminOrStaff = user.role === 'admin' || user.role === 'staff';
     if (activeTab === 'dashboard') {
       fetchDashboardData();
-      if (user.role === 'admin') fetchStudentsData();
+      if (isAdminOrStaff) fetchStudentsData();
       if (user.role === 'student') {
         fetchPaymentConfig();
         fetchGoalConfig();
       }
     }
-    if (activeTab === 'students' && user.role === 'admin') {
+    if (activeTab === 'students' && isAdminOrStaff) {
       fetchStudentsData();
     }
     if (activeTab === 'attendance') {
       fetchDashboardData(); // Fetches daily-summary (admin) or dashboard (student)
       fetchGoalConfig();
-      if (user.role === 'admin') fetchStudentsData();
+      if (isAdminOrStaff) fetchStudentsData();
     }
     if (activeTab === 'profile') {
       fetchProfileData();
     }
     if (activeTab === 'papers') {
       fetchPapers();
-      if (user.role === 'admin') fetchStudentsData();
+      if (isAdminOrStaff) fetchStudentsData();
     }
     if (activeTab === 'schedules') {
       fetchSchedules();
-      if (user.role === 'admin') fetchStudentsData();
+      if (isAdminOrStaff) fetchStudentsData();
     }
     if (activeTab === 'payments') {
       fetchPaymentConfig();
-      if (user.role === 'admin') fetchStudentsData();
+      if (isAdminOrStaff) fetchStudentsData();
       if (user.role === 'student') fetchProfileData();
     }
     if (activeTab === 'study_tracker') {
@@ -788,7 +789,7 @@ function Dashboard({ user, onLogout }) {
 
   const fetchGoalConfig = async () => {
     try {
-      const endpoint = user.role === 'admin' ? '/admin/goal-config' : '/student/goal-config';
+      const endpoint = (user.role === 'admin' || user.role === 'staff') ? '/admin/goal-config' : '/student/goal-config';
       const res = await fetch(endpoint, { headers: { 'Authorization': `Bearer ${user.token}` } });
       const result = await res.json();
       if (res.ok) setGoalConfig(result);
@@ -800,7 +801,7 @@ function Dashboard({ user, onLogout }) {
   const fetchProfileData = async () => {
     try {
       setLoading(true);
-      const url = user.role === 'admin' ? '/admin/profile' : `/student/dashboard/${user.userId}`;
+      const url = (user.role === 'admin' || user.role === 'staff') ? '/admin/profile' : `/student/dashboard/${user.userId}`;
       const res = await fetch(url, { headers: { 'Authorization': `Bearer ${user.token}` } });
       const resData = await res.json();
       if (!res.ok) throw new Error(resData.message);
@@ -831,7 +832,7 @@ function Dashboard({ user, onLogout }) {
   const handleProfileSubmit = async (e) => {
     e.preventDefault();
     try {
-      const endpoint = user.role === 'admin' ? '/admin/profile' : '/student/profile';
+      const endpoint = (user.role === 'admin' || user.role === 'staff') ? '/admin/profile' : '/student/profile';
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
@@ -1265,12 +1266,7 @@ function Dashboard({ user, onLogout }) {
       return;
     }
 
-    let maxInstallments = 0;
-    students.forEach(student => {
-      if (Array.isArray(student.installments) && student.installments.length > maxInstallments) {
-        maxInstallments = student.installments.length;
-      }
-    });
+    const isStaff = user.role === 'staff';
 
     const exportData = students.map(student => {
       const row = {
@@ -1282,21 +1278,31 @@ function Dashboard({ user, onLogout }) {
         "Mode": student.mode || "-",
         "Batch": student.batch || "-",
         "Joining Date": student.joiningDate ? new Date(student.joiningDate).toLocaleDateString() : "-",
-        "Total Course Fee": student.totalFees || 0,
-        "Fees Paid": student.feesPaid || 0,
-        "Remaining Balance": (student.totalFees || 0) - (student.feesPaid || 0),
       };
 
-      const sortedInstallments = Array.isArray(student.installments)
-        ? [...student.installments].sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
-        : [];
+      if (!isStaff) {
+        row["Total Course Fee"] = student.totalFees || 0;
+        row["Fees Paid"] = student.feesPaid || 0;
+        row["Remaining Balance"] = (student.totalFees || 0) - (student.feesPaid || 0);
 
-      for (let i = 0; i < maxInstallments; i++) {
-        const inst = sortedInstallments[i] || null;
-        row[`Inst ${i + 1} Amount (₹)`] = inst ? inst.amount : "-";
-        row[`Inst ${i + 1} Status`] = inst ? inst.status : "-";
-        row[`Inst ${i + 1} Due Date`] = inst && inst.dueDate ? new Date(inst.dueDate).toLocaleDateString() : "-";
-        row[`Inst ${i + 1} Payment Date`] = inst && inst.status === 'Paid' && inst.paidDate ? new Date(inst.paidDate).toLocaleDateString() : "-";
+        let maxInstallments = 0;
+        students.forEach(s => {
+          if (Array.isArray(s.installments) && s.installments.length > maxInstallments) {
+            maxInstallments = s.installments.length;
+          }
+        });
+
+        const sortedInstallments = Array.isArray(student.installments)
+          ? [...student.installments].sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+          : [];
+
+        for (let i = 0; i < maxInstallments; i++) {
+          const inst = sortedInstallments[i] || null;
+          row[`Inst ${i + 1} Amount (₹)`] = inst ? inst.amount : "-";
+          row[`Inst ${i + 1} Status`] = inst ? inst.status : "-";
+          row[`Inst ${i + 1} Due Date`] = inst && inst.dueDate ? new Date(inst.dueDate).toLocaleDateString() : "-";
+          row[`Inst ${i + 1} Payment Date`] = inst && inst.status === 'Paid' && inst.paidDate ? new Date(inst.paidDate).toLocaleDateString() : "-";
+        }
       }
 
       return row;
@@ -1304,8 +1310,10 @@ function Dashboard({ user, onLogout }) {
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Fee Ledger");
-    XLSX.writeFile(workbook, `Student_Fee_Ledger_${new Date().toISOString().split('T')[0]}.xlsx`);
+    const sheetName = isStaff ? "Students" : "Fee Ledger";
+    const fileName = isStaff ? `Students_List_${new Date().toISOString().split('T')[0]}.xlsx` : `Student_Fee_Ledger_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+    XLSX.writeFile(workbook, fileName);
   };
 
   useEffect(() => {
@@ -1429,7 +1437,7 @@ function Dashboard({ user, onLogout }) {
           }}>
             <span>📊</span> Dashboard
           </li>
-          {user.role === 'admin' ? (
+          {(user.role === 'admin' || user.role === 'staff') ? (
             <>
               <li className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
                 <span>👤</span> Profile
@@ -1446,9 +1454,11 @@ function Dashboard({ user, onLogout }) {
               <li className={`nav-item ${activeTab === 'schedules' ? 'active' : ''}`} onClick={() => setActiveTab('schedules')}>
                 <span>🗓️</span> Schedules
               </li>
-              <li className={`nav-item ${activeTab === 'payments' ? 'active' : ''}`} onClick={() => setActiveTab('payments')}>
-                <span>💳</span> Payments
-              </li>
+              {user.role === 'admin' && (
+                <li className={`nav-item ${activeTab === 'payments' ? 'active' : ''}`} onClick={() => setActiveTab('payments')}>
+                  <span>💳</span> Payments
+                </li>
+              )}
               <li className={`nav-item ${activeTab === 'campus_qr' ? 'active' : ''}`} onClick={() => setActiveTab('campus_qr')}>
                 <span>🔲</span> Campus QR
               </li>
@@ -3228,7 +3238,7 @@ function Dashboard({ user, onLogout }) {
                   type="button"
                   onClick={handleExportStudentsLedger}
                   style={{ padding: '0.5rem 1rem', background: '#10b981', color: 'white', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
-                  📥 Export Fee Ledger
+                  {user.role === 'staff' ? '📥 Export Students' : '📥 Export Fee Ledger'}
                 </button>
                 <button
                   onClick={() => { setShowAddForm(!showAddForm); setAddMsg(''); }}
@@ -3304,11 +3314,13 @@ function Dashboard({ user, onLogout }) {
                           </span>
                           {student.email || 'No email'} • Batch: {student.batch || 'N/A'} • Mode: <span style={{ textTransform: 'capitalize' }}>{student.mode || 'N/A'}</span>
                           {student.joiningDate && ` • Joined: ${new Date(student.joiningDate).toLocaleDateString()}`}
-                          <div style={{ marginTop: '0.5rem', display: 'flex', gap: '1rem', fontSize: '0.85rem' }}>
-                            <span>Total Fee: ₹{student.totalFees || 0}</span>
-                            <span style={{ color: '#10b981' }}>Paid: ₹{student.feesPaid || 0}</span>
-                            <span style={{ color: '#ef4444' }}>Due: ₹{(student.totalFees || 0) - (student.feesPaid || 0)}</span>
-                          </div>
+                          {user.role === 'admin' && (
+                            <div style={{ marginTop: '0.5rem', display: 'flex', gap: '1rem', fontSize: '0.85rem' }}>
+                              <span>Total Fee: ₹{student.totalFees || 0}</span>
+                              <span style={{ color: '#10b981' }}>Paid: ₹{student.feesPaid || 0}</span>
+                              <span style={{ color: '#ef4444' }}>Due: ₹{(student.totalFees || 0) - (student.feesPaid || 0)}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -3328,49 +3340,53 @@ function Dashboard({ user, onLogout }) {
                           <button onClick={() => { handleResetPassword(student.userId); setOpenMenuId(null); }} className="dropdown-item">
                             🔄 Reset Password
                           </button>
-                          <button onClick={() => { 
-                             const existingInstallments = Array.isArray(student.installments) && student.installments.length > 0 
-                               ? student.installments.map(inst => ({
-                                   amount: inst.amount || '',
-                                   dueDate: inst.dueDate ? new Date(inst.dueDate).toISOString().split('T')[0] : '',
-                                   status: inst.status || 'Unpaid'
-                                 }))
-                               : [
-                                   { amount: student.totalFees ? Math.round(Number(student.totalFees) / 3) : '', dueDate: '', status: 'Unpaid' },
-                                   { amount: student.totalFees ? Math.round(Number(student.totalFees) / 3) : '', dueDate: '', status: 'Unpaid' },
-                                   { amount: student.totalFees ? (Number(student.totalFees) - 2 * Math.round(Number(student.totalFees) / 3)) : '', dueDate: '', status: 'Unpaid' }
-                                 ];
+                          {user.role === 'admin' && (
+                            <>
+                              <button onClick={() => { 
+                                 const existingInstallments = Array.isArray(student.installments) && student.installments.length > 0 
+                                   ? student.installments.map(inst => ({
+                                       amount: inst.amount || '',
+                                       dueDate: inst.dueDate ? new Date(inst.dueDate).toISOString().split('T')[0] : '',
+                                       status: inst.status || 'Unpaid'
+                                     }))
+                                   : [
+                                       { amount: student.totalFees ? Math.round(Number(student.totalFees) / 3) : '', dueDate: '', status: 'Unpaid' },
+                                       { amount: student.totalFees ? Math.round(Number(student.totalFees) / 3) : '', dueDate: '', status: 'Unpaid' },
+                                       { amount: student.totalFees ? (Number(student.totalFees) - 2 * Math.round(Number(student.totalFees) / 3)) : '', dueDate: '', status: 'Unpaid' }
+                                     ];
 
-                             setFeeSetupStudent({ 
-                               userId: student.userId, 
-                               name: student.name, 
-                               totalFees: student.totalFees || '', 
-                               nextPaymentDueDate: student.nextPaymentDueDate ? new Date(student.nextPaymentDueDate).toISOString().split('T')[0] : '',
-                               installments: existingInstallments
-                             }); 
-                             setActiveTab('feeSetup');
-                             setOpenMenuId(null); 
-                           }} className="dropdown-item">
-                            💰 Set Fee Structure
-                          </button>
-                          <button onClick={async () => {
-                            const amount = prompt('Enter Payment Amount Received', '0');
-                            if (!amount || isNaN(amount)) return;
-                            const receipt = prompt('Enter Receipt/Transaction No.', '');
-                            try {
-                              const res = await fetch(`/admin/student/${student.userId}/payment`, {
-                                method: 'POST',
-                                headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ amount: Number(amount), receiptNo: receipt, date: new Date().toISOString() })
-                              });
-                              if (!res.ok) throw new Error(await res.text());
-                              alert('Payment recorded!');
-                              fetchStudentsData();
-                            } catch(err) { alert('Error: ' + err.message); }
-                            setOpenMenuId(null);
-                          }} className="dropdown-item">
-                            💸 Add Payment Received
-                          </button>
+                                 setFeeSetupStudent({ 
+                                   userId: student.userId, 
+                                   name: student.name, 
+                                   totalFees: student.totalFees || '', 
+                                   nextPaymentDueDate: student.nextPaymentDueDate ? new Date(student.nextPaymentDueDate).toISOString().split('T')[0] : '',
+                                   installments: existingInstallments
+                                 }); 
+                                 setActiveTab('feeSetup');
+                                 setOpenMenuId(null); 
+                               }} className="dropdown-item">
+                                💰 Set Fee Structure
+                              </button>
+                              <button onClick={async () => {
+                                const amount = prompt('Enter Payment Amount Received', '0');
+                                if (!amount || isNaN(amount)) return;
+                                const receipt = prompt('Enter Receipt/Transaction No.', '');
+                                try {
+                                  const res = await fetch(`/admin/student/${student.userId}/payment`, {
+                                    method: 'POST',
+                                    headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ amount: Number(amount), receiptNo: receipt, date: new Date().toISOString() })
+                                  });
+                                  if (!res.ok) throw new Error(await res.text());
+                                  alert('Payment recorded!');
+                                  fetchStudentsData();
+                                } catch(err) { alert('Error: ' + err.message); }
+                                setOpenMenuId(null);
+                              }} className="dropdown-item">
+                                💸 Add Payment Received
+                              </button>
+                            </>
+                          )}
                           <div style={{ height: '1px', background: 'var(--glass-border)', margin: '4px 0' }}></div>
                           <button onClick={() => { handleDelete(student.userId); setOpenMenuId(null); }} className="dropdown-item danger">
                             🗑️ Delete Student
@@ -3646,132 +3662,134 @@ function Dashboard({ user, onLogout }) {
               </div>
 
               {/* Fees & Payments Section */}
-              <div>
-                <h3 style={{ margin: '1rem 0 0.75rem 0', fontSize: '1.1rem', color: 'var(--primary-color)', borderBottom: '1px dashed var(--glass-border)', paddingBottom: '4px' }}>💳 Fees & Payments</h3>
-                
-                {/* Fee Status Summary */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '1rem', background: '#f8fafc', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', border: '1px solid var(--glass-border)' }}>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>Total Fee</span>
-                    <strong style={{ fontSize: '1.1rem', color: 'var(--text-main)' }}>₹{viewingProfileStudent.totalFees || 0}</strong>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>Paid</span>
-                    <strong style={{ fontSize: '1.1rem', color: '#10b981' }}>₹{viewingProfileStudent.feesPaid || 0}</strong>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>Remaining</span>
-                    <strong style={{ fontSize: '1.1rem', color: '#ef4444' }}>₹{(viewingProfileStudent.totalFees || 0) - (viewingProfileStudent.feesPaid || 0)}</strong>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>Next Due</span>
-                    <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)' }}>
-                      {viewingProfileStudent.nextPaymentDueDate ? new Date(viewingProfileStudent.nextPaymentDueDate).toLocaleDateString() : 'N/A'}
-                    </strong>
-                  </div>
-                </div>
-
-                {/* Installments Schedule */}
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <h4 style={{ fontSize: '0.9rem', color: 'var(--text-main)', marginBottom: '0.5rem', fontWeight: 'bold' }}>📅 Installment Schedule</h4>
-                  {viewingProfileStudent.installments && viewingProfileStudent.installments.length > 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      {viewingProfileStudent.installments.map((inst, idx) => (
-                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white', padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
-                          <span style={{ fontWeight: 'bold', fontSize: '0.85rem', color: 'var(--text-main)' }}>Installment {idx + 1}: ₹{inst.amount}</span>
-                          <div style={{ fontSize: '0.85rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                            <span style={{ color: 'var(--text-muted)' }}>Due: {new Date(inst.dueDate).toLocaleDateString()}</span>
-                            {inst.status === 'Paid' ? (
-                              <span style={{ color: '#10b981', fontWeight: 'bold', padding: '0.1rem 0.4rem', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '4px' }}>Paid</span>
-                            ) : (
-                              <span style={{ color: '#ef4444', fontWeight: 'bold', padding: '0.1rem 0.4rem', background: 'rgba(239, 68, 68, 0.08)', borderRadius: '4px' }}>Unpaid</span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No installments configured yet.</p>
-                  )}
-                </div>
-
-                {/* Payment History */}
+              {user.role === 'admin' && (
                 <div>
-                  <h4 style={{ fontSize: '0.9rem', color: 'var(--text-main)', marginBottom: '0.5rem', fontWeight: 'bold' }}>💸 Payment History</h4>
-                  {viewingProfileStudent.feeHistory && viewingProfileStudent.feeHistory.length > 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      {viewingProfileStudent.feeHistory.map((fee, idx) => (
-                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
-                          <div>
-                            <strong style={{ fontSize: '0.95rem', color: '#10b981' }}>+ ₹{fee.amount}</strong>
-                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                              <span>Receipt: {fee.receiptNo || 'N/A'}</span>
-                              <span style={{ marginLeft: '10px' }}>Date: {new Date(fee.date).toLocaleDateString()}</span>
-                            </div>
-                          </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.3rem' }}>
-                            <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: fee.status === 'Pending' ? '#f59e0b' : (fee.status === 'Rejected' ? '#ef4444' : '#10b981') }}>
-                              {fee.status}
-                            </span>
-                            <div style={{ display: 'flex', gap: '0.4rem' }}>
-                              <button
-                                onClick={() => setEditingPayment({
-                                  studentId: viewingProfileStudent.userId,
-                                  studentName: viewingProfileStudent.name,
-                                  paymentId: fee._id,
-                                  amount: fee.amount,
-                                  date: fee.date,
-                                  receiptNo: fee.receiptNo || '',
-                                  status: fee.status
-                                })}
-                                style={{ padding: '2px 6px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}
-                              >
-                                Edit
-                              </button>
-                              {fee.status === 'Pending' && (
-                                <>
-                                  <button onClick={async () => {
-                                    try {
-                                      const res = await fetch(`/admin/student/${viewingProfileStudent.userId}/payment/${fee._id}/approve`, {
-                                        method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
-                                      });
-                                      if (!res.ok) throw new Error(await res.text());
-                                      fetchStudentsData();
-                                    } catch(e) { alert('Error: ' + e.message); }
-                                  }} style={{ padding: '2px 6px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Approve</button>
-                                  <button onClick={async () => {
-                                    try {
-                                      const res = await fetch(`/admin/student/${viewingProfileStudent.userId}/payment/${fee._id}/reject`, {
-                                        method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
-                                      });
-                                      if (!res.ok) throw new Error(await res.text());
-                                      fetchStudentsData();
-                                    } catch(e) { alert('Error: ' + e.message); }
-                                  }} style={{ padding: '2px 6px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Reject</button>
-                                </>
-                              )}
-                              {(fee.status === 'Verified' || fee.status === 'Paid') && (
-                                <button onClick={async () => {
-                                  if (!window.confirm(`Revert payment of ₹${fee.amount} to Pending (unmarked)?`)) return;
-                                  try {
-                                    const res = await fetch(`/admin/student/${viewingProfileStudent.userId}/payment/${fee._id}/revert`, {
-                                      method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
-                                    });
-                                    if (!res.ok) throw new Error(await res.text());
-                                    fetchStudentsData();
-                                  } catch(e) { alert('Error: ' + e.message); }
-                                }} style={{ padding: '2px 6px', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Revert</button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                  <h3 style={{ margin: '1rem 0 0.75rem 0', fontSize: '1.1rem', color: 'var(--primary-color)', borderBottom: '1px dashed var(--glass-border)', paddingBottom: '4px' }}>💳 Fees & Payments</h3>
+                  
+                  {/* Fee Status Summary */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '1rem', background: '#f8fafc', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', border: '1px solid var(--glass-border)' }}>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>Total Fee</span>
+                      <strong style={{ fontSize: '1.1rem', color: 'var(--text-main)' }}>₹{viewingProfileStudent.totalFees || 0}</strong>
                     </div>
-                  ) : (
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No payment history available.</p>
-                  )}
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>Paid</span>
+                      <strong style={{ fontSize: '1.1rem', color: '#10b981' }}>₹{viewingProfileStudent.feesPaid || 0}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>Remaining</span>
+                      <strong style={{ fontSize: '1.1rem', color: '#ef4444' }}>₹{(viewingProfileStudent.totalFees || 0) - (viewingProfileStudent.feesPaid || 0)}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>Next Due</span>
+                      <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)' }}>
+                        {viewingProfileStudent.nextPaymentDueDate ? new Date(viewingProfileStudent.nextPaymentDueDate).toLocaleDateString() : 'N/A'}
+                      </strong>
+                    </div>
+                  </div>
+
+                  {/* Installments Schedule */}
+                  <div style={{ marginBottom: '1.5rem' }}>
+                    <h4 style={{ fontSize: '0.9rem', color: 'var(--text-main)', marginBottom: '0.5rem', fontWeight: 'bold' }}>📅 Installment Schedule</h4>
+                    {viewingProfileStudent.installments && viewingProfileStudent.installments.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {viewingProfileStudent.installments.map((inst, idx) => (
+                          <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white', padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
+                            <span style={{ fontWeight: 'bold', fontSize: '0.85rem', color: 'var(--text-main)' }}>Installment {idx + 1}: ₹{inst.amount}</span>
+                            <div style={{ fontSize: '0.85rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                              <span style={{ color: 'var(--text-muted)' }}>Due: {new Date(inst.dueDate).toLocaleDateString()}</span>
+                              {inst.status === 'Paid' ? (
+                                <span style={{ color: '#10b981', fontWeight: 'bold', padding: '0.1rem 0.4rem', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '4px' }}>Paid</span>
+                              ) : (
+                                <span style={{ color: '#ef4444', fontWeight: 'bold', padding: '0.1rem 0.4rem', background: 'rgba(239, 68, 68, 0.08)', borderRadius: '4px' }}>Unpaid</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No installments configured yet.</p>
+                    )}
+                  </div>
+
+                  {/* Payment History */}
+                  <div>
+                    <h4 style={{ fontSize: '0.9rem', color: 'var(--text-main)', marginBottom: '0.5rem', fontWeight: 'bold' }}>💸 Payment History</h4>
+                    {viewingProfileStudent.feeHistory && viewingProfileStudent.feeHistory.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {viewingProfileStudent.feeHistory.map((fee, idx) => (
+                          <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
+                            <div>
+                              <strong style={{ fontSize: '0.95rem', color: '#10b981' }}>+ ₹{fee.amount}</strong>
+                              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                <span>Receipt: {fee.receiptNo || 'N/A'}</span>
+                                <span style={{ marginLeft: '10px' }}>Date: {new Date(fee.date).toLocaleDateString()}</span>
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.3rem' }}>
+                              <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: fee.status === 'Pending' ? '#f59e0b' : (fee.status === 'Rejected' ? '#ef4444' : '#10b981') }}>
+                                {fee.status}
+                              </span>
+                              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                                <button
+                                  onClick={() => setEditingPayment({
+                                    studentId: viewingProfileStudent.userId,
+                                    studentName: viewingProfileStudent.name,
+                                    paymentId: fee._id,
+                                    amount: fee.amount,
+                                    date: fee.date,
+                                    receiptNo: fee.receiptNo || '',
+                                    status: fee.status
+                                  })}
+                                  style={{ padding: '2px 6px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}
+                                >
+                                  Edit
+                                </button>
+                                {fee.status === 'Pending' && (
+                                  <>
+                                    <button onClick={async () => {
+                                      try {
+                                        const res = await fetch(`/admin/student/${viewingProfileStudent.userId}/payment/${fee._id}/approve`, {
+                                          method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
+                                        });
+                                        if (!res.ok) throw new Error(await res.text());
+                                        fetchStudentsData();
+                                      } catch(e) { alert('Error: ' + e.message); }
+                                    }} style={{ padding: '2px 6px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Approve</button>
+                                    <button onClick={async () => {
+                                      try {
+                                        const res = await fetch(`/admin/student/${viewingProfileStudent.userId}/payment/${fee._id}/reject`, {
+                                          method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
+                                        });
+                                        if (!res.ok) throw new Error(await res.text());
+                                        fetchStudentsData();
+                                      } catch(e) { alert('Error: ' + e.message); }
+                                    }} style={{ padding: '2px 6px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Reject</button>
+                                  </>
+                                )}
+                                {(fee.status === 'Verified' || fee.status === 'Paid') && (
+                                  <button onClick={async () => {
+                                    if (!window.confirm(`Revert payment of ₹${fee.amount} to Pending (unmarked)?`)) return;
+                                    try {
+                                      const res = await fetch(`/admin/student/${viewingProfileStudent.userId}/payment/${fee._id}/revert`, {
+                                        method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
+                                      });
+                                      if (!res.ok) throw new Error(await res.text());
+                                      fetchStudentsData();
+                                    } catch(e) { alert('Error: ' + e.message); }
+                                  }} style={{ padding: '2px 6px', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Revert</button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No payment history available.</p>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', borderTop: '1px solid var(--glass-border)', paddingTop: '1rem' }}>

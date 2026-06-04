@@ -10,7 +10,7 @@ const upload = multer({
 
 const { loginAdmin, addStudent, getAttendance, getDailySummary, getStudents, deleteStudent, resetPassword, getProfile, uploadQuestionPaper, getAdminPapers, deletePaper, downloadAnswerPaper, getPaymentConfig, updatePaymentConfig, updateStudentFees, addStudentPayment, approveStudentPayment, rejectStudentPayment, editStudentPayment, revertStudentPayment, updateStudentProfileByAdmin, getGoalConfig, updateGoalConfig, manualCheckout, createSchedule, getAdminSchedules, deleteSchedule, downloadScheduleFileAdmin } = require("../controllers/adminController");
 const { updateProfile } = require("../controllers/studentController");
-const { protect, adminOnly } = require("../middleware/authMiddleware");
+const { protect, adminOnly, adminRoleRequired } = require("../middleware/authMiddleware");
 
 router.post("/login", loginAdmin);
 router.get("/students", protect, adminOnly, getStudents);
@@ -35,19 +35,19 @@ router.get("/papers", protect, adminOnly, getAdminPapers);
 router.delete("/paper/:id", protect, adminOnly, deletePaper);
 router.get("/paper/:id/download-answer", protect, adminOnly, downloadAnswerPaper);
 // Payments
-router.get("/payment-config", protect, adminOnly, getPaymentConfig);
-router.post("/payment-config", protect, adminOnly, updatePaymentConfig);
+router.get("/payment-config", protect, adminRoleRequired, getPaymentConfig);
+router.post("/payment-config", protect, adminRoleRequired, updatePaymentConfig);
 router.get("/goal-config", protect, adminOnly, getGoalConfig);
 router.post("/goal-config", protect, adminOnly, updateGoalConfig);
-router.post("/student/:studentId/fees", protect, adminOnly, updateStudentFees);
-router.post("/student/:studentId/payment", protect, adminOnly, addStudentPayment);
+router.post("/student/:studentId/fees", protect, adminRoleRequired, updateStudentFees);
+router.post("/student/:studentId/payment", protect, adminRoleRequired, addStudentPayment);
 router.post("/student/:studentId/profile", protect, adminOnly, updateStudentProfileByAdmin);
 
 // Payment Approvals
-router.post("/student/:studentId/payment/:paymentId/approve", protect, adminOnly, approveStudentPayment);
-router.post("/student/:studentId/payment/:paymentId/reject", protect, adminOnly, rejectStudentPayment);
-router.post("/student/:studentId/payment/:paymentId/edit", protect, adminOnly, editStudentPayment);
-router.post("/student/:studentId/payment/:paymentId/revert", protect, adminOnly, revertStudentPayment);
+router.post("/student/:studentId/payment/:paymentId/approve", protect, adminRoleRequired, approveStudentPayment);
+router.post("/student/:studentId/payment/:paymentId/reject", protect, adminRoleRequired, rejectStudentPayment);
+router.post("/student/:studentId/payment/:paymentId/edit", protect, adminRoleRequired, editStudentPayment);
+router.post("/student/:studentId/payment/:paymentId/revert", protect, adminRoleRequired, revertStudentPayment);
 
 module.exports = router;
 

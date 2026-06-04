@@ -18,8 +18,8 @@ const loginAdmin = async (req, res) => {
   try {
     const { userId, password } = req.body;
 
-    const admin = await User.findOne({ userId, role: "admin" });
-    if (!admin) return res.status(404).json({ message: "Admin not found" });
+    const admin = await User.findOne({ userId, role: { $in: ["admin", "staff"] } });
+    if (!admin) return res.status(404).json({ message: "Admin/Staff not found" });
 
     const isMatch = await bcrypt.compare(password, admin.password);
     if (!isMatch) return res.status(401).json({ message: "Invalid password" });
@@ -28,6 +28,8 @@ const loginAdmin = async (req, res) => {
       message: "Login successful",
       firstLogin: admin.firstLogin,
       token: generateToken(admin.userId, admin.role),
+      role: admin.role,
+      name: admin.name || (admin.role === "admin" ? "Admin" : "Staff"),
     });
   } catch (err) {
     console.error("Login Admin Error:", err);
@@ -364,13 +366,21 @@ const getStudents = async (req, res) => {
     }
 
     const studentData = students.map(s => {
+       const sObj = s.toObject();
+       if (req.user && req.user.role === 'staff') {
+         delete sObj.totalFees;
+         delete sObj.feesPaid;
+         delete sObj.feeHistory;
+         delete sObj.installments;
+         delete sObj.nextPaymentDueDate;
+       }
        return {
-         ...s.toObject(),
+         ...sObj,
          currentStatus: statusMap[s.userId] === "IN" ? "Inside" : "Outside"
        };
-    });
-
-    res.json(studentData);
+     });
+ 
+     res.json(studentData);
   } catch (err) {
     console.error("Get students error:", err);
     res.status(500).json({ message: "Server error" });
@@ -794,8 +804,17 @@ const updateStudentProfileByAdmin = async (req, res) => {
     );
     
     if (!student) return res.status(404).json({ message: "Student not found" });
+
+    const sObj = student.toObject();
+    if (req.user && req.user.role === 'staff') {
+      delete sObj.totalFees;
+      delete sObj.feesPaid;
+      delete sObj.feeHistory;
+      delete sObj.installments;
+      delete sObj.nextPaymentDueDate;
+    }
     
-    res.json({ message: "Student profile updated successfully", student });
+    res.json({ message: "Student profile updated successfully", student: sObj });
   } catch (err) {
     console.error("Update student profile by admin error:", err);
     res.status(500).json({ message: "Server error" });

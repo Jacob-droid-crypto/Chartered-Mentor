@@ -32,10 +32,18 @@ const protect = async (req, res, next) => {
 };
 
 const adminOnly = (req, res, next) => {
+  if (req.user && (req.user.role === "admin" || req.user.role === "staff")) {
+    next();
+  } else {
+    res.status(403).json({ message: "Not authorized as an admin/staff" });
+  }
+};
+
+const adminRoleRequired = (req, res, next) => {
   if (req.user && req.user.role === "admin") {
     next();
   } else {
-    res.status(403).json({ message: "Not authorized as an admin" });
+    res.status(403).json({ message: "Not authorized. Admin access required." });
   }
 };
 
@@ -47,4 +55,4 @@ const studentOnly = (req, res, next) => {
   }
 };
 
-module.exports = { protect, adminOnly, studentOnly };
+module.exports = { protect, adminOnly, studentOnly, adminRoleRequired };

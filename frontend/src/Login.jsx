@@ -54,9 +54,9 @@ function Login({ onLoginSuccess }) {
       // Pass token and user data back to App
       onLoginSuccess({
         token: data.token,
-        role: role,
+        role: data.role || role,
         userId: data.studentId || userId,
-        name: data.name || 'Admin',
+        name: data.name || (role === 'admin' ? 'Admin' : 'Student'),
       });
       
     } catch (err) {
