@@ -2248,10 +2248,10 @@ function Dashboard({ user, onLogout }) {
         ) : activeTab === 'papers' ? (
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h2>{user.role === 'admin' ? 'Manage Exam Papers' : 'Your Exam Papers'}</h2>
+              <h2>{(user.role === 'admin' || user.role === 'staff') ? 'Manage Exam Papers' : 'Your Exam Papers'}</h2>
             </div>
             
-            {user.role === 'admin' && (
+            {(user.role === 'admin' || user.role === 'staff') && (
               <div className="card" style={{ marginBottom: '2rem' }}>
                 <h3 style={{ marginBottom: '1rem' }}>Upload New Paper for Student</h3>
                 <form 
@@ -2324,7 +2324,7 @@ function Dashboard({ user, onLogout }) {
             )}
 
             <div className="card">
-              <h3 style={{ marginBottom: '1.5rem' }}>{user.role === 'admin' ? 'Scheduled Papers' : 'Available Papers'}</h3>
+              <h3 style={{ marginBottom: '1.5rem' }}>{(user.role === 'admin' || user.role === 'staff') ? 'Scheduled Papers' : 'Available Papers'}</h3>
               <div className="activity-list">
                 {papers.map((paper) => {
                   if (user.role === 'student') {
@@ -2443,7 +2443,7 @@ function Dashboard({ user, onLogout }) {
           </>
         ) : activeTab === 'schedules' ? (
           <>
-            {user.role === 'admin' ? (
+            {(user.role === 'admin' || user.role === 'staff') ? (
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                   <h2>Manage Student Schedules</h2>
