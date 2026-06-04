@@ -18,6 +18,10 @@ function StudentPaperCard({ paper, user, onRefresh }) {
   const scheduledStr = scheduledDate.toISOString().split("T")[0];
   const isLocked = todayStr < scheduledStr;
 
+  const totalDurationMins = paper.examDuration + paper.uploadDuration;
+  const totalDurationMs = totalDurationMins * 60 * 1000;
+  const isTimeExpired = paper.startTime && (new Date(paper.startTime).getTime() + totalDurationMs < new Date().getTime());
+
   useEffect(() => {
     if (!paper.startTime || paper.answerUploadedAt) return;
 
@@ -75,8 +79,8 @@ function StudentPaperCard({ paper, user, onRefresh }) {
 
   const handleFileUpload = async (file) => {
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) {
-      alert("File size exceeds 10MB limit.");
+    if (file.size > 3.2 * 1024 * 1024) {
+      alert("File size exceeds Vercel's 4.5MB serverless upload limit (max file size is ~3.2MB). Please compress your PDF/images or upload a smaller file.");
       return;
     }
 
@@ -99,7 +103,16 @@ function StudentPaperCard({ paper, user, onRefresh }) {
           })
         });
 
-        const result = await res.json();
+        const text = await res.text();
+        let result;
+        try {
+          result = JSON.parse(text);
+        } catch(e) {
+          throw new Error(res.status === 413 
+            ? "File is too large for the hosting platform (limit is 4.5MB total). Please compress your file." 
+            : "Server error: " + text.slice(0, 100)
+          );
+        }
         if (!res.ok) throw new Error(result.message);
         
         alert("Answer sheets uploaded successfully!");
@@ -174,7 +187,7 @@ function StudentPaperCard({ paper, user, onRefresh }) {
               ✅ Submitted: {paper.answerFileName} ({new Date(paper.answerUploadedAt).toLocaleString()})
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '0.8rem' }}>
+          <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
             <button onClick={async () => {
               try {
                 const res = await fetch(`/student/paper/${paper._id}/download-answer`, {
@@ -195,6 +208,39 @@ function StudentPaperCard({ paper, user, onRefresh }) {
             }} style={{ padding: '0.55rem 1.2rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
               View Submission
             </button>
+            {!isTimeExpired && (
+              <>
+                <input 
+                  type="file" 
+                  id={`re-upload-${paper._id}`}
+                  accept=".pdf,.png,.jpg,.jpeg"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      if (window.confirm(`Are you sure you want to overwrite your previous submission with "${e.target.files[0].name}"?`)) {
+                        handleFileUpload(e.target.files[0]);
+                      }
+                    }
+                  }}
+                  style={{ display: 'none' }}
+                />
+                <label 
+                  htmlFor={`re-upload-${paper._id}`}
+                  style={{
+                    display: 'inline-block',
+                    padding: '0.55rem 1.2rem',
+                    background: 'transparent',
+                    color: 'var(--primary-color)',
+                    border: '1px solid var(--primary-color)',
+                    borderRadius: '8px',
+                    fontWeight: 'bold',
+                    fontSize: '0.85rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {uploading ? "Uploading..." : "🔄 Re-upload"}
+                </label>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -321,7 +367,7 @@ function StudentPaperCard({ paper, user, onRefresh }) {
             Combined Time: <strong>{paper.examDuration + paper.uploadDuration} minutes</strong> ({paper.examDuration}m exam + {paper.uploadDuration}m upload grace)
           </div>
         </div>
-        <div>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <button 
             onClick={handleStartExam}
             style={{
@@ -338,6 +384,58 @@ function StudentPaperCard({ paper, user, onRefresh }) {
           >
             ▶️ Start Exam
           </button>
+          <input 
+            type="file" 
+            id={`direct-upload-${paper._id}`}
+            accept=".pdf,.png,.jpg,.jpeg"
+            onChange={async (e) => {
+              if (e.target.files && e.target.files[0]) {
+                const file = e.target.files[0];
+                if (file.size > 3.2 * 1024 * 1024) {
+                  alert("File size exceeds Vercel's 4.5MB serverless upload limit (max file size is ~3.2MB). Please compress your PDF/images or upload a smaller file.");
+                  return;
+                }
+                if (!window.confirm(`Start exam and upload "${file.name}" directly?`)) return;
+                try {
+                  setUploading(true);
+                  // 1. Call Start API
+                  const startRes = await fetch(`/student/paper/${paper._id}/start`, {
+                    method: "POST",
+                    headers: {
+                      "Authorization": `Bearer ${user.token}`,
+                      "Content-Type": "application/json"
+                    }
+                  });
+                  if (!startRes.ok) throw new Error(await startRes.text());
+                  
+                  // 2. Upload file
+                  await handleFileUpload(file);
+                } catch(err) {
+                  alert("Failed to start/upload: " + err.message);
+                } finally {
+                  setUploading(false);
+                }
+              }
+            }}
+            style={{ display: 'none' }}
+          />
+          <label 
+            htmlFor={`direct-upload-${paper._id}`}
+            style={{
+              display: 'inline-block',
+              padding: '0.65rem 1.5rem',
+              background: 'transparent',
+              color: 'var(--primary-color)',
+              border: '1px solid var(--primary-color)',
+              borderRadius: '8px',
+              fontWeight: 'bold',
+              fontSize: '0.9rem',
+              cursor: 'pointer',
+              textAlign: 'center'
+            }}
+          >
+            {uploading ? "Uploading..." : "📤 Upload Answer Directly"}
+          </label>
         </div>
       </div>
     </div>
@@ -1909,7 +2007,12 @@ function Dashboard({ user, onLogout }) {
                     const localDate = new Date(e.target.scheduledTime.value + "T00:00:00");
                     formData.append('scheduledTime', localDate.toISOString());
                     
-                    formData.append('file', e.target.file.files[0]);
+                    const file = e.target.file.files[0];
+                    if (file && file.size > 4 * 1024 * 1024) {
+                      alert("File size exceeds Vercel's 4.5MB upload limit. Please upload a smaller file under 4MB.");
+                      return;
+                    }
+                    formData.append('file', file);
 
                     try {
                       setLoading(true);

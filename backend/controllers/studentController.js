@@ -729,7 +729,7 @@ const submitAnswerPaper = async (req, res) => {
     }
 
     if (!paper.startTime) {
-      return res.status(400).json({ message: "Exam has not been started yet" });
+      paper.startTime = new Date();
     }
 
     // Enforce combined exam + upload duration timer
