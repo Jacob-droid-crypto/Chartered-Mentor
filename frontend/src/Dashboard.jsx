@@ -2474,204 +2474,83 @@ function Dashboard({ user, onLogout }) {
             ) : (
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                  <h2>My Study Schedule</h2>
+                  <h2>My Study Schedules</h2>
                 </div>
                 
-                {/* Completion Banner */}
-                {(() => {
-                  const completedCount = schedules.filter(s => s.status === 'Completed').length;
-                  const totalCount = schedules.length;
-                  const completionPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-                  
-                  const todayStr = new Date().toISOString().split('T')[0];
-                  const todaySchedules = schedules.filter(s => {
-                    const sDate = new Date(s.date).toISOString().split('T')[0];
-                    return sDate === todayStr;
-                  });
-                  const upcomingSchedules = schedules.filter(s => {
-                    const sDate = new Date(s.date).toISOString().split('T')[0];
-                    return sDate > todayStr;
-                  });
-                  const pastSchedules = schedules.filter(s => {
-                    const sDate = new Date(s.date).toISOString().split('T')[0];
-                    return sDate < todayStr;
-                  });
-
-                  const renderStudentScheduleItem = (sched) => {
-                    const isCompleted = sched.status === 'Completed';
-                    return (
-                      <div key={sched._id} className="activity-item" style={{ 
-                        display: 'flex', 
-                        justifyContent: 'space-between', 
-                        alignItems: 'center', 
-                        padding: '1.2rem', 
-                        background: isCompleted ? 'rgba(16, 185, 129, 0.02)' : 'white', 
-                        border: isCompleted ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid var(--glass-border)',
-                        borderRadius: '12px',
-                        transition: 'all 0.2s ease',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.01)'
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
-                          <input 
-                            type="checkbox" 
-                            checked={isCompleted} 
-                            onChange={async () => {
-                              try {
-                                const res = await fetch(`/student/schedule/${sched._id}/toggle`, {
-                                  method: 'POST',
-                                  headers: { 
-                                    'Authorization': `Bearer ${user.token}`,
-                                    'Content-Type': 'application/json'
-                                  }
-                                });
-                                if (res.ok) {
-                                  fetchSchedules();
-                                }
-                              } catch(e) {
-                                console.error(e);
-                              }
-                            }}
-                            style={{ width: '20px', height: '20px', cursor: 'pointer', accentColor: 'var(--primary-color)' }}
-                          />
-                          <div style={{ flex: 1 }}>
-                            <strong style={{ 
-                              fontSize: '1.05rem', 
-                              color: isCompleted ? 'var(--text-muted)' : 'var(--text-main)',
-                              textDecoration: isCompleted ? 'line-through' : 'none'
-                            }}>
-                              {sched.title}
-                            </strong>
-                            {(() => {
-                              if (!sched.openedAt) return null;
-                              const msElapsed = new Date().getTime() - new Date(sched.openedAt).getTime();
-                              const hoursLeft = Math.max(0, 48 - (msElapsed / (1000 * 60 * 60)));
-                              return (
-                                <span style={{ 
-                                  marginLeft: '0.8rem', 
-                                  fontSize: '0.75rem', 
-                                  color: '#ef4444', 
-                                  background: 'rgba(239, 68, 68, 0.08)', 
-                                  border: '1px solid rgba(239, 68, 68, 0.2)',
-                                  padding: '2px 8px', 
-                                  borderRadius: '10px', 
-                                  fontWeight: 'bold',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px'
-                                }}>
-                                  ⏱️ Disappears in {hoursLeft > 24 ? `${Math.round(hoursLeft)}h` : `${Math.floor(hoursLeft)}h ${Math.round((hoursLeft % 1) * 60)}m`}
-                                </span>
-                              );
-                            })()}
-                            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.4rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                              <span>📅 Start Date: {new Date(sched.date).toLocaleDateString()}</span>
+                <div className="card">
+                  <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+                    Below are your scheduled study guides/plans. Click download to access the files.
+                  </p>
+                  <div className="activity-list">
+                    {schedules.map((sched) => {
+                      return (
+                        <div key={sched._id} className="activity-item" style={{ 
+                          display: 'flex', 
+                          justifyContent: 'space-between', 
+                          alignItems: 'center', 
+                          padding: '1.2rem', 
+                          background: 'white', 
+                          border: '1px solid var(--glass-border)',
+                          borderRadius: '12px',
+                          transition: 'all 0.2s ease',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.01)'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
+                            <div style={{ flex: 1 }}>
+                              <strong style={{ fontSize: '1.1rem', color: 'var(--text-main)' }}>
+                                {sched.title}
+                              </strong>
+                              <div style={{ display: 'flex', gap: '1rem', marginTop: '0.4rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                <span>📅 Start Date: {new Date(sched.date).toLocaleDateString()}</span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                          {sched.fileName && (
-                            <button
-                              onClick={async () => {
-                                try {
-                                  const res = await fetch(`/student/schedule/${sched._id}/download`, {
-                                    headers: { 'Authorization': `Bearer ${user.token}` }
-                                  });
-                                  if (!res.ok) throw new Error("Failed to download");
-                                  const blob = await res.blob();
-                                  const url = window.URL.createObjectURL(blob);
-                                  const a = document.createElement('a');
-                                  a.href = url;
-                                  a.download = sched.fileName || 'file';
-                                  document.body.appendChild(a);
-                                  a.click();
-                                  a.remove();
-                                  fetchSchedules();
-                                } catch(err) {
-                                  alert("Error downloading file: " + err.message);
-                                }
-                              }}
-                              style={{
-                                padding: '0.45rem 1rem',
-                                background: 'var(--primary-color)',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '6px',
-                                fontSize: '0.8rem',
-                                fontWeight: 'bold',
-                                cursor: 'pointer',
-                                boxShadow: '0 4px 10px rgba(59, 130, 246, 0.2)'
-                              }}
-                            >
-                              Download File 📥
-                            </button>
-                          )}
-                          <span style={{ 
-                            fontSize: '0.8rem', 
-                            fontWeight: 'bold',
-                            padding: '4px 10px', 
-                            borderRadius: '12px',
-                            color: isCompleted ? '#10b981' : '#f59e0b',
-                            background: isCompleted ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)'
-                          }}>
-                            {sched.status}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  };
-
-                  return (
-                    <>
-                      <div className="card" style={{ marginBottom: '2rem', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontWeight: '600', fontSize: '1.1rem' }}>Overall Progress Tracker</span>
-                          <span style={{ color: 'var(--primary-color)', fontWeight: 'bold', fontSize: '1.2rem' }}>{completionPercent}% Completed</span>
-                        </div>
-                        <div style={{ width: '100%', background: 'rgba(0,0,0,0.05)', borderRadius: '20px', height: '12px', overflow: 'hidden' }}>
-                          <div style={{ width: `${completionPercent}%`, background: 'linear-gradient(90deg, var(--primary-color), var(--secondary-color))', height: '100%', borderRadius: '20px', transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)' }}></div>
-                        </div>
-                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                          {completedCount} of {totalCount} tasks completed. Keep pushing toward your daily goals!
-                        </p>
-                      </div>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                        {/* Today's Tasks */}
-                        <div className="card">
-                          <h3 style={{ marginBottom: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary-color)' }}>
-                            <span>📅</span> Today's Tasks ({todaySchedules.length})
-                          </h3>
-                          <div className="activity-list">
-                            {todaySchedules.map(renderStudentScheduleItem)}
-                            {todaySchedules.length === 0 && <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', padding: '0.5rem' }}>No tasks scheduled for today.</p>}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            {sched.fileName && (
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    const res = await fetch(`/student/schedule/${sched._id}/download`, {
+                                      headers: { 'Authorization': `Bearer ${user.token}` }
+                                    });
+                                    if (!res.ok) throw new Error("Failed to download");
+                                    const blob = await res.blob();
+                                    const url = window.URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = sched.fileName || 'file';
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    a.remove();
+                                    fetchSchedules();
+                                  } catch(err) {
+                                    alert("Error downloading file: " + err.message);
+                                  }
+                                }}
+                                style={{
+                                  padding: '0.55rem 1.2rem',
+                                  background: 'var(--primary-color)',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '8px',
+                                  fontSize: '0.85rem',
+                                  fontWeight: 'bold',
+                                  cursor: 'pointer',
+                                  boxShadow: '0 4px 10px rgba(59, 130, 246, 0.2)'
+                                }}
+                              >
+                                Download File 📥
+                              </button>
+                            )}
                           </div>
                         </div>
-
-                        {/* Upcoming Tasks */}
-                        <div className="card">
-                          <h3 style={{ marginBottom: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#10b981' }}>
-                            <span>🚀</span> Upcoming Tasks ({upcomingSchedules.length})
-                          </h3>
-                          <div className="activity-list">
-                            {upcomingSchedules.map(renderStudentScheduleItem)}
-                            {upcomingSchedules.length === 0 && <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', padding: '0.5rem' }}>No upcoming tasks scheduled.</p>}
-                          </div>
-                        </div>
-
-                        {/* Past Tasks */}
-                        <div className="card" style={{ opacity: 0.85 }}>
-                          <h3 style={{ marginBottom: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)' }}>
-                            <span>⏳</span> Past Tasks ({pastSchedules.length})
-                          </h3>
-                          <div className="activity-list">
-                            {pastSchedules.map(renderStudentScheduleItem)}
-                            {pastSchedules.length === 0 && <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', padding: '0.5rem' }}>No past tasks recorded.</p>}
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  );
-                })()}
+                      );
+                    })}
+                    {schedules.length === 0 && (
+                      <p style={{ color: 'var(--text-muted)', padding: '1rem' }}>No schedules available to download.</p>
+                    )}
+                  </div>
+                </div>
               </>
             )}
           </>
