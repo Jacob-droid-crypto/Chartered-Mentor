@@ -17,10 +17,10 @@ const connectDB = async () => {
 
 async function createAdminAndStaffIfNotExists() {
   try {
-    const adminId = "ADMIN001";
-    const adminPassword = "admin123";
+    const adminId = process.env.ADMIN_USERID || "ADMIN001";
+    const adminPassword = process.env.ADMIN_PASSWORD || "admin123";
 
-    const admin = await User.findOne({ userId: adminId });
+    let admin = await User.findOne({ role: "admin" });
 
     if (!admin) {
       const hashedPassword = await bcrypt.hash(adminPassword, 10);
@@ -32,7 +32,25 @@ async function createAdminAndStaffIfNotExists() {
         firstLogin: true,
       });
 
-      console.log("✅ Default Admin Created");
+      console.log(`✅ Default Admin Created with ID: ${adminId}`);
+    } else {
+      let isModified = false;
+      if (admin.userId !== adminId) {
+        console.log(`🔄 Renaming admin from ${admin.userId} to ${adminId}`);
+        admin.userId = adminId;
+        isModified = true;
+      }
+      
+      const isMatch = await bcrypt.compare(adminPassword, admin.password);
+      if (!isMatch) {
+        console.log("🔄 Updating admin password in database to match configuration");
+        admin.password = await bcrypt.hash(adminPassword, 10);
+        isModified = true;
+      }
+
+      if (isModified) {
+        await admin.save();
+      }
     }
 
     const staffId = "STAFF001";
