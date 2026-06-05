@@ -88,32 +88,49 @@ const getDashboard = async (req, res) => {
     }).sort({ createdAt: 1 });
 
     const allLogs = await Attendance.find({ studentId }).sort({ timestamp: 1 });
-    const summary = {};
+    const groupedLogs = {};
     allLogs.forEach((r) => {
       const key = r.date;
-      if (!summary[key]) {
-        summary[key] = {
-          studentId: r.studentId,
-          course: r.course,
-          date: r.date,
-          hasIN: false,
-          hasOUT: false,
-          totalMs: 0,
-          lastIn: null
-        };
+      if (!groupedLogs[key]) {
+        groupedLogs[key] = [];
       }
-      const time = r.timestamp ? new Date(r.timestamp).getTime() : (r.createdAt ? new Date(r.createdAt).getTime() : 0);
-      if (r.type === "IN") {
-        summary[key].hasIN = true;
-        summary[key].lastIn = time;
-      } else if (r.type === "OUT") {
-        summary[key].hasOUT = true;
-        if (summary[key].lastIn) {
-            summary[key].totalMs += (time - summary[key].lastIn);
-            summary[key].lastIn = null;
-        }
-      }
+      groupedLogs[key].push(r);
     });
+
+    const summary = {};
+    for (const key in groupedLogs) {
+      const dayLogs = groupedLogs[key];
+      const inLogs = [];
+      const outLogs = [];
+      dayLogs.forEach(log => {
+        const time = log.timestamp ? new Date(log.timestamp).getTime() : (log.createdAt ? new Date(log.createdAt).getTime() : 0);
+        if (log.type === "IN") {
+          inLogs.push(time);
+        } else if (log.type === "OUT") {
+          outLogs.push(time);
+        }
+      });
+
+      inLogs.sort((a, b) => a - b);
+      outLogs.sort((a, b) => a - b);
+
+      let totalMs = 0;
+      inLogs.forEach(inTime => {
+        const outIdx = outLogs.findIndex(outTime => outTime > inTime);
+        if (outIdx !== -1) {
+          totalMs += (outLogs[outIdx] - inTime);
+          outLogs.splice(outIdx, 1);
+        }
+      });
+
+      summary[key] = {
+        studentId: dayLogs[0].studentId,
+        course: dayLogs[0].course,
+        date: key,
+        hasIN: inLogs.length > 0,
+        totalMs
+      };
+    }
 
     const attendanceSummary = Object.values(summary).map((s) => ({
       studentId: s.studentId,
@@ -249,7 +266,7 @@ const scanQr = async (req, res) => {
     else if (qrValue === "CM-ATTENDANCE-OUT") type = "OUT";
     else return res.status(401).json({ message: "Invalid QR code" });
 
-    const course = studentId.substring(2, 5);
+    const course = student.course;
     const today = getISTDateString();
 
     const lastRecord = await Attendance.findOne({ studentId, date: today }).sort({ createdAt: -1 });
@@ -283,21 +300,29 @@ const getDailyHours = async (req, res) => {
   try {
     const { studentId, date } = req.params;
 
-    const logs = await Attendance.find({ studentId, date }).sort({
-      createdAt: 1,
+    const logs = await Attendance.find({ studentId, date });
+    const inLogs = [];
+    const outLogs = [];
+    logs.forEach(log => {
+      const time = log.timestamp ? new Date(log.timestamp).getTime() : (log.createdAt ? new Date(log.createdAt).getTime() : 0);
+      if (log.type === "IN") {
+        inLogs.push(time);
+      } else if (log.type === "OUT") {
+        outLogs.push(time);
+      }
     });
 
-    let totalMs = 0;
-    let lastIn = null;
+    inLogs.sort((a, b) => a - b);
+    outLogs.sort((a, b) => a - b);
 
-    for (const log of logs) {
-      if (log.type === "IN") {
-        lastIn = log.createdAt;
-      } else if (log.type === "OUT" && lastIn) {
-        totalMs += log.createdAt - lastIn;
-        lastIn = null;
+    let totalMs = 0;
+    inLogs.forEach(inTime => {
+      const outIdx = outLogs.findIndex(outTime => outTime > inTime);
+      if (outIdx !== -1) {
+        totalMs += (outLogs[outIdx] - inTime);
+        outLogs.splice(outIdx, 1);
       }
-    }
+    });
 
     const totalHours = (totalMs / (1000 * 60 * 60)).toFixed(2);
 

@@ -249,41 +249,58 @@ const getDailySummary = async (req, res) => {
       studentMap[s.userId] = s.name;
     });
 
-    const summary = {};
-
+    const groupedRecords = {};
     records.forEach((r) => {
       const key = `${r.studentId}_${r.date}`;
-      if (!summary[key]) {
-        summary[key] = {
-          studentId: r.studentId,
-          studentName: studentMap[r.studentId] || "Unknown Student",
-          course: r.course,
-          date: r.date,
-          hasIN: false,
-          hasOUT: false,
-          totalMs: 0,
-          lastIn: null,
-          firstIn: null
-        };
+      if (!groupedRecords[key]) {
+        groupedRecords[key] = [];
       }
-      
-      const time = r.timestamp ? new Date(r.timestamp).getTime() : (r.createdAt ? new Date(r.createdAt).getTime() : 0);
-
-      if (r.type === "IN") {
-        if (!summary[key].hasIN) {
-          summary[key].firstIn = time;
-        }
-        summary[key].hasIN = true;
-        summary[key].lastIn = time;
-      }
-      else if (r.type === "OUT") {
-        summary[key].hasOUT = true;
-        if (summary[key].lastIn) {
-            summary[key].totalMs += (time - summary[key].lastIn);
-            summary[key].lastIn = null;
-        }
-      }
+      groupedRecords[key].push(r);
     });
+
+    const summary = {};
+    for (const key in groupedRecords) {
+      const dayLogs = groupedRecords[key];
+      const studentId = dayLogs[0].studentId;
+      const date = dayLogs[0].date;
+      const course = dayLogs[0].course;
+
+      const inLogs = [];
+      const outLogs = [];
+      dayLogs.forEach(log => {
+        const time = log.timestamp ? new Date(log.timestamp).getTime() : (log.createdAt ? new Date(log.createdAt).getTime() : 0);
+        if (log.type === "IN") {
+          inLogs.push(time);
+        } else if (log.type === "OUT") {
+          outLogs.push(time);
+        }
+      });
+
+      inLogs.sort((a, b) => a - b);
+      outLogs.sort((a, b) => a - b);
+
+      let totalMs = 0;
+      const firstIn = inLogs.length > 0 ? inLogs[0] : null;
+
+      inLogs.forEach(inTime => {
+        const outIdx = outLogs.findIndex(outTime => outTime > inTime);
+        if (outIdx !== -1) {
+          totalMs += (outLogs[outIdx] - inTime);
+          outLogs.splice(outIdx, 1);
+        }
+      });
+
+      summary[key] = {
+        studentId,
+        studentName: studentMap[studentId] || "Unknown Student",
+        course,
+        date,
+        hasIN: inLogs.length > 0,
+        hasOUT: dayLogs.some(log => log.type === "OUT"),
+        totalMs,
+        firstIn
+      };
+    }
 
     const result = Object.values(summary).map((s) => ({
       studentId: s.studentId,
