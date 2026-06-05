@@ -716,13 +716,16 @@ function Dashboard({ user, onLogout }) {
   };
 
   const fetchStudentLogs = async (studentId) => {
-    if (!studentId) {
+    if (user.role !== 'student' && !studentId) {
       setStudentLogs([]);
       return;
     }
     try {
       setLoading(true);
-      const res = await fetch(`/admin/attendance?studentId=${studentId}`, {
+      const endpoint = (user.role === 'student')
+        ? '/student/attendance-history'
+        : `/admin/attendance?studentId=${studentId}`;
+      const res = await fetch(endpoint, {
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
       const result = await res.json();
@@ -739,10 +742,16 @@ function Dashboard({ user, onLogout }) {
   };
 
   useEffect(() => {
-    if (activeTab === 'attendance' && attendanceView === 'student' && selectedAttendanceStudentId) {
-      fetchStudentLogs(selectedAttendanceStudentId);
+    if (activeTab === 'attendance' && attendanceView === 'student') {
+      if (user.role === 'student') {
+        fetchStudentLogs(user.userId);
+      } else if (selectedAttendanceStudentId) {
+        fetchStudentLogs(selectedAttendanceStudentId);
+      } else {
+        setStudentLogs([]);
+      }
     }
-  }, [selectedAttendanceStudentId, attendanceView, activeTab]);
+  }, [selectedAttendanceStudentId, attendanceView, activeTab, user.role, user.userId]);
 
   const [papers, setPapers] = useState([]);
   const [schedules, setSchedules] = useState([]);

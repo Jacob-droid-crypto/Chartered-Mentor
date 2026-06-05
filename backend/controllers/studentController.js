@@ -887,6 +887,30 @@ const downloadScheduleFile = async (req, res) => {
   }
 };
 
+const getStudentAttendanceHistory = async (req, res) => {
+  try {
+    const studentId = req.user.userId;
+    const records = await Attendance.find({ studentId }).sort({ timestamp: -1 });
+
+    const cleaned = records.map((r) => {
+      const d = new Date(r.timestamp);
+      return {
+        studentId: r.studentId,
+        course: r.course || "-",
+        date: r.date,
+        time: isNaN(d.getTime()) ? "-" : d.toLocaleTimeString(),
+        type: r.type || "-",
+        timestamp: r.timestamp
+      };
+    });
+
+    res.json(cleaned);
+  } catch (err) {
+    console.error("History Error:", err);
+    res.status(500).json({ message: "Error fetching attendance history" });
+  }
+};
+
 module.exports = {
   loginStudent,
   changePassword,
@@ -906,5 +930,6 @@ module.exports = {
   manualAttendance,
   getStudentSchedules,
   toggleScheduleStatus,
-  downloadScheduleFile
+  downloadScheduleFile,
+  getStudentAttendanceHistory
 };
