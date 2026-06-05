@@ -15,6 +15,11 @@ const generateToken = (userId, role) => {
   });
 };
 
+const getISTDateString = (date = new Date()) => {
+  const shifted = new Date(date.getTime() + 5.5 * 60 * 60 * 1000);
+  return shifted.toISOString().split("T")[0];
+};
+
 /* ================= STUDENT LOGIN ================= */
 const loginStudent = async (req, res) => {
   try {
@@ -75,7 +80,7 @@ const getDashboard = async (req, res) => {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = getISTDateString();
 
     const logs = await Attendance.find({
       studentId,
@@ -245,7 +250,7 @@ const scanQr = async (req, res) => {
     else return res.status(401).json({ message: "Invalid QR code" });
 
     const course = studentId.substring(2, 5);
-    const today = new Date().toISOString().split("T")[0];
+    const today = getISTDateString();
 
     const lastRecord = await Attendance.findOne({ studentId, date: today }).sort({ createdAt: -1 });
 
@@ -635,7 +640,7 @@ const manualAttendance = async (req, res) => {
       return res.status(403).json({ message: "Manual attendance is only allowed for online students." });
     }
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = getISTDateString();
 
     // Get today's logs to validate logic
     const logs = await Attendance.find({ studentId, date: today }).sort({ createdAt: 1 });
@@ -684,7 +689,7 @@ const startStudentExam = async (req, res) => {
     }
 
     // Date comparison (midnight local time or date string splitting)
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = getISTDateString();
     const scheduledStr = new Date(paper.scheduledTime).toISOString().split("T")[0];
 
     // If today is before the scheduled date, it's locked

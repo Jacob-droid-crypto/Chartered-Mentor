@@ -13,6 +13,11 @@ const generateToken = (userId, role) => {
   });
 };
 
+const getISTDateString = (date = new Date()) => {
+  const shifted = new Date(date.getTime() + 5.5 * 60 * 60 * 1000);
+  return shifted.toISOString().split("T")[0];
+};
+
 /* ================= ADMIN LOGIN ================= */
 const loginAdmin = async (req, res) => {
   try {
@@ -312,8 +317,8 @@ const manualCheckout = async (req, res) => {
       return res.status(400).json({ message: "Student must have a Check-In record (IN) on this date to mark Check-OUT manually." });
     }
 
-    // Construct the timestamp for the OUT record in local time
-    const timestamp = new Date(`${date}T${checkoutTime}:00`);
+    // Construct the timestamp for the OUT record in Indian Standard Time (IST, UTC+05:30)
+    const timestamp = new Date(`${date}T${checkoutTime}:00+05:30`);
     if (isNaN(timestamp.getTime())) {
       return res.status(400).json({ message: "Invalid date or time format" });
     }
@@ -350,7 +355,7 @@ const getStudents = async (req, res) => {
   try {
     const students = await User.find({ role: "student" }, { password: 0 });
     
-    const today = new Date().toISOString().split("T")[0];
+    const today = getISTDateString();
     const studentIds = students.map(s => s.userId);
 
     // Bulk query attendance to radically reduce server lag (fixing N+1 bottleneck)

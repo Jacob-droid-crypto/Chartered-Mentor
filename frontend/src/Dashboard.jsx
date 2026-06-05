@@ -7,6 +7,13 @@ import * as XLSX from 'xlsx';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, ArcElement);
 
+const getLocalDateString = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 function StudentPaperCard({ paper, user, onRefresh }) {
   const [timeLeft, setTimeLeft] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -14,7 +21,7 @@ function StudentPaperCard({ paper, user, onRefresh }) {
 
   // Parse time
   const scheduledDate = new Date(paper.scheduledTime);
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = getLocalDateString();
   const scheduledStr = scheduledDate.toISOString().split("T")[0];
   const isLocked = todayStr < scheduledStr;
 
@@ -490,7 +497,7 @@ function Dashboard({ user, onLogout }) {
   // Attendance Filters
   const [attendanceView, setAttendanceView] = useState('daily'); // daily, weekly, monthly
   const [attendanceSearch, setAttendanceSearch] = useState('');
-  const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
+  const [attendanceDate, setAttendanceDate] = useState(getLocalDateString());
 
   // Profile State
   const [profileForm, setProfileForm] = useState({
@@ -803,7 +810,7 @@ function Dashboard({ user, onLogout }) {
 
   const getStaffNotifications = () => {
     const notifications = [];
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
 
     // Create a student map of userId -> name for fast lookup
     const studentMap = {};
@@ -1397,7 +1404,7 @@ function Dashboard({ user, onLogout }) {
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
     const sheetName = isStaff ? "Students" : "Fee Ledger";
-    const fileName = isStaff ? `Students_List_${new Date().toISOString().split('T')[0]}.xlsx` : `Student_Fee_Ledger_${new Date().toISOString().split('T')[0]}.xlsx`;
+    const fileName = isStaff ? `Students_List_${getLocalDateString()}.xlsx` : `Student_Fee_Ledger_${getLocalDateString()}.xlsx`;
     XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
     XLSX.writeFile(workbook, fileName);
   };
@@ -1738,7 +1745,7 @@ function Dashboard({ user, onLogout }) {
                 <div className="card">
                   <div className="card-icon" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>📊</div>
                   <h3>Active Check-ins Today</h3>
-                  <div className="value">{Array.isArray(data) ? data.filter(d => d.date === new Date().toISOString().split('T')[0]).length : 0}</div>
+                  <div className="value">{Array.isArray(data) ? data.filter(d => d.date === getLocalDateString()).length : 0}</div>
                 </div>
               </div>
             )}
@@ -1799,7 +1806,7 @@ function Dashboard({ user, onLogout }) {
                   <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-main)', fontSize: '1.2rem', fontWeight: '600' }}>Attendance Distribution</h3>
                   <div style={{ position: 'relative', height: '220px', display: 'flex', justifyContent: 'center' }}>
                     {Array.isArray(data) && data.length > 0 ? (() => {
-                      const todayDate = new Date().toISOString().split('T')[0];
+                      const todayDate = getLocalDateString();
                       const todayData = data.filter(d => d.date === todayDate);
                       if (todayData.length === 0) return <p style={{ color: 'var(--text-muted)', margin: 'auto' }}>No attendance logged today.</p>;
                       const present = todayData.filter(d => d.status === 'Present').length;
@@ -1889,7 +1896,7 @@ function Dashboard({ user, onLogout }) {
                       studentMap[s.userId] = s.name;
                     });
                   }
-                  return data.filter(d => d.date === new Date().toISOString().split('T')[0]).map((record, idx) => (
+                  return data.filter(d => d.date === getLocalDateString()).map((record, idx) => (
                     <div key={idx} className="activity-item">
                       <div className="activity-info">
                         <div className="activity-dot" style={{ background: record.status === 'Present' ? '#10b981' : record.status === 'Partial' ? '#f59e0b' : '#ef4444' }}></div>
