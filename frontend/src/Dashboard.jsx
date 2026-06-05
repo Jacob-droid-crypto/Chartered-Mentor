@@ -451,6 +451,7 @@ function StudentPaperCard({ paper, user, onRefresh }) {
 
 function Dashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [liveStudyHours, setLiveStudyHours] = useState(0);
   const [studyTrackerPeriod, setStudyTrackerPeriod] = useState('week');
   const [todayAttendanceFilter, setTodayAttendanceFilter] = useState('all'); // all, present, absent
   const [motivationalQuote, setMotivationalQuote] = useState('');
@@ -786,6 +787,33 @@ function Dashboard({ user, onLogout }) {
     }
   }, [user, activeTab]);
 
+  useEffect(() => {
+    if (user.role !== 'student') return;
+
+    const updateLiveHours = () => {
+      if (!data) {
+        setLiveStudyHours(0);
+        return;
+      }
+      const stats = calculateStudentStats();
+      let baseHours = stats.todayHours;
+      const todayLogs = data.todayLogs || [];
+      const lastLog = todayLogs.length > 0 ? todayLogs[todayLogs.length - 1] : null;
+      if (lastLog && lastLog.type === 'IN') {
+        const checkInTime = new Date(lastLog.timestamp || lastLog.createdAt).getTime();
+        const elapsedMs = Date.now() - checkInTime;
+        if (elapsedMs > 0) {
+          baseHours += (elapsedMs / 3600000);
+        }
+      }
+      setLiveStudyHours(baseHours);
+    };
+
+    updateLiveHours();
+    const interval = setInterval(updateLiveHours, 1000);
+    return () => clearInterval(interval);
+  }, [user, data, goalConfig]);
+
   const [paymentConfig, setPaymentConfig] = useState(null);
   const fetchPaymentConfig = async () => {
     try {
@@ -962,6 +990,15 @@ function Dashboard({ user, onLogout }) {
     const m = totalMins % 60;
     if (h > 0) return `${h}h ${m}m`;
     return `${m}m`;
+  };
+
+  const formatLiveStudyTime = (hrs) => {
+    if (!hrs || hrs === 0) return '0h 0m 0s';
+    const totalSecs = Math.round(parseFloat(hrs) * 3600);
+    const h = Math.floor(totalSecs / 3600);
+    const m = Math.floor((totalSecs % 3600) / 60);
+    const s = totalSecs % 60;
+    return `${h}h ${m}m ${s}s`;
   };
 
   const formatLocalDate = (date) => {
@@ -1678,6 +1715,10 @@ function Dashboard({ user, onLogout }) {
               const todayDayIndex = new Date().getDay();
               const todayKey = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][todayDayIndex];
               const todayTarget = goalConfig[todayKey] !== undefined ? goalConfig[todayKey] : 12;
+              
+              const todayLogs = data?.todayLogs || [];
+              const lastLog = todayLogs.length > 0 ? todayLogs[todayLogs.length - 1] : null;
+              const isCurrentlyCheckedIn = lastLog && lastLog.type === 'IN';
 
               return (
                 <>
@@ -1745,10 +1786,13 @@ function Dashboard({ user, onLogout }) {
                   )}
 
                   <div className="dashboard-cards" style={{ marginBottom: '2rem' }}>
-                    <div className="card">
-                      <div className="card-icon" style={{ background: 'rgba(59, 130, 246, 0.1)', color: 'var(--primary-color)' }}>⏱️</div>
-                      <h3>Today's Study Hours</h3>
-                      <div className="value">{formatStudyTime(stats.todayHours)}</div>
+                    <div className={`card ${isCurrentlyCheckedIn ? 'card-live' : ''}`}>
+                      <div className="card-icon" style={{ background: isCurrentlyCheckedIn ? 'rgba(16, 185, 129, 0.1)' : 'rgba(59, 130, 246, 0.1)', color: isCurrentlyCheckedIn ? '#10b981' : 'var(--primary-color)' }}>⏱️</div>
+                      <h3>
+                        Today's Study Hours
+                        {isCurrentlyCheckedIn && <span className="pulse-dot" title="Study timer is actively ticking" />}
+                      </h3>
+                      <div className="value">{formatLiveStudyTime(liveStudyHours)}</div>
                       <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.5rem', fontWeight: 'bold' }}>
                         Target Today: {todayTarget > 0 ? `${todayTarget} hrs` : 'No Target (Holiday)'}
                       </div>
