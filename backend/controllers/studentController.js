@@ -238,9 +238,9 @@ const scanQr = async (req, res) => {
 
     // Set your Institute's exact Latitude and Longitude here:
     // Update these values to the precise GPS coordinates of the institute
-    const INST_LAT = 9.99232; 
-    const INST_LNG = 76.31317;
-    const ALLOWED_RADIUS_METERS = 50; // Strict 50m radius
+    const INST_LAT = process.env.INST_LAT ? parseFloat(process.env.INST_LAT) : 9.99232; 
+    const INST_LNG = process.env.INST_LNG ? parseFloat(process.env.INST_LNG) : 76.31317;
+    const ALLOWED_RADIUS_METERS = process.env.ALLOWED_RADIUS_METERS ? parseInt(process.env.ALLOWED_RADIUS_METERS, 10) : 50; // Strict 50m radius
     
     const getDistance = (lat1, lon1, lat2, lon2) => {
       const R = 6371e3; 
