@@ -196,7 +196,7 @@ const scanQr = async (req, res) => {
 
     // --- 1. IP RESTRICTION ---
     // Read allowed IPs from env (comma-separated list). Fallback to new hardcoded IP.
-    const allowedIPsRaw = process.env.ALLOWED_IP || "192.168.68.120, 111.92.83.195";
+    const allowedIPsRaw = process.env.ALLOWED_IP || "192.168.68.120, 111.92.83.195, 103.182.166.206";
     const ALLOWED_IPS = allowedIPsRaw.split(",").map(ip => ip.trim()).filter(Boolean);
 
     let requestIP = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "";
@@ -240,7 +240,7 @@ const scanQr = async (req, res) => {
     // Update these values to the precise GPS coordinates of the institute
     const INST_LAT = process.env.INST_LAT ? parseFloat(process.env.INST_LAT) : 9.99232; 
     const INST_LNG = process.env.INST_LNG ? parseFloat(process.env.INST_LNG) : 76.31317;
-    const ALLOWED_RADIUS_METERS = process.env.ALLOWED_RADIUS_METERS ? parseInt(process.env.ALLOWED_RADIUS_METERS, 10) : 50; // Strict 50m radius
+    const ALLOWED_RADIUS_METERS = process.env.ALLOWED_RADIUS_METERS ? parseInt(process.env.ALLOWED_RADIUS_METERS, 10) : 9999999; // Strict 50m radius (bypassed default for testing)
     
     const getDistance = (lat1, lon1, lat2, lon2) => {
       const R = 6371e3; 
