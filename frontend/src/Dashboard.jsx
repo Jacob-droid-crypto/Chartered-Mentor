@@ -2309,7 +2309,7 @@ function Dashboard({ user, onLogout }) {
                   
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Exam Duration (minutes)</label>
+                      <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Exam Duration Including Reading Time (minutes)</label>
                       <input type="number" name="examDuration" placeholder="e.g. 180" defaultValue="180" required style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
                     </div>
                     <div>
