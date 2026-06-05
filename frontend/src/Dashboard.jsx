@@ -453,7 +453,7 @@ function Dashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [studyTrackerPeriod, setStudyTrackerPeriod] = useState('week');
   const [motivationalQuote, setMotivationalQuote] = useState('');
-  const [goalConfig, setGoalConfig] = useState({ monday: 12, tuesday: 12, wednesday: 12, thursday: 12, friday: 12, saturday: 12, sunday: 0 });
+  const [goalConfig, setGoalConfig] = useState({ monday: 12, tuesday: 12, wednesday: 12, thursday: 12, friday: 12, saturday: 12, sunday: 0, autoLogoutTime: '22:00', autoLogoutEnabled: true });
   const [data, setData] = useState(null);
   const [students, setStudents] = useState([]);
 
@@ -3159,7 +3159,9 @@ function Dashboard({ user, onLogout }) {
                   wednesday: parseFloat(e.target.wednesday.value),
                   thursday: parseFloat(e.target.thursday.value),
                   friday: parseFloat(e.target.friday.value),
-                  saturday: parseFloat(e.target.saturday.value)
+                  saturday: parseFloat(e.target.saturday.value),
+                  autoLogoutEnabled: e.target.autoLogoutEnabled.checked,
+                  autoLogoutTime: e.target.autoLogoutTime.value
                 };
                 try {
                   setLoading(true);
@@ -3198,6 +3200,35 @@ function Dashboard({ user, onLogout }) {
                   </div>
                 ))}
               </div>
+
+              <h3 style={{ marginTop: '2rem', marginBottom: '1rem', color: 'var(--text-main)', borderTop: '1px solid var(--glass-border)', paddingTop: '1.5rem', fontSize: '1.2rem', fontWeight: '600' }}>⏰ Auto Logout Configuration</h3>
+              <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.85rem' }}>
+                Automatically log out students who forgot to check out at a specific time of day.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', background: 'rgba(255, 255, 255, 0.3)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--text-main)', cursor: 'pointer', fontWeight: '600', fontSize: '0.95rem' }}>
+                  <input
+                    type="checkbox"
+                    name="autoLogoutEnabled"
+                    defaultChecked={goalConfig.autoLogoutEnabled !== undefined ? goalConfig.autoLogoutEnabled : true}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                  />
+                  Enable Auto Logout for Students
+                </label>
+                <div style={{ maxWidth: '220px' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                    Auto Logout Time (IST)
+                  </label>
+                  <input
+                    type="time"
+                    name="autoLogoutTime"
+                    defaultValue={goalConfig.autoLogoutTime || "22:00"}
+                    required
+                    style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)', fontSize: '1rem' }}
+                  />
+                </div>
+              </div>
+
               <button
                 type="submit"
                 style={{

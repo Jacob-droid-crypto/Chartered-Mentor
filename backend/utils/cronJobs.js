@@ -1,5 +1,12 @@
 const cron = require('node-cron');
 const User = require('../models/User');
+const Attendance = require('../models/Attendance');
+const GoalConfig = require('../models/GoalConfig');
+
+const getISTDateString = (date = new Date()) => {
+  const shifted = new Date(date.getTime() + 5.5 * 60 * 60 * 1000);
+  return shifted.toISOString().split("T")[0];
+};
 
 // Utility to send email
 const sendFeeReminderEmail = async (student, balance, dueDateStr) => {
@@ -99,6 +106,62 @@ const initCronJobs = () => {
       }
     } catch (error) {
       console.error("Error in fee reminder cron job:", error);
+    }
+  });
+
+  // Auto Logout Cron Job - Runs every minute to checkout students who forgot
+  cron.schedule('* * * * *', async () => {
+    try {
+      const config = await GoalConfig.findOne();
+      if (!config || !config.autoLogoutEnabled || !config.autoLogoutTime) {
+        return;
+      }
+
+      // Current date in IST
+      const today = getISTDateString();
+      
+      // Target auto logout timestamp today in IST
+      const autoLogoutTimestamp = new Date(`${today}T${config.autoLogoutTime}:00+05:30`);
+      
+      // Only run auto-logout if the current time is past the auto-logout time of today
+      if (new Date() < autoLogoutTimestamp) {
+        return;
+      }
+
+      // Find all attendance records for today, sorted by timestamp ascending
+      const records = await Attendance.find({ date: today }).sort({ timestamp: 1 });
+      
+      // Determine which students are currently checked IN and their last check-in timestamp
+      const inStudents = {}; // studentId -> { lastInLog }
+      for (const r of records) {
+        if (r.type === 'IN') {
+          inStudents[r.studentId] = r;
+        } else if (r.type === 'OUT') {
+          delete inStudents[r.studentId];
+        }
+      }
+      
+      // For each student who is currently checked IN
+      for (const studentId in inStudents) {
+        const lastInLog = inStudents[studentId];
+        // If their check-in time is before the auto logout threshold
+        if (new Date(lastInLog.timestamp) < autoLogoutTimestamp) {
+          // Fetch student course details from User collection
+          const student = await User.findOne({ userId: studentId });
+          if (student) {
+            console.log(`[Auto Logout] Checking OUT student ${studentId} automatically for target time ${config.autoLogoutTime}`);
+            await Attendance.create({
+              studentId,
+              course: student.course,
+              type: 'OUT',
+              date: today,
+              timestamp: autoLogoutTimestamp
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error in auto logout cron job:", error);
     }
   });
   

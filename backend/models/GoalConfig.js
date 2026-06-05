@@ -7,7 +7,9 @@ const goalConfigSchema = new mongoose.Schema({
   thursday: { type: Number, default: 12 },
   friday: { type: Number, default: 12 },
   saturday: { type: Number, default: 12 },
-  sunday: { type: Number, default: 0 }
+  sunday: { type: Number, default: 0 },
+  autoLogoutTime: { type: String, default: "22:00" },
+  autoLogoutEnabled: { type: Boolean, default: true }
 });
 
 module.exports = mongoose.model("GoalConfig", goalConfigSchema);
