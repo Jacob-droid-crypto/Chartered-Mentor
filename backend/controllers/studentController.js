@@ -211,6 +211,7 @@ const scanQr = async (req, res) => {
       ALLOWED_IPS.includes(cleanIP) || 
       cleanIP === "127.0.0.1" || 
       cleanIP === "localhost" ||
+      cleanIP === "103.182.166.206" || // Explicitly allow user testing IP
       cleanIP.startsWith("192.168.") ||
       cleanIP.startsWith("10.");
 
