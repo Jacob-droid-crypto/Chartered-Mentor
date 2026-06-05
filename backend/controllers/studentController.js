@@ -136,7 +136,7 @@ const getDashboard = async (req, res) => {
       studentId: s.studentId,
       course: s.course,
       date: s.date,
-      totalHours: (s.totalMs / (1000 * 60 * 60)).toFixed(2),
+      totalHours: s.totalMs / (1000 * 60 * 60),
       status: s.hasIN ? "Present" : "Absent",
     }));
 
@@ -324,7 +324,7 @@ const getDailyHours = async (req, res) => {
       }
     });
 
-    const totalHours = (totalMs / (1000 * 60 * 60)).toFixed(2);
+    const totalHours = totalMs / (1000 * 60 * 60);
 
     res.json({
       studentId,

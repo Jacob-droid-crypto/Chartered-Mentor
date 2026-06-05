@@ -307,7 +307,7 @@ const getDailySummary = async (req, res) => {
       studentName: s.studentName,
       course: s.course,
       date: s.date,
-      totalHours: (s.totalMs / (1000 * 60 * 60)).toFixed(2),
+      totalHours: s.totalMs / (1000 * 60 * 60),
       status: s.hasIN ? "Present" : "Absent",
       firstIn: s.firstIn ? new Date(s.firstIn).toISOString() : null,
       hasOUT: s.hasOUT,
