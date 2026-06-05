@@ -208,7 +208,12 @@ const addStudent = async (req, res) => {
 /* ================= ADMIN VIEW ATTENDANCE ================= */
 const getAttendance = async (req, res) => {
   try {
-    const records = await Attendance.find().sort({ timestamp: -1 });
+    const { studentId } = req.query;
+    const query = {};
+    if (studentId) {
+      query.studentId = studentId;
+    }
+    const records = await Attendance.find(query).sort({ timestamp: -1 });
 
     // Fetch names to map to studentName
     const students = await User.find({ role: "student" }, { userId: 1, name: 1 });

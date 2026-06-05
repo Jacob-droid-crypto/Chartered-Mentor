@@ -497,9 +497,11 @@ function Dashboard({ user, onLogout }) {
   const [scanning, setScanning] = useState(false);
 
   // Attendance Filters
-  const [attendanceView, setAttendanceView] = useState('daily'); // daily, weekly, monthly
+  const [attendanceView, setAttendanceView] = useState('daily'); // daily, weekly, monthly, student
   const [attendanceSearch, setAttendanceSearch] = useState('');
   const [attendanceDate, setAttendanceDate] = useState(getLocalDateString());
+  const [selectedAttendanceStudentId, setSelectedAttendanceStudentId] = useState('');
+  const [studentLogs, setStudentLogs] = useState([]);
 
   // Profile State
   const [profileForm, setProfileForm] = useState({
@@ -712,6 +714,35 @@ function Dashboard({ user, onLogout }) {
       setLoading(false);
     }
   };
+
+  const fetchStudentLogs = async (studentId) => {
+    if (!studentId) {
+      setStudentLogs([]);
+      return;
+    }
+    try {
+      setLoading(true);
+      const res = await fetch(`/admin/attendance?studentId=${studentId}`, {
+        headers: { 'Authorization': `Bearer ${user.token}` }
+      });
+      const result = await res.json();
+      if (res.ok) {
+        setStudentLogs(result);
+      } else {
+        throw new Error(result.message || 'Failed to fetch student logs');
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'attendance' && attendanceView === 'student' && selectedAttendanceStudentId) {
+      fetchStudentLogs(selectedAttendanceStudentId);
+    }
+  }, [selectedAttendanceStudentId, attendanceView, activeTab]);
 
   const [papers, setPapers] = useState([]);
   const [schedules, setSchedules] = useState([]);
@@ -2267,28 +2298,44 @@ function Dashboard({ user, onLogout }) {
                 <select
                   value={attendanceView}
                   onChange={(e) => setAttendanceView(e.target.value)}
-                  style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }}
+                  style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }}
                 >
                   <option value="daily">Daily View</option>
                   <option value="weekly">Weekly Total</option>
                   <option value="monthly">Monthly Total</option>
+                  {(user.role === 'admin' || user.role === 'staff' || user.role === 'student') && (
+                    <option value="student">Student Log History</option>
+                  )}
                 </select>
-                {attendanceView === 'monthly' ? (
+                {attendanceView === 'student' ? (
+                  (user.role === 'admin' || user.role === 'staff') && (
+                    <select
+                      value={selectedAttendanceStudentId}
+                      onChange={(e) => setSelectedAttendanceStudentId(e.target.value)}
+                      style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)', maxWidth: '200px' }}
+                    >
+                      <option value="">Select Student...</option>
+                      {students.map(s => (
+                        <option key={s.userId} value={s.userId}>{s.name} ({s.userId})</option>
+                      ))}
+                    </select>
+                  )
+                ) : attendanceView === 'monthly' ? (
                   <input
                     type="month"
                     value={attendanceDate.substring(0, 7)}
                     onChange={(e) => setAttendanceDate(e.target.value + '-01')}
-                    style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }}
+                    style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }}
                   />
                 ) : (
                   <input
                     type="date"
                     value={attendanceDate}
                     onChange={(e) => setAttendanceDate(e.target.value)}
-                    style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }}
+                    style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }}
                   />
                 )}
-                {user.role === 'admin' && (
+                {user.role === 'admin' && attendanceView !== 'student' && (
                   <button onClick={handleExportExcel} style={{ padding: '0.6rem 1rem', borderRadius: '8px', border: 'none', background: '#10b981', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}>
                     📥 Export Excel
                   </button>
@@ -2298,10 +2345,68 @@ function Dashboard({ user, onLogout }) {
 
             <div className="card">
               <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
-                {attendanceView === 'daily' ? 'Showing attendance details for selected date.' : `Showing aggregated ${attendanceView} attendance for the selected period.`}
+                {attendanceView === 'daily' ? 'Showing attendance details for selected date.' :
+                 attendanceView === 'student' ? 'Showing detailed check-in and check-out history.' :
+                 `Showing aggregated ${attendanceView} attendance for the selected period.`}
               </p>
               <div className="activity-list">
-                {(() => {
+                {attendanceView === 'student' ? (() => {
+                  const targetId = (user.role === 'student') ? user.userId : selectedAttendanceStudentId;
+                  if (!targetId) {
+                    return <p style={{ color: 'var(--text-muted)' }}>Please select a student to view their history.</p>;
+                  }
+                  if (studentLogs.length === 0) {
+                    return <p style={{ color: 'var(--text-muted)' }}>No logs found for this student.</p>;
+                  }
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', width: '100%' }}>
+                      <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: '500', marginBottom: '0.5rem' }}>
+                        Found {studentLogs.length} activity records:
+                      </p>
+                      {studentLogs.map((log, index) => {
+                        const logDate = new Date(log.timestamp);
+                        return (
+                          <div key={index} className="activity-item" style={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            alignItems: 'center', 
+                            padding: '1rem', 
+                            background: 'rgba(255, 255, 255, 0.4)',
+                            borderRadius: '12px',
+                            border: '1px solid var(--glass-border)',
+                            flexWrap: 'wrap',
+                            gap: '1rem'
+                          }}>
+                            <div className="activity-info" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                              <div className="activity-dot" style={{ 
+                                background: log.type === 'IN' ? '#10b981' : '#ef4444',
+                                width: '10px',
+                                height: '10px',
+                                borderRadius: '50%'
+                              }}></div>
+                              <div>
+                                <strong style={{ color: 'var(--text-main)', fontSize: '1rem' }}>
+                                  {log.type === 'IN' ? '🟢 Checked IN' : '🔴 Checked OUT'}
+                                </strong>
+                                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                                  Course: {log.course || '-'}
+                                </div>
+                              </div>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <div style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '1.05rem' }}>
+                                {isNaN(logDate.getTime()) ? (log.time || '-') : logDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                              </div>
+                              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                                {log.date}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })() : (() => {
                   // Render aggregated data
                   const aggregatedData = getAggregatedAttendance();
                   if (aggregatedData.length === 0) return <p style={{ color: 'var(--text-muted)' }}>No records found for the selected criteria.</p>;
