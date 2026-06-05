@@ -452,6 +452,7 @@ function StudentPaperCard({ paper, user, onRefresh }) {
 function Dashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [studyTrackerPeriod, setStudyTrackerPeriod] = useState('week');
+  const [todayAttendanceFilter, setTodayAttendanceFilter] = useState('all'); // all, present, absent
   const [motivationalQuote, setMotivationalQuote] = useState('');
   const [goalConfig, setGoalConfig] = useState({ monday: 12, tuesday: 12, wednesday: 12, thursday: 12, friday: 12, saturday: 12, sunday: 0, autoLogoutTime: '22:00', autoLogoutEnabled: true });
   const [data, setData] = useState(null);
@@ -1283,6 +1284,7 @@ function Dashboard({ user, onLogout }) {
         "Student Name": record.studentName || record.studentId || "-",
         "Course": record.course || "-",
         "Status": record.status,
+        "First Log In Time": record.firstIn ? new Date(record.firstIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-",
         "Total Hours": formatStudyTime(record.totalHours),
         "Date": record.date
       }));
@@ -1776,20 +1778,34 @@ function Dashboard({ user, onLogout }) {
               );
             })()}
 
-            {(user.role === 'admin' || user.role === 'staff') && (
-              <div className="dashboard-cards" style={{ marginBottom: '2rem' }}>
-                <div className="card">
-                  <div className="card-icon">👨‍🎓</div>
-                  <h3>Total Registered Students</h3>
-                  <div className="value">{Array.isArray(students) ? students.length : 0}</div>
+            {(user.role === 'admin' || user.role === 'staff') && (() => {
+              const todayStr = getLocalDateString();
+              const todayData = Array.isArray(data) ? data.filter(d => d.date === todayStr) : [];
+              const attendedIds = new Set(todayData.map(d => d.studentId));
+              const totalStudents = Array.isArray(students) ? students.length : 0;
+              const presentCount = todayData.length;
+              const absentCount = Math.max(0, totalStudents - presentCount);
+
+              return (
+                <div className="dashboard-cards" style={{ marginBottom: '2rem' }}>
+                  <div className="card" style={{ cursor: 'pointer' }} onClick={() => setActiveTab('students')}>
+                    <div className="card-icon">👨‍🎓</div>
+                    <h3>Total Registered Students</h3>
+                    <div className="value">{totalStudents}</div>
+                  </div>
+                  <div className="card" style={{ cursor: 'pointer' }} onClick={() => { setTodayAttendanceFilter('present'); const el = document.getElementById('today-summary-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}>
+                    <div className="card-icon" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>📊</div>
+                    <h3>Active Check-ins Today</h3>
+                    <div className="value">{presentCount}</div>
+                  </div>
+                  <div className="card" style={{ cursor: 'pointer' }} onClick={() => { setTodayAttendanceFilter('absent'); const el = document.getElementById('today-summary-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}>
+                    <div className="card-icon" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>🚨</div>
+                    <h3>Absentees Today</h3>
+                    <div className="value">{absentCount}</div>
+                  </div>
                 </div>
-                <div className="card">
-                  <div className="card-icon" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>📊</div>
-                  <h3>Active Check-ins Today</h3>
-                  <div className="value">{Array.isArray(data) ? data.filter(d => d.date === getLocalDateString()).length : 0}</div>
-                </div>
-              </div>
-            )}
+              );
+            })()}
 
             {(user.role === 'admin' || user.role === 'staff') && (() => {
               const alerts = getStaffNotifications();
@@ -1884,26 +1900,110 @@ function Dashboard({ user, onLogout }) {
 
 
 
-            <section className="recent-activity">
-              <h2>{(user.role === 'admin' || user.role === 'staff') ? 'Today\'s Attendance Summary' : 'Your Check-ins'}</h2>
+            <section className="recent-activity" id="today-summary-section">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
+                <h2 style={{ margin: 0 }}>{(user.role === 'admin' || user.role === 'staff') ? 'Today\'s Attendance Summary' : 'Your Check-ins'}</h2>
+                {(user.role === 'admin' || user.role === 'staff') && (
+                  <div style={{ display: 'flex', background: 'rgba(0,0,0,0.03)', padding: '4px', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
+                    {['all', 'present', 'absent'].map((filterVal) => (
+                      <button
+                        key={filterVal}
+                        type="button"
+                        onClick={() => setTodayAttendanceFilter(filterVal)}
+                        style={{
+                          padding: '0.4rem 1rem',
+                          border: 'none',
+                          background: todayAttendanceFilter === filterVal ? 'white' : 'transparent',
+                          color: todayAttendanceFilter === filterVal ? 'var(--primary-color)' : 'var(--text-muted)',
+                          borderRadius: '6px',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          fontSize: '0.85rem',
+                          boxShadow: todayAttendanceFilter === filterVal ? '0 2px 6px rgba(0,0,0,0.05)' : 'none',
+                          transition: 'all 0.2s',
+                          textTransform: 'capitalize'
+                        }}
+                      >
+                        {filterVal}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="activity-list">
-                {(user.role === 'admin' || user.role === 'staff') && Array.isArray(data) ? (() => {
+                {(user.role === 'admin' || user.role === 'staff') ? (() => {
                   const studentMap = {};
                   if (Array.isArray(students)) {
                     students.forEach(s => {
                       studentMap[s.userId] = s.name;
                     });
                   }
-                  return data.filter(d => d.date === getLocalDateString()).map((record, idx) => (
-                    <div key={idx} className="activity-item">
+
+                  const todayStr = getLocalDateString();
+                  const todayData = Array.isArray(data) ? data.filter(d => d.date === todayStr) : [];
+                  const attendedMap = {};
+                  todayData.forEach(r => {
+                    attendedMap[r.studentId] = r;
+                  });
+
+                  const mergedRecords = Array.isArray(students) ? students.map(student => {
+                    if (attendedMap[student.userId]) {
+                      return {
+                        ...attendedMap[student.userId],
+                        studentName: student.name || attendedMap[student.userId].studentName || studentMap[student.userId] || 'Unknown Student',
+                        isAbsent: false
+                      };
+                    } else {
+                      return {
+                        studentId: student.userId,
+                        studentName: student.name || 'Unknown Student',
+                        course: student.course,
+                        date: todayStr,
+                        status: 'Absent',
+                        totalHours: 0,
+                        firstIn: null,
+                        isAbsent: true
+                      };
+                    }
+                  }) : [];
+
+                  const filteredRecords = mergedRecords.filter(r => {
+                    if (todayAttendanceFilter === 'present') return !r.isAbsent;
+                    if (todayAttendanceFilter === 'absent') return r.isAbsent;
+                    return true;
+                  });
+
+                  if (filteredRecords.length === 0) {
+                    return <p style={{ color: 'var(--text-muted)' }}>No records found matching criteria.</p>;
+                  }
+
+                  return filteredRecords.map((record, idx) => (
+                    <div key={idx} className="activity-item" style={{ borderLeft: record.isAbsent ? '4px solid #ef4444' : (record.status === 'Present' ? '4px solid #10b981' : '4px solid #f59e0b') }}>
                       <div className="activity-info">
-                        <div className="activity-dot" style={{ background: record.status === 'Present' ? '#10b981' : record.status === 'Partial' ? '#f59e0b' : '#ef4444' }}></div>
+                        <div className="activity-dot" style={{ background: record.isAbsent ? '#ef4444' : (record.status === 'Present' ? '#10b981' : '#f59e0b') }}></div>
                         <div>
-                          <strong>{record.studentName || studentMap[record.studentId] || record.studentId || 'Unknown Student'}</strong>
-                          <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>ID: {record.studentId} • Course: {record.course || '-'}</div>
+                          <strong>{record.studentName}</strong>
+                          <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.2rem' }}>
+                            ID: {record.studentId} • Course: {record.course || '-'}
+                            {record.firstIn && (
+                              <span style={{ marginLeft: '10px', background: 'rgba(99, 102, 241, 0.08)', color: 'var(--primary-color)', padding: '2px 8px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: '500' }}>
+                                🕒 First Log In: {new Date(record.firstIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <div className="activity-date" style={{ fontWeight: 'bold', color: record.status === 'Present' ? '#10b981' : record.status === 'Partial' ? '#f59e0b' : '#ef4444' }}>{record.status}</div>
+                      <div className="activity-date" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.2rem' }}>
+                        <span style={{ fontWeight: 'bold', color: record.isAbsent ? '#ef4444' : (record.status === 'Present' ? '#10b981' : '#f59e0b') }}>
+                          {record.status}
+                        </span>
+                        {!record.isAbsent && (
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                            Study: {formatStudyTime(record.totalHours)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ));
                 })() : (
@@ -1917,7 +2017,7 @@ function Dashboard({ user, onLogout }) {
                     </div>
                   ))
                 )}
-                {(!data || (Array.isArray(data) && data.length === 0) || (data.todayLogs && data.todayLogs.length === 0)) && (
+                {(!data || (user.role === 'student' && data?.todayLogs?.length === 0)) && (
                   <p style={{ color: 'var(--text-muted)' }}>No records found for today.</p>
                 )}
               </div>
@@ -2185,7 +2285,7 @@ function Dashboard({ user, onLogout }) {
                                 {record.status} ({formatStudyTime(record.totalHours)})
                               </span>
                               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>
-                                Target: {targetHours > 0 ? `${targetHours} hrs` : 'Holiday'} • {record.date}
+                                {record.firstIn && `First Log In: ${new Date(record.firstIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • `}Target: {targetHours > 0 ? `${targetHours} hrs` : 'Holiday'} • {record.date}
                               </span>
                             </div>
                             {user.role === 'admin' && (record.status === 'Partial' || record.status === 'Present') && (

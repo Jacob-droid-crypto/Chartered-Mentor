@@ -262,13 +262,17 @@ const getDailySummary = async (req, res) => {
           hasIN: false,
           hasOUT: false,
           totalMs: 0,
-          lastIn: null
+          lastIn: null,
+          firstIn: null
         };
       }
       
       const time = r.timestamp ? new Date(r.timestamp).getTime() : (r.createdAt ? new Date(r.createdAt).getTime() : 0);
 
       if (r.type === "IN") {
+        if (!summary[key].hasIN) {
+          summary[key].firstIn = time;
+        }
         summary[key].hasIN = true;
         summary[key].lastIn = time;
       }
@@ -287,7 +291,9 @@ const getDailySummary = async (req, res) => {
       course: s.course,
       date: s.date,
       totalHours: (s.totalMs / (1000 * 60 * 60)).toFixed(2),
-      status: s.hasIN && s.hasOUT ? "Present" : (s.hasIN || s.hasOUT) ? "Partial" : "Absent",
+      status: s.hasIN ? "Present" : "Absent",
+      firstIn: s.firstIn ? new Date(s.firstIn).toISOString() : null,
+      hasOUT: s.hasOUT,
     }));
 
     res.json(result);
