@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { loginStudent, changePassword, getDashboard, scanQr, getDailyHours, updateProfile, forgotPassword, resetPassword, verifyGoogle, getStudentPapers, downloadPaper, startStudentExam, submitAnswerPaper, downloadStudentAnswerPaper, submitPayment, manualAttendance, getStudentSchedules, toggleScheduleStatus, downloadScheduleFile, getStudentAttendanceHistory } = require("../controllers/studentController");
+const { loginStudent, changePassword, getDashboard, scanQr, getDailyHours, updateProfile, forgotPassword, resetPassword, verifyGoogle, getStudentPapers, downloadPaper, startStudentExam, submitAnswerPaper, downloadStudentAnswerPaper, submitPayment, manualAttendance, getStudentSchedules, toggleScheduleStatus, downloadScheduleFile, markScheduleOpened, getStudentAttendanceHistory } = require("../controllers/studentController");
 const { protect, studentOnly } = require("../middleware/authMiddleware");
 const { getPaymentConfig, getGoalConfig } = require("../controllers/adminController");
 
@@ -34,5 +34,6 @@ router.post("/payment", protect, studentOnly, submitPayment);
 router.get("/schedules", protect, studentOnly, getStudentSchedules);
 router.post("/schedule/:id/toggle", protect, studentOnly, toggleScheduleStatus);
 router.get("/schedule/:id/download", protect, studentOnly, downloadScheduleFile);
+router.post("/schedule/:id/open", protect, studentOnly, markScheduleOpened);
 
 module.exports = router;

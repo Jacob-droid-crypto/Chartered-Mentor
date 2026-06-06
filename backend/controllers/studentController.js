@@ -865,6 +865,29 @@ const downloadScheduleFile = async (req, res) => {
   }
 };
 
+const markScheduleOpened = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = req.user;
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const schedule = await Schedule.findOne({ _id: id, target: user.userId });
+    if (!schedule) {
+      return res.status(404).json({ message: "Schedule not found or unauthorized" });
+    }
+
+    if (!schedule.openedAt) {
+      schedule.openedAt = new Date();
+      await schedule.save();
+    }
+
+    res.json({ message: "Schedule marked as opened", schedule });
+  } catch (error) {
+    console.error("Mark schedule opened error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 const getStudentAttendanceHistory = async (req, res) => {
   try {
     const studentId = req.user.userId;
@@ -909,5 +932,6 @@ module.exports = {
   getStudentSchedules,
   toggleScheduleStatus,
   downloadScheduleFile,
+  markScheduleOpened,
   getStudentAttendanceHistory
 };

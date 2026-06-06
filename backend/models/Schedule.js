@@ -43,6 +43,10 @@ const scheduleSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
+  googleSheetUrl: {
+    type: String,
+    default: null,
+  },
   openedAt: {
     type: Date,
     default: null,

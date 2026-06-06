@@ -901,19 +901,25 @@ const updateGoalConfig = async (req, res) => {
 /* ================= SCHEDULES ================= */
 const createSchedule = async (req, res) => {
   try {
-    const { title, target, date } = req.body;
+    const { title, target, date, googleSheetUrl } = req.body;
 
     if (!title || !target || !date) {
       return res.status(400).json({ message: "Heading, target student, and date are required" });
     }
 
-    if (!req.file) {
-      return res.status(400).json({ message: "No file uploaded" });
+    if (!req.file && !googleSheetUrl) {
+      return res.status(400).json({ message: "Either an uploaded file or a Google Sheet Link is required." });
     }
 
-    const fileData = req.file.buffer.toString("base64");
-    const fileName = req.file.originalname;
-    const fileType = req.file.mimetype;
+    let fileData = null;
+    let fileName = null;
+    let fileType = null;
+
+    if (req.file) {
+      fileData = req.file.buffer.toString("base64");
+      fileName = req.file.originalname;
+      fileType = req.file.mimetype;
+    }
 
     const schedule = await Schedule.create({
       title,
@@ -926,6 +932,7 @@ const createSchedule = async (req, res) => {
       fileName,
       fileType,
       fileData,
+      googleSheetUrl: googleSheetUrl || null,
       openedAt: null
     });
 

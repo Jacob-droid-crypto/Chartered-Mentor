@@ -449,6 +449,18 @@ function StudentPaperCard({ paper, user, onRefresh }) {
   );
 }
 
+const getEmbedUrl = (url) => {
+  if (!url) return '';
+  const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if (match && match[1]) {
+    const sheetId = match[1];
+    const gidMatch = url.match(/[#&?]gid=([0-9]+)/);
+    const gid = gidMatch ? `&gid=${gidMatch[1]}` : '';
+    return `https://docs.google.com/spreadsheets/d/${sheetId}/htmlembed?chrome=false&widget=true&headers=false${gid}`;
+  }
+  return url;
+};
+
 function Dashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [liveStudyHours, setLiveStudyHours] = useState(0);
@@ -755,6 +767,7 @@ function Dashboard({ user, onLogout }) {
 
   const [papers, setPapers] = useState([]);
   const [schedules, setSchedules] = useState([]);
+  const [activeSchedulesSheet, setActiveSchedulesSheet] = useState({});
   
   const fetchPapers = async () => {
     try {
@@ -2843,6 +2856,11 @@ function Dashboard({ user, onLogout }) {
                     onSubmit={async (e) => {
                       e.preventDefault();
                       const file = e.target.file.files[0];
+                      const googleSheetUrl = e.target.googleSheetUrl.value.trim();
+                      if (!file && !googleSheetUrl) {
+                        alert("Please provide either an uploaded file or a Google Sheet link.");
+                        return;
+                      }
                       if (file && file.size > 4 * 1024 * 1024) {
                         alert("File size exceeds Vercel's 4.5MB upload limit. Please upload a smaller file under 4MB.");
                         return;
@@ -2854,6 +2872,9 @@ function Dashboard({ user, onLogout }) {
                       formData.append('date', e.target.date.value);
                       if (file) {
                         formData.append('file', file);
+                      }
+                      if (googleSheetUrl) {
+                        formData.append('googleSheetUrl', googleSheetUrl);
                       }
 
                       try {
@@ -2900,9 +2921,14 @@ function Dashboard({ user, onLogout }) {
                         <input type="date" name="date" required style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Upload Document / File</label>
-                        <input type="file" name="file" required style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Upload Document / File (Optional if Link provided)</label>
+                        <input type="file" name="file" style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
                       </div>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Google Sheet Link (Optional if File uploaded)</label>
+                      <input type="url" name="googleSheetUrl" placeholder="e.g. https://docs.google.com/spreadsheets/d/.../edit" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
                     </div>
 
                     <button type="submit" style={{ padding: '0.75rem', background: 'var(--primary-color)', color: 'white', borderRadius: '8px', border: 'none', fontWeight: 'bold', cursor: 'pointer', marginTop: '0.5rem' }}>Schedule Activity</button>
@@ -2918,86 +2944,121 @@ function Dashboard({ user, onLogout }) {
                       const studentName = targetStudent ? targetStudent.name : sched.target;
 
                       return (
-                        <div key={sched._id} className="activity-item" style={{ 
-                          display: 'flex', 
-                          justifyContent: 'space-between', 
-                          alignItems: 'center', 
-                          padding: '1.2rem', 
-                          background: 'white', 
-                          border: '1px solid var(--glass-border)',
-                          borderRadius: '12px',
-                          boxShadow: '0 2px 8px rgba(0,0,0,0.01)'
-                        }}>
-                          <div>
-                            <strong style={{ fontSize: '1.1rem', color: 'var(--text-main)' }}>{sched.title}</strong>
-                            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.4rem', display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-                              <span>Target: <strong>{studentName} ({sched.target})</strong></span>
-                              <span>Start Date: <strong>{new Date(sched.date).toLocaleDateString()}</strong></span>
-                              {sched.openedAt ? (
-                                <span style={{ color: '#10b981', fontWeight: '500' }}>
-                                  👁️ Opened: {new Date(sched.openedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                              ) : (
-                                <span style={{ color: 'var(--text-muted)' }}>💤 Unopened</span>
-                              )}
+                        <div key={sched._id} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', width: '100%' }}>
+                          <div className="activity-item" style={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            alignItems: 'center', 
+                            padding: '1.2rem', 
+                            background: 'white', 
+                            border: '1px solid var(--glass-border)',
+                            borderRadius: '12px',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.01)'
+                          }}>
+                            <div>
+                              <strong style={{ fontSize: '1.1rem', color: 'var(--text-main)' }}>{sched.title}</strong>
+                              <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.4rem', display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
+                                <span>Target: <strong>{studentName} ({sched.target})</strong></span>
+                                <span>Start Date: <strong>{new Date(sched.date).toLocaleDateString()}</strong></span>
+                                {sched.openedAt ? (
+                                  <span style={{ color: '#10b981', fontWeight: '500' }}>
+                                    👁️ Opened: {new Date(sched.openedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                ) : (
+                                  <span style={{ color: 'var(--text-muted)' }}>💤 Unopened</span>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            {sched.fileName && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                              {sched.fileName && (
+                                <button 
+                                  onClick={async () => {
+                                    try {
+                                      const res = await fetch(`/admin/schedule/${sched._id}/download`, {
+                                        headers: { 'Authorization': `Bearer ${user.token}` }
+                                      });
+                                      if (!res.ok) throw new Error("Failed to download");
+                                      const blob = await res.blob();
+                                      const url = window.URL.createObjectURL(blob);
+                                      const a = document.createElement('a');
+                                      a.href = url;
+                                      a.download = sched.fileName || 'file';
+                                      document.body.appendChild(a);
+                                      a.click();
+                                      a.remove();
+                                    } catch(err) {
+                                      alert("Error downloading file: " + err.message);
+                                    }
+                                  }}
+                                  style={{ padding: '0.45rem 0.9rem', background: 'rgba(59, 130, 246, 0.08)', color: 'var(--primary-color)', border: '1px solid rgba(59, 130, 246, 0.2)', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 'bold' }}
+                                  title="Download Attached File"
+                                >
+                                  Attachment 📥
+                                </button>
+                              )}
+                              {sched.googleSheetUrl && (
+                                <button 
+                                  onClick={() => {
+                                    setActiveSchedulesSheet(prev => ({
+                                      ...prev,
+                                      [sched._id]: !prev[sched._id]
+                                    }));
+                                  }}
+                                  style={{ padding: '0.45rem 0.9rem', background: 'rgba(16, 185, 129, 0.08)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 'bold' }}
+                                  title="Open / Close Google Sheet"
+                                >
+                                  {activeSchedulesSheet[sched._id] ? "Close Sheet ❌" : "Open Sheet 📊"}
+                                </button>
+                              )}
+                              <span style={{ 
+                                fontSize: '0.8rem', 
+                                fontWeight: 'bold',
+                                padding: '4px 10px', 
+                                borderRadius: '12px',
+                                color: isCompleted ? '#10b981' : '#f59e0b',
+                                background: isCompleted ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)'
+                              }}>
+                                {sched.status}
+                              </span>
                               <button 
                                 onClick={async () => {
+                                  if(!window.confirm('Delete this schedule?')) return;
                                   try {
-                                    const res = await fetch(`/admin/schedule/${sched._id}/download`, {
+                                    const res = await fetch(`/admin/schedule/${sched._id}`, { 
+                                      method: 'DELETE', 
                                       headers: { 'Authorization': `Bearer ${user.token}` }
                                     });
-                                    if (!res.ok) throw new Error("Failed to download");
-                                    const blob = await res.blob();
-                                    const url = window.URL.createObjectURL(blob);
-                                    const a = document.createElement('a');
-                                    a.href = url;
-                                    a.download = sched.fileName || 'file';
-                                    document.body.appendChild(a);
-                                    a.click();
-                                    a.remove();
-                                  } catch(err) {
-                                    alert("Error downloading file: " + err.message);
+                                    if(res.ok) fetchSchedules();
+                                  } catch(e) {
+                                    console.error(e);
                                   }
-                                }}
-                                style={{ padding: '0.45rem 0.9rem', background: 'rgba(59, 130, 246, 0.08)', color: 'var(--primary-color)', border: '1px solid rgba(59, 130, 246, 0.2)', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 'bold' }}
-                                title="Download Attached File"
+                                }} 
+                                style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '1.2rem', padding: '0 0.5rem' }}
+                                title="Delete Schedule"
                               >
-                                Attachment 📥
+                                🗑️
                               </button>
-                            )}
-                            <span style={{ 
-                              fontSize: '0.8rem', 
-                              fontWeight: 'bold',
-                              padding: '4px 10px', 
-                              borderRadius: '12px',
-                              color: isCompleted ? '#10b981' : '#f59e0b',
-                              background: isCompleted ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)'
-                            }}>
-                              {sched.status}
-                            </span>
-                            <button 
-                              onClick={async () => {
-                                if(!window.confirm('Delete this schedule?')) return;
-                                try {
-                                  const res = await fetch(`/admin/schedule/${sched._id}`, { 
-                                    method: 'DELETE', 
-                                    headers: { 'Authorization': `Bearer ${user.token}` }
-                                  });
-                                  if(res.ok) fetchSchedules();
-                                } catch(e) {
-                                  console.error(e);
-                                }
-                              }} 
-                              style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '1.2rem', padding: '0 0.5rem' }}
-                              title="Delete Schedule"
-                            >
-                              🗑️
-                            </button>
+                            </div>
                           </div>
+                          {activeSchedulesSheet[sched._id] && sched.googleSheetUrl && (
+                            <div style={{
+                              width: '100%',
+                              padding: '1rem',
+                              background: 'rgba(255, 255, 255, 0.6)',
+                              border: '1px solid var(--glass-border)',
+                              borderRadius: '12px',
+                              backdropFilter: 'blur(10px)',
+                              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.05)',
+                              marginTop: '-0.4rem',
+                              animation: 'slideDown 0.3s ease-out'
+                            }}>
+                              <iframe 
+                                src={getEmbedUrl(sched.googleSheetUrl)} 
+                                style={{ width: '100%', height: '600px', border: 'none', borderRadius: '8px' }}
+                                title="Google Sheet"
+                              />
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -3018,65 +3079,124 @@ function Dashboard({ user, onLogout }) {
                   <div className="activity-list">
                     {schedules.map((sched) => {
                       return (
-                        <div key={sched._id} className="activity-item" style={{ 
-                          display: 'flex', 
-                          justifyContent: 'space-between', 
-                          alignItems: 'center', 
-                          padding: '1.2rem', 
-                          background: 'white', 
-                          border: '1px solid var(--glass-border)',
-                          borderRadius: '12px',
-                          transition: 'all 0.2s ease',
-                          boxShadow: '0 2px 8px rgba(0,0,0,0.01)'
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
-                            <div style={{ flex: 1 }}>
-                              <strong style={{ fontSize: '1.1rem', color: 'var(--text-main)' }}>
-                                {sched.title}
-                              </strong>
-                              <div style={{ display: 'flex', gap: '1rem', marginTop: '0.4rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                                <span>📅 Start Date: {new Date(sched.date).toLocaleDateString()}</span>
+                        <div key={sched._id} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', width: '100%' }}>
+                          <div className="activity-item" style={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            alignItems: 'center', 
+                            padding: '1.2rem', 
+                            background: 'white', 
+                            border: '1px solid var(--glass-border)',
+                            borderRadius: '12px',
+                            transition: 'all 0.2s ease',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.01)'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
+                              <div style={{ flex: 1 }}>
+                                <strong style={{ fontSize: '1.1rem', color: 'var(--text-main)' }}>
+                                  {sched.title}
+                                </strong>
+                                <div style={{ display: 'flex', gap: '1rem', marginTop: '0.4rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                  <span>📅 Start Date: {new Date(sched.date).toLocaleDateString()}</span>
+                                  {sched.openedAt && (
+                                    <span style={{ color: '#10b981', fontWeight: '500' }}>
+                                      👁️ Opened: {new Date(sched.openedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                              {sched.fileName && (
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      const res = await fetch(`/student/schedule/${sched._id}/download`, {
+                                        headers: { 'Authorization': `Bearer ${user.token}` }
+                                      });
+                                      if (!res.ok) throw new Error("Failed to download");
+                                      const blob = await res.blob();
+                                      const url = window.URL.createObjectURL(blob);
+                                      const a = document.createElement('a');
+                                      a.href = url;
+                                      a.download = sched.fileName || 'file';
+                                      document.body.appendChild(a);
+                                      a.click();
+                                      a.remove();
+                                      fetchSchedules();
+                                    } catch(err) {
+                                      alert("Error downloading file: " + err.message);
+                                    }
+                                  }}
+                                  style={{
+                                    padding: '0.55rem 1.2rem',
+                                    background: 'var(--primary-color)',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '0.85rem',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 4px 10px rgba(59, 130, 246, 0.2)'
+                                  }}
+                                >
+                                  Download File 📥
+                                </button>
+                              )}
+                              {sched.googleSheetUrl && (
+                                <button
+                                  onClick={async () => {
+                                    if (!sched.openedAt) {
+                                      try {
+                                        await fetch(`/student/schedule/${sched._id}/open`, {
+                                          method: 'POST',
+                                          headers: { 'Authorization': `Bearer ${user.token}` }
+                                        });
+                                        fetchSchedules();
+                                      } catch (err) {
+                                        console.error("Failed to mark schedule as opened:", err);
+                                      }
+                                    }
+                                    setActiveSchedulesSheet(prev => ({
+                                      ...prev,
+                                      [sched._id]: !prev[sched._id]
+                                    }));
+                                  }}
+                                  style={{
+                                    padding: '0.55rem 1.2rem',
+                                    background: 'rgba(16, 185, 129, 0.1)',
+                                    color: '#10b981',
+                                    border: '1px solid rgba(16, 185, 129, 0.2)',
+                                    borderRadius: '8px',
+                                    fontSize: '0.85rem',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  {activeSchedulesSheet[sched._id] ? "Close Sheet ❌" : "Open Sheet 📊"}
+                                </button>
+                              )}
+                            </div>
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            {sched.fileName && (
-                              <button
-                                onClick={async () => {
-                                  try {
-                                    const res = await fetch(`/student/schedule/${sched._id}/download`, {
-                                      headers: { 'Authorization': `Bearer ${user.token}` }
-                                    });
-                                    if (!res.ok) throw new Error("Failed to download");
-                                    const blob = await res.blob();
-                                    const url = window.URL.createObjectURL(blob);
-                                    const a = document.createElement('a');
-                                    a.href = url;
-                                    a.download = sched.fileName || 'file';
-                                    document.body.appendChild(a);
-                                    a.click();
-                                    a.remove();
-                                    fetchSchedules();
-                                  } catch(err) {
-                                    alert("Error downloading file: " + err.message);
-                                  }
-                                }}
-                                style={{
-                                  padding: '0.55rem 1.2rem',
-                                  background: 'var(--primary-color)',
-                                  color: 'white',
-                                  border: 'none',
-                                  borderRadius: '8px',
-                                  fontSize: '0.85rem',
-                                  fontWeight: 'bold',
-                                  cursor: 'pointer',
-                                  boxShadow: '0 4px 10px rgba(59, 130, 246, 0.2)'
-                                }}
-                              >
-                                Download File 📥
-                              </button>
-                            )}
-                          </div>
+                          {activeSchedulesSheet[sched._id] && sched.googleSheetUrl && (
+                            <div style={{
+                              width: '100%',
+                              padding: '1rem',
+                              background: 'rgba(255, 255, 255, 0.6)',
+                              border: '1px solid var(--glass-border)',
+                              borderRadius: '12px',
+                              backdropFilter: 'blur(10px)',
+                              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.05)',
+                              marginTop: '-0.4rem',
+                              animation: 'slideDown 0.3s ease-out'
+                            }}>
+                              <iframe 
+                                src={getEmbedUrl(sched.googleSheetUrl)} 
+                                style={{ width: '100%', height: '600px', border: 'none', borderRadius: '8px' }}
+                                title="Google Sheet"
+                              />
+                            </div>
+                          )}
                         </div>
                       );
                     })}
