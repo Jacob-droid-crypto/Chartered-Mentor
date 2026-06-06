@@ -97,37 +97,44 @@ const getDashboard = async (req, res) => {
       groupedLogs[key].push(r);
     });
 
+    const today = getISTDateString();
     const summary = {};
     for (const key in groupedLogs) {
       const dayLogs = groupedLogs[key];
-      const inLogs = [];
-      const outLogs = [];
-      dayLogs.forEach(log => {
-        const time = log.timestamp ? new Date(log.timestamp).getTime() : (log.createdAt ? new Date(log.createdAt).getTime() : 0);
-        if (log.type === "IN") {
-          inLogs.push(time);
-        } else if (log.type === "OUT") {
-          outLogs.push(time);
-        }
-      });
-
-      inLogs.sort((a, b) => a - b);
-      outLogs.sort((a, b) => a - b);
-
+      
       let totalMs = 0;
-      inLogs.forEach(inTime => {
-        const outIdx = outLogs.findIndex(outTime => outTime > inTime);
-        if (outIdx !== -1) {
-          totalMs += (outLogs[outIdx] - inTime);
-          outLogs.splice(outIdx, 1);
+      let lastInTime = null;
+      const hasIN = dayLogs.some(log => log.type === "IN");
+      
+      dayLogs.forEach(log => {
+        const logTime = log.timestamp ? new Date(log.timestamp).getTime() : (log.createdAt ? new Date(log.createdAt).getTime() : 0);
+        if (log.type === "IN") {
+          if (lastInTime === null) {
+            lastInTime = logTime;
+          }
+        } else if (log.type === "OUT") {
+          if (lastInTime !== null) {
+            totalMs += Math.max(0, logTime - lastInTime);
+            lastInTime = null;
+          }
         }
       });
+      
+      if (lastInTime !== null) {
+        if (key === today) {
+          totalMs += Math.max(0, Date.now() - lastInTime);
+        } else {
+          const latestLog = dayLogs[dayLogs.length - 1];
+          const latestTime = latestLog.timestamp ? new Date(latestLog.timestamp).getTime() : (latestLog.createdAt ? new Date(latestLog.createdAt).getTime() : 0);
+          totalMs += Math.max(0, latestTime - lastInTime);
+        }
+      }
 
       summary[key] = {
         studentId: dayLogs[0].studentId,
         course: dayLogs[0].course,
         date: key,
-        hasIN: inLogs.length > 0,
+        hasIN,
         totalMs
       };
     }
@@ -301,29 +308,34 @@ const getDailyHours = async (req, res) => {
   try {
     const { studentId, date } = req.params;
 
-    const logs = await Attendance.find({ studentId, date });
-    const inLogs = [];
-    const outLogs = [];
-    logs.forEach(log => {
-      const time = log.timestamp ? new Date(log.timestamp).getTime() : (log.createdAt ? new Date(log.createdAt).getTime() : 0);
-      if (log.type === "IN") {
-        inLogs.push(time);
-      } else if (log.type === "OUT") {
-        outLogs.push(time);
-      }
-    });
-
-    inLogs.sort((a, b) => a - b);
-    outLogs.sort((a, b) => a - b);
-
+    const logs = await Attendance.find({ studentId, date }).sort({ timestamp: 1 });
     let totalMs = 0;
-    inLogs.forEach(inTime => {
-      const outIdx = outLogs.findIndex(outTime => outTime > inTime);
-      if (outIdx !== -1) {
-        totalMs += (outLogs[outIdx] - inTime);
-        outLogs.splice(outIdx, 1);
+    let lastInTime = null;
+    
+    logs.forEach(log => {
+      const logTime = log.timestamp ? new Date(log.timestamp).getTime() : (log.createdAt ? new Date(log.createdAt).getTime() : 0);
+      if (log.type === "IN") {
+        if (lastInTime === null) {
+          lastInTime = logTime;
+        }
+      } else if (log.type === "OUT") {
+        if (lastInTime !== null) {
+          totalMs += Math.max(0, logTime - lastInTime);
+          lastInTime = null;
+        }
       }
     });
+    
+    if (lastInTime !== null) {
+      const today = getISTDateString();
+      if (date === today) {
+        totalMs += Math.max(0, Date.now() - lastInTime);
+      } else {
+        const latestLog = logs[logs.length - 1];
+        const latestTime = latestLog.timestamp ? new Date(latestLog.timestamp).getTime() : (latestLog.createdAt ? new Date(latestLog.createdAt).getTime() : 0);
+        totalMs += Math.max(0, latestTime - lastInTime);
+      }
+    }
 
     const totalHours = totalMs / (1000 * 60 * 60);
 

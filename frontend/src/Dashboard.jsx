@@ -835,18 +835,41 @@ function Dashboard({ user, onLogout }) {
         setLiveStudyHours(0);
         return;
       }
-      const stats = calculateStudentStats();
-      let baseHours = stats.todayHours;
       const todayLogs = data.todayLogs || [];
-      const lastLog = todayLogs.length > 0 ? todayLogs[todayLogs.length - 1] : null;
-      if (lastLog && lastLog.type === 'IN') {
-        const checkInTime = new Date(lastLog.timestamp || lastLog.createdAt).getTime();
-        const elapsedMs = Date.now() - checkInTime;
-        if (elapsedMs > 0) {
-          baseHours += (elapsedMs / 3600000);
-        }
+      if (todayLogs.length === 0) {
+        setLiveStudyHours(0);
+        return;
       }
-      setLiveStudyHours(baseHours);
+      
+      // Sort logs by timestamp/createdAt ascending to ensure correct order
+      const sortedLogs = [...todayLogs].sort((a, b) => {
+        const tA = new Date(a.timestamp || a.createdAt).getTime();
+        const tB = new Date(b.timestamp || b.createdAt).getTime();
+        return tA - tB;
+      });
+
+      let totalMs = 0;
+      let lastInTime = null;
+
+      sortedLogs.forEach(log => {
+        const logTime = new Date(log.timestamp || log.createdAt).getTime();
+        if (log.type === "IN") {
+          if (lastInTime === null) {
+            lastInTime = logTime;
+          }
+        } else if (log.type === "OUT") {
+          if (lastInTime !== null) {
+            totalMs += Math.max(0, logTime - lastInTime);
+            lastInTime = null;
+          }
+        }
+      });
+
+      if (lastInTime !== null) {
+        totalMs += Math.max(0, Date.now() - lastInTime);
+      }
+
+      setLiveStudyHours(Math.max(0, totalMs / 3600000));
     };
 
     updateLiveHours();
@@ -1826,17 +1849,125 @@ function Dashboard({ user, onLogout }) {
                   )}
 
                   <div className="dashboard-cards" style={{ marginBottom: '2rem' }}>
-                    <div className={`card ${isCurrentlyCheckedIn ? 'card-live' : ''}`}>
-                      <div className="card-icon" style={{ background: isCurrentlyCheckedIn ? 'rgba(16, 185, 129, 0.1)' : 'rgba(59, 130, 246, 0.1)', color: isCurrentlyCheckedIn ? '#10b981' : 'var(--primary-color)' }}>⏱️</div>
-                      <h3>
-                        Today's Study Hours
-                        {isCurrentlyCheckedIn && <span className="pulse-dot" title="Study timer is actively ticking" />}
-                      </h3>
-                      <div className="value">{formatLiveStudyTime(liveStudyHours)}</div>
-                      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.5rem', fontWeight: 'bold' }}>
-                        Target Today: {todayTarget > 0 ? `${todayTarget} hrs` : 'No Target (Holiday)'}
-                      </div>
-                    </div>
+                    {(() => {
+                      const progressPercent = todayTarget > 0 ? Math.min(100, (liveStudyHours / todayTarget) * 100) : 0;
+                      return (
+                        <div className={`card ${isCurrentlyCheckedIn ? 'card-live' : ''}`} style={{
+                          display: 'flex',
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '1.5rem',
+                          padding: '1.75rem',
+                          background: isCurrentlyCheckedIn 
+                            ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(255, 255, 255, 0.9))'
+                            : 'white',
+                          border: isCurrentlyCheckedIn ? '1.5px solid #10b981' : '1px solid var(--glass-border)',
+                          boxShadow: isCurrentlyCheckedIn ? '0 12px 30px rgba(16, 185, 129, 0.12)' : '0 8px 24px var(--shadow-color)',
+                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                        }}>
+                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ fontSize: '1.25rem' }}>⏱️</span>
+                              <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 'bold', color: 'var(--text-muted)', letterSpacing: '0.5px' }}>
+                                TODAY'S STUDY HOURS
+                              </h3>
+                            </div>
+                            <div className="value" style={{ 
+                              fontSize: '2.6rem', 
+                              fontWeight: '800', 
+                              fontFamily: 'monospace, var(--font-mono)', 
+                              letterSpacing: '-1px',
+                              background: isCurrentlyCheckedIn 
+                                ? 'linear-gradient(to right, #10b981, #047857)' 
+                                : 'linear-gradient(to right, var(--text-main), #475569)',
+                              WebkitBackgroundClip: 'text',
+                              WebkitTextFillColor: 'transparent',
+                              textShadow: isCurrentlyCheckedIn ? '0 2px 10px rgba(16, 185, 129, 0.15)' : 'none',
+                              marginTop: '0.2rem'
+                            }}>
+                              {formatLiveStudyTime(liveStudyHours)}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem' }}>
+                              {isCurrentlyCheckedIn ? (
+                                <span style={{ 
+                                  display: 'inline-flex', 
+                                  alignItems: 'center', 
+                                  gap: '6px', 
+                                  fontSize: '0.75rem', 
+                                  fontWeight: 'bold', 
+                                  color: '#10b981', 
+                                  background: 'rgba(16, 185, 129, 0.1)', 
+                                  padding: '3px 8px', 
+                                  borderRadius: '20px',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.5px'
+                                }}>
+                                  <span style={{ width: '6px', height: '6px', backgroundColor: '#10b981', borderRadius: '50%', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
+                                  Active Ticking
+                                </span>
+                              ) : (
+                                <span style={{ 
+                                  display: 'inline-flex', 
+                                  alignItems: 'center', 
+                                  gap: '6px', 
+                                  fontSize: '0.75rem', 
+                                  fontWeight: 'bold', 
+                                  color: '#64748b', 
+                                  background: '#f1f5f9', 
+                                  padding: '3px 8px', 
+                                  borderRadius: '20px',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.5px'
+                                }}>
+                                  Paused
+                                </span>
+                              )}
+                              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600' }}>
+                                Target: {todayTarget > 0 ? `${todayTarget}h` : 'Holiday'}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          {/* SVG Circular Progress Ring */}
+                          <div style={{ position: 'relative', width: '90px', height: '90px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <svg width="90" height="90" viewBox="0 0 90 90" style={{ transform: 'rotate(-90deg)', width: '100%', height: '100%' }}>
+                              <circle
+                                cx="45"
+                                cy="45"
+                                r="38"
+                                fill="transparent"
+                                stroke="rgba(226, 232, 240, 0.8)"
+                                strokeWidth="6"
+                              />
+                              <circle
+                                cx="45"
+                                cy="45"
+                                r="38"
+                                fill="transparent"
+                                stroke={isCurrentlyCheckedIn ? '#10b981' : 'var(--primary-color)'}
+                                strokeWidth="6"
+                                strokeDasharray={2 * Math.PI * 38}
+                                strokeDashoffset={2 * Math.PI * 38 - (progressPercent / 100) * 2 * Math.PI * 38}
+                                strokeLinecap="round"
+                                style={{ 
+                                  transition: 'stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+                                  filter: isCurrentlyCheckedIn ? 'drop-shadow(0 0 4px rgba(16, 185, 129, 0.3))' : 'none'
+                                }}
+                              />
+                            </svg>
+                            <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                              <span style={{ fontSize: '0.95rem', fontWeight: '800', color: isCurrentlyCheckedIn ? '#10b981' : 'var(--text-main)' }}>
+                                {Math.round(progressPercent)}%
+                              </span>
+                              <span style={{ fontSize: '0.55rem', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.2px', marginTop: '-2px' }}>
+                                Done
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                     <div className="card">
                       <div className="card-icon" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>📅</div>
                       <h3>Weekly Study Hours</h3>

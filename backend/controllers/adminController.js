@@ -270,37 +270,45 @@ const getDailySummary = async (req, res) => {
       const date = dayLogs[0].date;
       const course = dayLogs[0].course;
 
-      const inLogs = [];
-      const outLogs = [];
-      dayLogs.forEach(log => {
-        const time = log.timestamp ? new Date(log.timestamp).getTime() : (log.createdAt ? new Date(log.createdAt).getTime() : 0);
-        if (log.type === "IN") {
-          inLogs.push(time);
-        } else if (log.type === "OUT") {
-          outLogs.push(time);
-        }
-      });
-
-      inLogs.sort((a, b) => a - b);
-      outLogs.sort((a, b) => a - b);
-
       let totalMs = 0;
-      const firstIn = inLogs.length > 0 ? inLogs[0] : null;
+      let lastInTime = null;
+      let firstIn = null;
+      const firstInLog = dayLogs.find(log => log.type === "IN");
+      if (firstInLog) {
+        firstIn = firstInLog.timestamp ? new Date(firstInLog.timestamp).getTime() : (firstInLog.createdAt ? new Date(firstInLog.createdAt).getTime() : 0);
+      }
 
-      inLogs.forEach(inTime => {
-        const outIdx = outLogs.findIndex(outTime => outTime > inTime);
-        if (outIdx !== -1) {
-          totalMs += (outLogs[outIdx] - inTime);
-          outLogs.splice(outIdx, 1);
+      dayLogs.forEach(log => {
+        const logTime = log.timestamp ? new Date(log.timestamp).getTime() : (log.createdAt ? new Date(log.createdAt).getTime() : 0);
+        if (log.type === "IN") {
+          if (lastInTime === null) {
+            lastInTime = logTime;
+          }
+        } else if (log.type === "OUT") {
+          if (lastInTime !== null) {
+            totalMs += Math.max(0, logTime - lastInTime);
+            lastInTime = null;
+          }
         }
       });
+
+      if (lastInTime !== null) {
+        const today = getISTDateString();
+        if (date === today) {
+          totalMs += Math.max(0, Date.now() - lastInTime);
+        } else {
+          const latestLog = dayLogs[dayLogs.length - 1];
+          const latestTime = latestLog.timestamp ? new Date(latestLog.timestamp).getTime() : (latestLog.createdAt ? new Date(latestLog.createdAt).getTime() : 0);
+          totalMs += Math.max(0, latestTime - lastInTime);
+        }
+      }
 
       summary[key] = {
         studentId,
         studentName: studentMap[studentId] || "Unknown Student",
         course,
         date,
-        hasIN: inLogs.length > 0,
+        hasIN: !!firstInLog,
         hasOUT: dayLogs.some(log => log.type === "OUT"),
         totalMs,
         firstIn
