@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/admin/:match*",
-      "destination": "https://chartered-mentor-nifm.vercel.app/admin/:match*"
+      "destination": "https://chartered-mentor-nifm-git-testing-jacob-droid-cryptos-projects.vercel.app/admin/:match*"
     },
     {
       "source": "/student/:match*",
-      "destination": "https://chartered-mentor-nifm.vercel.app/student/:match*"
+      "destination": "https://chartered-mentor-nifm-git-testing-jacob-droid-cryptos-projects.vercel.app/student/:match*"
     }
   ]
 }
