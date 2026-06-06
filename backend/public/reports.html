@@ -72,12 +72,10 @@
 
              // Count status
              let presentCount = 0;
-             let partialCount = 0;
              let absentCount = 0;
              
              filteredData.forEach(d => {
                if (d.status === "Present") presentCount++;
-               else if (d.status === "Partial") partialCount++;
                else if (d.status === "Absent") absentCount++;
              });
 
@@ -90,13 +88,12 @@
              chartInstance = new Chart(ctx, {
                  type: 'pie',
                  data: {
-                     labels: ['Present', 'Partial', 'Absent'],
+                     labels: ['Present', 'Absent'],
                      datasets: [{
                          label: 'Number of Records',
-                         data: [presentCount, partialCount, absentCount],
+                         data: [presentCount, absentCount],
                          backgroundColor: [
                              '#28a745',
-                             '#ffc107',
                              '#dc3545'
                          ],
                          borderWidth: 1

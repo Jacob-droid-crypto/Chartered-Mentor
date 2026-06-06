@@ -1277,7 +1277,6 @@ function Dashboard({ user, onLogout }) {
           studentName: student.name || 'Unknown Student',
           course: student.course,
           totalPresent: 0,
-          totalPartial: 0,
           totalAbsent: 0,
           presentDates: [],
           totalHours: 0
@@ -1311,19 +1310,17 @@ function Dashboard({ user, onLogout }) {
             studentName: item.studentName || studentMap[item.studentId] || 'Unknown Student', 
             course: item.course, 
             totalPresent: 0, 
-            totalPartial: 0, 
             totalAbsent: 0, 
             presentDates: [], 
             totalHours: 0 
           };
         }
         if (item.status === 'Present') aggregatedMap[item.studentId].totalPresent++;
-        else if (item.status === 'Partial') aggregatedMap[item.studentId].totalPartial++;
         else aggregatedMap[item.studentId].totalAbsent++;
 
         aggregatedMap[item.studentId].totalHours += parseFloat(item.totalHours || 0);
 
-        if (item.status === 'Present' || item.status === 'Partial') {
+        if (item.status === 'Present') {
           aggregatedMap[item.studentId].presentDates.push(item.date);
         }
       }
@@ -1363,7 +1360,7 @@ function Dashboard({ user, onLogout }) {
       }
 
       if (expectedDays > 0) {
-        record.totalAbsent = Math.max(0, expectedDays - record.totalPresent - record.totalPartial);
+        record.totalAbsent = Math.max(0, expectedDays - record.totalPresent);
       } else {
         record.totalAbsent = 0;
       }
@@ -1428,7 +1425,6 @@ function Dashboard({ user, onLogout }) {
           "Student Name": record.studentName || record.studentId || "-",
           "Course": record.course || "-",
           "Total Present": record.totalPresent,
-          "Total Partial": record.totalPartial,
           "Total Absent": record.totalAbsent,
           "Total Study Hours": formatStudyTime(record.totalHours)
         };
@@ -1438,7 +1434,7 @@ function Dashboard({ user, onLogout }) {
           const logsForDate = studentDateLogs[record.studentId] || {};
           const log = logsForDate[dateStr];
           
-          if (log && (log.status === 'Present' || log.status === 'Partial')) {
+          if (log && log.status === 'Present') {
             row[dateStr] = formatStudyTime(log.totalHours);
           } else {
             row[dateStr] = "Leave";
@@ -2080,13 +2076,12 @@ function Dashboard({ user, onLogout }) {
                     {Array.isArray(data) && data.length > 0 ? (() => {
                       const todayDate = getLocalDateString();
                       const todayData = data.filter(d => d.date === todayDate);
-                      if (todayData.length === 0) return <p style={{ color: 'var(--text-muted)', margin: 'auto' }}>No attendance logged today.</p>;
-                      const present = todayData.filter(d => d.status === 'Present').length;
-                      const partial = todayData.filter(d => d.status === 'Partial').length;
+                      const present = todayData.length;
+                      const absent = Math.max(0, (Array.isArray(students) ? students.length : 0) - present);
                       return <Doughnut
                         data={{
-                          labels: ['Present', 'Partial'],
-                          datasets: [{ data: [present, partial], backgroundColor: ['#10b981', '#f59e0b'], borderWidth: 0, cutout: '75%' }]
+                          labels: ['Present', 'Absent'],
+                          datasets: [{ data: [present, absent], backgroundColor: ['#10b981', '#ef4444'], borderWidth: 0, cutout: '75%' }]
                         }}
                         options={{ maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }}
                       />;
@@ -2194,9 +2189,9 @@ function Dashboard({ user, onLogout }) {
                   }
 
                   return filteredRecords.map((record, idx) => (
-                    <div key={idx} className="activity-item" style={{ borderLeft: record.isAbsent ? '4px solid #ef4444' : (record.status === 'Present' ? '4px solid #10b981' : '4px solid #f59e0b') }}>
+                    <div key={idx} className="activity-item" style={{ borderLeft: record.isAbsent ? '4px solid #ef4444' : '4px solid #10b981' }}>
                       <div className="activity-info">
-                        <div className="activity-dot" style={{ background: record.isAbsent ? '#ef4444' : (record.status === 'Present' ? '#10b981' : '#f59e0b') }}></div>
+                        <div className="activity-dot" style={{ background: record.isAbsent ? '#ef4444' : '#10b981' }}></div>
                         <div>
                           <strong>{record.studentName}</strong>
                           <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.2rem' }}>
@@ -2210,7 +2205,7 @@ function Dashboard({ user, onLogout }) {
                         </div>
                       </div>
                       <div className="activity-date" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.2rem' }}>
-                        <span style={{ fontWeight: 'bold', color: record.isAbsent ? '#ef4444' : (record.status === 'Present' ? '#10b981' : '#f59e0b') }}>
+                        <span style={{ fontWeight: 'bold', color: record.isAbsent ? '#ef4444' : '#10b981' }}>
                           {record.status}
                         </span>
                         {!record.isAbsent && (
@@ -2554,7 +2549,7 @@ function Dashboard({ user, onLogout }) {
                   return aggregatedData.map((record, idx) => (
                     <div key={idx} className="activity-item" style={{ flexWrap: 'wrap' }}>
                       <div className="activity-info">
-                        <div className="activity-dot" style={{ background: attendanceView === 'daily' ? (record.status === 'Present' ? '#10b981' : record.status === 'Partial' ? '#f59e0b' : '#ef4444') : '#3b82f6' }}></div>
+                        <div className="activity-dot" style={{ background: attendanceView === 'daily' ? (record.status === 'Present' ? '#10b981' : '#ef4444') : '#3b82f6' }}></div>
                         <div>
                           <strong>{record.studentName || record.studentId || 'Unknown Student'}</strong>
                           <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>ID: {record.studentId} • Course: {record.course || '-'}</div>
@@ -2570,30 +2565,30 @@ function Dashboard({ user, onLogout }) {
                         return (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                             <div className="activity-date" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.2rem' }}>
-                              <span style={{ fontWeight: 'bold', color: record.status === 'Present' ? '#10b981' : record.status === 'Partial' ? '#f59e0b' : '#ef4444' }}>
+                              <span style={{ fontWeight: 'bold', color: record.status === 'Present' ? '#10b981' : '#ef4444' }}>
                                 {record.status} ({formatStudyTime(record.totalHours)})
                               </span>
                               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>
                                 {record.firstIn && `First Log In: ${new Date(record.firstIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • `}Target: {targetHours > 0 ? `${targetHours} hrs` : 'Holiday'} • {record.date}
                               </span>
                             </div>
-                            {user.role === 'admin' && (record.status === 'Partial' || record.status === 'Present') && (
+                            {user.role === 'admin' && record.status === 'Present' && (
                               <button
                                 onClick={() => handleOpenManualCheckout(record)}
                                 style={{
                                   padding: '0.45rem 0.9rem',
-                                  background: record.status === 'Partial' ? '#f59e0b' : 'transparent',
-                                  border: record.status === 'Partial' ? 'none' : '1px solid #3b82f6',
-                                  color: record.status === 'Partial' ? 'white' : '#3b82f6',
+                                  background: !record.hasOUT ? '#f59e0b' : 'transparent',
+                                  border: !record.hasOUT ? 'none' : '1px solid #3b82f6',
+                                  color: !record.hasOUT ? 'white' : '#3b82f6',
                                   borderRadius: '6px',
                                   fontSize: '0.8rem',
                                   fontWeight: 'bold',
                                   cursor: 'pointer',
                                   transition: 'all 0.2s',
-                                  boxShadow: record.status === 'Partial' ? '0 4px 10px rgba(245, 158, 11, 0.2)' : 'none'
+                                  boxShadow: !record.hasOUT ? '0 4px 10px rgba(245, 158, 11, 0.2)' : 'none'
                                 }}
                               >
-                                {record.status === 'Partial' ? 'Mark OUT 🕒' : 'Edit OUT ✏️'}
+                                {!record.hasOUT ? 'Mark OUT 🕒' : 'Edit OUT ✏️'}
                               </button>
                             )}
                           </div>
@@ -2601,7 +2596,6 @@ function Dashboard({ user, onLogout }) {
                       })() : (
                         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
                           <span style={{ color: '#10b981', fontWeight: 'bold' }}>Present: {record.totalPresent}</span>
-                          <span style={{ color: '#f59e0b', fontWeight: 'bold' }}>Partial: {record.totalPartial}</span>
                           <span style={{ color: '#ef4444', fontWeight: 'bold' }}>Absent: {record.totalAbsent}</span>
                           <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>Study: {formatStudyTime(record.totalHours)}</span>
                         </div>

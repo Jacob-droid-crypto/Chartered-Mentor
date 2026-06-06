@@ -104,6 +104,7 @@ const getDashboard = async (req, res) => {
       let totalMs = 0;
       let lastInTime = null;
       const hasIN = dayLogs.some(log => log.type === "IN");
+      const hasOUT = dayLogs.some(log => log.type === "OUT");
       
       dayLogs.forEach(log => {
         const logTime = log.timestamp ? new Date(log.timestamp).getTime() : (log.createdAt ? new Date(log.createdAt).getTime() : 0);
@@ -134,6 +135,7 @@ const getDashboard = async (req, res) => {
         course: dayLogs[0].course,
         date: key,
         hasIN,
+        hasOUT,
         totalMs
       };
     }
@@ -144,6 +146,7 @@ const getDashboard = async (req, res) => {
       date: s.date,
       totalHours: s.totalMs / (1000 * 60 * 60),
       status: s.hasIN ? "Present" : "Absent",
+      hasOUT: s.hasOUT,
     }));
 
     res.json({
