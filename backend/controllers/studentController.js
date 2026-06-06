@@ -97,7 +97,6 @@ const getDashboard = async (req, res) => {
       groupedLogs[key].push(r);
     });
 
-    const today = getISTDateString();
     const summary = {};
     for (const key in groupedLogs) {
       const dayLogs = groupedLogs[key];
