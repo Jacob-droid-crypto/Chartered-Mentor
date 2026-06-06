@@ -149,6 +149,10 @@ const initCronJobs = () => {
           // Fetch student course details from User collection
           const student = await User.findOne({ userId: studentId });
           if (student) {
+            if (student.mode === 'online') {
+              console.log(`[Auto Logout] Skipping student ${studentId} because mode is online.`);
+              continue;
+            }
             console.log(`[Auto Logout] Checking OUT student ${studentId} automatically for target time ${config.autoLogoutTime}`);
             await Attendance.create({
               studentId,
