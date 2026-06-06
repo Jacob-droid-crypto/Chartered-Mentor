@@ -1,6 +1,7 @@
 const express = require("express");
 const path = require("path");
 const cors = require("cors");
+const fs = require("fs");
 require("dotenv").config();
 
 const connectDB = require("./config/db");
@@ -73,7 +74,12 @@ const frontendPath = path.join(__dirname, '..', 'frontend', 'dist');
 app.use(express.static(frontendPath));
 
 app.get(/^(?!\/admin|\/student|\/qr).*/, (req, res) => {
-  res.sendFile(path.join(frontendPath, 'index.html'));
+  const indexPath = path.join(frontendPath, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(200).send("Chartered Mentor API Server is running.");
+  }
 });
 
 /* ================= ERROR HANDLER (Fallback) ================= */
