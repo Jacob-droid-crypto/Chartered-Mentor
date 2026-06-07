@@ -840,15 +840,55 @@ const revertStudentPayment = async (req, res) => {
 const updateStudentProfileByAdmin = async (req, res) => {
   try {
     const { studentId } = req.params;
-    const { joiningDate } = req.body;
-    
-    const student = await User.findOneAndUpdate(
-      { userId: studentId, role: "student" },
-      { joiningDate },
-      { new: true }
-    );
-    
+    const student = await User.findOne({ userId: studentId, role: "student" });
     if (!student) return res.status(404).json({ message: "Student not found" });
+
+    const {
+      name, email, phone, course, mode, batch, group, aadharNumber, dob, joiningDate,
+      address, fatherName, fatherPhone, fatherOccupation, motherName, motherPhone, motherOccupation
+    } = req.body;
+
+    if (name !== undefined) student.name = name;
+    if (email !== undefined) student.email = email;
+    if (phone !== undefined) student.phone = phone;
+    if (course !== undefined) student.course = course;
+    if (mode !== undefined) student.mode = mode;
+    if (batch !== undefined) student.batch = batch;
+    if (group !== undefined) student.group = group;
+    if (aadharNumber !== undefined) student.aadharNumber = aadharNumber;
+    if (dob !== undefined) student.dob = dob ? new Date(dob) : null;
+    if (joiningDate !== undefined) student.joiningDate = joiningDate ? new Date(joiningDate) : null;
+    if (address !== undefined) student.address = address;
+    if (fatherName !== undefined) student.fatherName = fatherName;
+    if (fatherPhone !== undefined) student.fatherPhone = fatherPhone;
+    if (fatherOccupation !== undefined) student.fatherOccupation = fatherOccupation;
+    if (motherName !== undefined) student.motherName = motherName;
+    if (motherPhone !== undefined) student.motherPhone = motherPhone;
+    if (motherOccupation !== undefined) student.motherOccupation = motherOccupation;
+
+    // Check if profile is complete (all required fields filled)
+    if (
+      student.name &&
+      student.email &&
+      student.phone &&
+      student.address &&
+      student.group &&
+      student.aadharNumber &&
+      student.dob &&
+      student.joiningDate &&
+      student.fatherName &&
+      student.fatherPhone &&
+      student.fatherOccupation &&
+      student.motherName &&
+      student.motherPhone &&
+      student.motherOccupation
+    ) {
+      student.profileCompleted = true;
+    } else {
+      student.profileCompleted = false;
+    }
+
+    await student.save();
 
     const sObj = student.toObject();
     if (req.user && req.user.role === 'staff') {

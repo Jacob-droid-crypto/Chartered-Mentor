@@ -501,6 +501,8 @@ function Dashboard({ user, onLogout }) {
   const [newStudent, setNewStudent] = useState({ name: '', email: '', course: 'INTER', mode: 'residential', batch: 'September 2026' });
   const [newStudentDetails, setNewStudentDetails] = useState(null);
   const [viewingProfileStudent, setViewingProfileStudent] = useState(null);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editProfileData, setEditProfileData] = useState({});
 
   // Student options dropdown state
   const [openMenuId, setOpenMenuId] = useState(null);
@@ -2381,7 +2383,8 @@ function Dashboard({ user, onLogout }) {
                       return {
                         ...attendedMap[student.userId],
                         studentName: student.name || attendedMap[student.userId].studentName || studentMap[student.userId] || 'Unknown Student',
-                        isAbsent: false
+                        isAbsent: false,
+                        currentStatus: student.currentStatus
                       };
                     } else {
                       return {
@@ -2392,7 +2395,8 @@ function Dashboard({ user, onLogout }) {
                         status: 'Absent',
                         totalHours: 0,
                         firstIn: null,
-                        isAbsent: true
+                        isAbsent: true,
+                        currentStatus: student.currentStatus
                       };
                     }
                   }) : [];
@@ -2412,7 +2416,20 @@ function Dashboard({ user, onLogout }) {
                       <div className="activity-info">
                         <div className="activity-dot" style={{ background: record.isAbsent ? '#ef4444' : '#10b981' }}></div>
                         <div>
-                          <strong>{record.studentName}</strong>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            <strong>{record.studentName}</strong>
+                            <span style={{
+                              background: record.currentStatus === 'Inside' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+                              color: record.currentStatus === 'Inside' ? '#10b981' : '#ef4444',
+                              border: record.currentStatus === 'Inside' ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '0.75rem',
+                              fontWeight: 'bold'
+                            }}>
+                              {record.currentStatus === 'Inside' ? '🟢 Inside' : '🔴 Outside'}
+                            </span>
+                          </div>
                           <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.2rem' }}>
                             ID: {record.studentId} • Course: {record.course || '-'}
                             {record.firstIn && (
@@ -3950,18 +3967,133 @@ function Dashboard({ user, onLogout }) {
                           </div>
                           
                           {paymentConfig.upiId && (
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1', width: '100%', maxWidth: '250px' }}>
-                              <span style={{ marginBottom: '1rem', fontSize: '1.1rem', color: 'var(--text-main)', fontWeight: 'bold' }}>Ready to Pay?</span>
-                              <button onClick={() => setShowPayModal(true)} style={{ width: '100%', padding: '1rem', background: '#10b981', color: 'white', borderRadius: '8px', border: 'none', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', boxShadow: '0 4px 10px rgba(16, 185, 129, 0.3)' }}>
-                                Pay Now
-                              </button>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid var(--glass-border)', width: '100%', maxWidth: '220px', margin: '0 auto' }}>
+                              <span style={{ marginBottom: '0.75rem', fontSize: '1rem', color: 'var(--text-main)', fontWeight: 'bold' }}>Scan to Pay</span>
+                              <div style={{ background: 'white', padding: '0.75rem', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '0.5rem' }}>
+                                <QRCodeSVG value={`upi://pay?pa=${paymentConfig.upiId}&pn=${encodeURIComponent(paymentConfig.accountName)}`} size={160} />
+                              </div>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Scan with any UPI App</span>
                             </div>
                           )}
                         </div>
                         
+                        {/* Direct Payment Entry Form */}
+                        <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--glass-border)' }}>
+                          <h4 style={{ marginBottom: '1rem', color: 'var(--text-main)', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            ✍️ Report Your Payment
+                          </h4>
+                          <form 
+                            onSubmit={async (e) => {
+                              e.preventDefault();
+                              const amountInput = e.target.amount.value;
+                              const receiptInput = e.target.receipt.value;
+                              const installmentSelect = e.target.installmentNumber.value;
+                              
+                              if (!amountInput || !receiptInput || !installmentSelect) {
+                                alert('Please fill in all payment details');
+                                return;
+                              }
+                              
+                              const enteredAmt = Number(amountInput);
+                              const selectedIdx = Number(installmentSelect) - 1;
+                              const expectedAmt = profileData?.installments?.[selectedIdx]?.amount;
+                              
+                              if (expectedAmt !== undefined && enteredAmt !== expectedAmt) {
+                                alert(`Error: The payment amount (₹${enteredAmt}) does not match the amount required for Installment ${installmentSelect} (₹${expectedAmt}).`);
+                                return;
+                              }
+                              
+                              try {
+                                setLoading(true);
+                                const res = await fetch('/student/payment', {
+                                  method: 'POST',
+                                  headers: { 
+                                    'Authorization': `Bearer ${user.token}`, 
+                                    'Content-Type': 'application/json' 
+                                  },
+                                  body: JSON.stringify({ 
+                                    amount: enteredAmt, 
+                                    receiptNo: `Inst ${installmentSelect} - ${receiptInput}` 
+                                  })
+                                });
+                                if (!res.ok) throw new Error(await res.text());
+                                alert('Payment report submitted and is pending admin approval.');
+                                e.target.reset();
+                                fetchProfileData();
+                              } catch(err) { 
+                                alert('Error: ' + err.message); 
+                              } finally {
+                                setLoading(false);
+                              }
+                            }} 
+                            style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', width: '100%' }}
+                          >
+                            <div>
+                              <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 'bold', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                                Installment Number
+                              </label>
+                              <select 
+                                name="installmentNumber" 
+                                required 
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val) {
+                                    const idx = Number(val) - 1;
+                                    const expected = profileData?.installments?.[idx]?.amount;
+                                    if (expected && e.target.form.amount) {
+                                      e.target.form.amount.value = expected;
+                                    }
+                                  }
+                                }}
+                                style={{ width: '100%', padding: '0.7rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)', fontSize: '0.9rem' }}
+                              >
+                                <option value="">-- Select --</option>
+                                {profileData?.installments?.map((inst, idx) => (
+                                  <option key={idx} value={idx + 1}>
+                                    Installment {idx + 1} (₹{inst.amount}) - {inst.status}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 'bold', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                                Payment Amount (₹)
+                              </label>
+                              <input 
+                                type="number" 
+                                name="amount" 
+                                required 
+                                min="1" 
+                                placeholder="e.g. 10000" 
+                                style={{ width: '100%', padding: '0.7rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)', fontSize: '0.9rem' }} 
+                              />
+                            </div>
+                            <div style={{ gridColumn: 'span 2' }}>
+                              <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 'bold', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                                Transaction ID / Reference ID
+                              </label>
+                              <input 
+                                type="text" 
+                                name="receipt" 
+                                required 
+                                placeholder="Enter UPI Reference / UTR Number" 
+                                style={{ width: '100%', padding: '0.7rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)', fontSize: '0.9rem' }} 
+                              />
+                            </div>
+                            <div style={{ gridColumn: 'span 2', marginTop: '0.5rem' }}>
+                              <button 
+                                type="submit" 
+                                style={{ width: '100%', padding: '0.8rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', transition: 'all 0.2s', boxShadow: '0 4px 6px rgba(16, 185, 129, 0.15)' }}
+                              >
+                                Submit Payment Report
+                              </button>
+                            </div>
+                          </form>
+                        </div>
+
                         <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#fffbeb', borderLeft: '4px solid #f59e0b', borderRadius: '4px' }}>
                           <p style={{ margin: 0, fontSize: '0.9rem', color: '#b45309' }}>
-                            <strong>Note:</strong> After making a payment, please ensure you save the transaction screenshot or receipt number and notify the administration to get it updated on your portal.
+                            <strong>Note:</strong> After reporting payment details, the administration will verify the reference ID and update your ledger.
                           </p>
                         </div>
                       </div>
@@ -4706,279 +4838,420 @@ function Dashboard({ user, onLogout }) {
 
       {/* STUDENT PROFILE VIEW MODAL */}
       {viewingProfileStudent && (
-        <div className="modal-overlay" onClick={() => setViewingProfileStudent(null)}>
+        <div className="modal-overlay" onClick={() => { setViewingProfileStudent(null); setIsEditingProfile(false); }}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px', width: '95%', padding: '2rem', borderRadius: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.75rem' }}>
-              <h2 style={{ margin: 0, fontSize: '1.4rem', color: 'var(--text-main)' }}>Student Profile: {viewingProfileStudent.name}</h2>
-              <button onClick={() => setViewingProfileStudent(null)} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-muted)' }}>&times;</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                <h2 style={{ margin: 0, fontSize: '1.4rem', color: 'var(--text-main)' }}>Student Profile: {viewingProfileStudent.name}</h2>
+                {(user.role === 'admin' || user.role === 'staff') && !isEditingProfile && (
+                  <button
+                    onClick={() => {
+                      setEditProfileData({
+                        name: viewingProfileStudent.name || '',
+                        email: viewingProfileStudent.email || '',
+                        phone: viewingProfileStudent.phone || '',
+                        course: viewingProfileStudent.course || 'INTER',
+                        mode: viewingProfileStudent.mode || 'residential',
+                        batch: viewingProfileStudent.batch || 'September 2026',
+                        group: viewingProfileStudent.group || 'Group 1',
+                        aadharNumber: viewingProfileStudent.aadharNumber || '',
+                        dob: viewingProfileStudent.dob ? new Date(viewingProfileStudent.dob).toISOString().split('T')[0] : '',
+                        joiningDate: viewingProfileStudent.joiningDate ? new Date(viewingProfileStudent.joiningDate).toISOString().split('T')[0] : '',
+                        address: viewingProfileStudent.address || '',
+                        fatherName: viewingProfileStudent.fatherName || '',
+                        fatherPhone: viewingProfileStudent.fatherPhone || '',
+                        fatherOccupation: viewingProfileStudent.fatherOccupation || '',
+                        motherName: viewingProfileStudent.motherName || '',
+                        motherPhone: viewingProfileStudent.motherPhone || '',
+                        motherOccupation: viewingProfileStudent.motherOccupation || ''
+                      });
+                      setIsEditingProfile(true);
+                    }}
+                    style={{ padding: '6px 12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}
+                  >
+                    ✏️ Edit Profile
+                  </button>
+                )}
+              </div>
+              <button onClick={() => { setViewingProfileStudent(null); setIsEditingProfile(false); }} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-muted)' }}>&times;</button>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxHeight: '65vh', overflowY: 'auto', paddingRight: '0.5rem', textAlign: 'left' }}>
-              {/* Personal Section */}
-              <div>
-                <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.1rem', color: 'var(--primary-color)', borderBottom: '1px dashed var(--glass-border)', paddingBottom: '4px' }}>👤 Personal Details</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem 1.5rem', fontSize: '0.95rem' }}>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Student ID</span>
-                    <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.userId}</strong>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Course & Mode</span>
-                    <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.course} ({viewingProfileStudent.mode || 'residential'})</strong>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Email</span>
-                    <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.email || 'N/A'}</strong>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Phone</span>
-                    <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.phone || 'N/A'}</strong>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Date of Birth</span>
-                    <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.dob ? new Date(viewingProfileStudent.dob).toLocaleDateString() : 'N/A'}</strong>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Batch</span>
-                    <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.batch || 'N/A'}</strong>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Group Choice</span>
-                    <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.group || 'N/A'}</strong>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Aadhaar Number</span>
-                    <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.aadharNumber || 'N/A'}</strong>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Date of Joining</span>
-                    {user.role === 'admin' ? (
-                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.2rem' }}>
-                        <input
-                          type="date"
-                          value={viewingProfileStudent.joiningDate ? new Date(viewingProfileStudent.joiningDate).toISOString().split('T')[0] : ''}
-                          onChange={(e) => {
-                            const newDoj = e.target.value;
-                            setViewingProfileStudent({ ...viewingProfileStudent, joiningDate: newDoj });
-                          }}
-                          style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid var(--glass-border)', fontSize: '0.9rem', width: '135px' }}
-                        />
-                        <button
-                          onClick={async () => {
-                            try {
-                              const res = await fetch(`/admin/student/${viewingProfileStudent.userId}/profile`, {
-                                method: 'POST',
-                                headers: {
-                                  'Authorization': `Bearer ${user.token}`,
-                                  'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify({ joiningDate: viewingProfileStudent.joiningDate })
-                              });
-                              if (!res.ok) throw new Error(await res.text());
-                              alert('Date of Joining saved!');
-                              fetchStudentsData();
-                            } catch(err) {
-                              alert('Error saving date of joining: ' + err.message);
-                            }
-                          }}
-                          style={{ padding: '4px 8px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
-                        >
-                          Save
-                        </button>
-                      </div>
-                    ) : (
-                      <strong style={{ color: 'var(--text-main)' }}>
-                        {viewingProfileStudent.joiningDate ? new Date(viewingProfileStudent.joiningDate).toLocaleDateString() : 'N/A'}
-                      </strong>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Address Section */}
-              <div>
-                <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.1rem', color: 'var(--primary-color)', borderBottom: '1px dashed var(--glass-border)', paddingBottom: '4px' }}>📍 Permanent Address</h3>
-                <p style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-main)', lineHeight: '1.4' }}>{viewingProfileStudent.address || 'N/A'}</p>
-              </div>
-
-              {/* Parents Section */}
-              <div>
-                <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.1rem', color: 'var(--primary-color)', borderBottom: '1px dashed var(--glass-border)', paddingBottom: '4px' }}>🧔 Father's Details</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem 1.5rem', fontSize: '0.95rem' }}>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Father's Name</span>
-                    <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.fatherName || 'N/A'}</strong>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Father's Phone</span>
-                    <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.fatherPhone || 'N/A'}</strong>
-                  </div>
-                  <div style={{ gridColumn: 'span 2' }}>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Occupation</span>
-                    <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.fatherOccupation || 'N/A'}</strong>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.1rem', color: 'var(--primary-color)', borderBottom: '1px dashed var(--glass-border)', paddingBottom: '4px' }}>👩 Mother's Details</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem 1.5rem', fontSize: '0.95rem' }}>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Mother's Name</span>
-                    <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.motherName || 'N/A'}</strong>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Mother's Phone</span>
-                    <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.motherPhone || 'N/A'}</strong>
-                  </div>
-                  <div style={{ gridColumn: 'span 2' }}>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Occupation</span>
-                    <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.motherOccupation || 'N/A'}</strong>
-                  </div>
-                </div>
-              </div>
-
-              {/* Profile Status */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem', borderRadius: '8px', background: viewingProfileStudent.profileCompleted ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)', color: viewingProfileStudent.profileCompleted ? '#10b981' : '#ef4444', fontWeight: 'bold', fontSize: '0.9rem' }}>
-                <span>{viewingProfileStudent.profileCompleted ? '✅ Profile Completed' : '⚠️ Profile Incomplete'}</span>
-              </div>
-
-              {/* Fees & Payments Section */}
-              {user.role === 'admin' && (
-                <div>
-                  <h3 style={{ margin: '1rem 0 0.75rem 0', fontSize: '1.1rem', color: 'var(--primary-color)', borderBottom: '1px dashed var(--glass-border)', paddingBottom: '4px' }}>💳 Fees & Payments</h3>
+              {isEditingProfile ? (
+                <form onSubmit={async (e) => {
+                  e.preventDefault();
+                  try {
+                    setLoading(true);
+                    const res = await fetch(`/admin/student/${viewingProfileStudent.userId}/profile`, {
+                      method: 'POST',
+                      headers: {
+                        'Authorization': `Bearer ${user.token}`,
+                        'Content-Type': 'application/json'
+                      },
+                      body: JSON.stringify(editProfileData)
+                    });
+                    const result = await res.json();
+                    if (!res.ok) throw new Error(result.message || 'Failed to update profile');
+                    alert('Profile updated successfully!');
+                    setIsEditingProfile(false);
+                    setViewingProfileStudent(result.student);
+                    fetchStudentsData();
+                  } catch (err) {
+                    alert('Error updating profile: ' + err.message);
+                  } finally {
+                    setLoading(false);
+                  }
+                }} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', width: '100%' }}>
                   
-                  {/* Fee Status Summary */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '1rem', background: '#f8fafc', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', border: '1px solid var(--glass-border)' }}>
-                    <div>
-                      <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>Total Fee</span>
-                      <strong style={{ fontSize: '1.1rem', color: 'var(--text-main)' }}>₹{viewingProfileStudent.totalFees || 0}</strong>
-                    </div>
-                    <div>
-                      <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>Paid</span>
-                      <strong style={{ fontSize: '1.1rem', color: '#10b981' }}>₹{viewingProfileStudent.feesPaid || 0}</strong>
-                    </div>
-                    <div>
-                      <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>Remaining</span>
-                      <strong style={{ fontSize: '1.1rem', color: '#ef4444' }}>₹{(viewingProfileStudent.totalFees || 0) - (viewingProfileStudent.feesPaid || 0)}</strong>
-                    </div>
-                    <div>
-                      <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>Next Due</span>
-                      <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)' }}>
-                        {viewingProfileStudent.nextPaymentDueDate ? new Date(viewingProfileStudent.nextPaymentDueDate).toLocaleDateString() : 'N/A'}
-                      </strong>
-                    </div>
-                  </div>
-
-                  {/* Installments Schedule */}
-                  <div style={{ marginBottom: '1.5rem' }}>
-                    <h4 style={{ fontSize: '0.9rem', color: 'var(--text-main)', marginBottom: '0.5rem', fontWeight: 'bold' }}>📅 Installment Schedule</h4>
-                    {viewingProfileStudent.installments && viewingProfileStudent.installments.length > 0 ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        {viewingProfileStudent.installments.map((inst, idx) => (
-                          <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white', padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
-                            <span style={{ fontWeight: 'bold', fontSize: '0.85rem', color: 'var(--text-main)' }}>Installment {idx + 1}: ₹{inst.amount}</span>
-                            <div style={{ fontSize: '0.85rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                              <span style={{ color: 'var(--text-muted)' }}>Due: {new Date(inst.dueDate).toLocaleDateString()}</span>
-                              {inst.status === 'Paid' ? (
-                                <span style={{ color: '#10b981', fontWeight: 'bold', padding: '0.1rem 0.4rem', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '4px' }}>Paid</span>
-                              ) : (
-                                <span style={{ color: '#ef4444', fontWeight: 'bold', padding: '0.1rem 0.4rem', background: 'rgba(239, 68, 68, 0.08)', borderRadius: '4px' }}>Unpaid</span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No installments configured yet.</p>
-                    )}
-                  </div>
-
-                  {/* Payment History */}
+                  {/* Personal Section Edit */}
                   <div>
-                    <h4 style={{ fontSize: '0.9rem', color: 'var(--text-main)', marginBottom: '0.5rem', fontWeight: 'bold' }}>💸 Payment History</h4>
-                    {viewingProfileStudent.feeHistory && viewingProfileStudent.feeHistory.length > 0 ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        {viewingProfileStudent.feeHistory.map((fee, idx) => (
-                          <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
-                            <div>
-                              <strong style={{ fontSize: '0.95rem', color: '#10b981' }}>+ ₹{fee.amount}</strong>
-                              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                                <span>Receipt: {fee.receiptNo || 'N/A'}</span>
-                                <span style={{ marginLeft: '10px' }}>Date: {new Date(fee.date).toLocaleDateString()}</span>
-                              </div>
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.3rem' }}>
-                              <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: fee.status === 'Pending' ? '#f59e0b' : (fee.status === 'Rejected' ? '#ef4444' : '#10b981') }}>
-                                {fee.status}
-                              </span>
-                              <div style={{ display: 'flex', gap: '0.4rem' }}>
-                                <button
-                                  onClick={() => setEditingPayment({
-                                    studentId: viewingProfileStudent.userId,
-                                    studentName: viewingProfileStudent.name,
-                                    paymentId: fee._id,
-                                    amount: fee.amount,
-                                    date: fee.date,
-                                    receiptNo: fee.receiptNo || '',
-                                    status: fee.status
-                                  })}
-                                  style={{ padding: '2px 6px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}
-                                >
-                                  Edit
-                                </button>
-                                {fee.status === 'Pending' && (
-                                  <>
-                                    <button onClick={async () => {
-                                      try {
-                                        const res = await fetch(`/admin/student/${viewingProfileStudent.userId}/payment/${fee._id}/approve`, {
-                                          method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
-                                        });
-                                        if (!res.ok) throw new Error(await res.text());
-                                        fetchStudentsData();
-                                      } catch(e) { alert('Error: ' + e.message); }
-                                    }} style={{ padding: '2px 6px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Approve</button>
-                                    <button onClick={async () => {
-                                      try {
-                                        const res = await fetch(`/admin/student/${viewingProfileStudent.userId}/payment/${fee._id}/reject`, {
-                                          method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
-                                        });
-                                        if (!res.ok) throw new Error(await res.text());
-                                        fetchStudentsData();
-                                      } catch(e) { alert('Error: ' + e.message); }
-                                    }} style={{ padding: '2px 6px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Reject</button>
-                                  </>
-                                )}
-                                {(fee.status === 'Verified' || fee.status === 'Paid') && (
-                                  <button onClick={async () => {
-                                    if (!window.confirm(`Revert payment of ₹${fee.amount} to Pending (unmarked)?`)) return;
-                                    try {
-                                      const res = await fetch(`/admin/student/${viewingProfileStudent.userId}/payment/${fee._id}/revert`, {
-                                        method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
-                                      });
-                                      if (!res.ok) throw new Error(await res.text());
-                                      fetchStudentsData();
-                                    } catch(e) { alert('Error: ' + e.message); }
-                                  }} style={{ padding: '2px 6px', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Revert</button>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                    <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.1rem', color: 'var(--primary-color)', borderBottom: '1px dashed var(--glass-border)', paddingBottom: '4px' }}>👤 Personal Details</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem 1.5rem', fontSize: '0.95rem' }}>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem', marginBottom: '0.2rem' }}>Student ID (Non-editable)</span>
+                        <input type="text" value={viewingProfileStudent.userId} disabled style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'rgba(0,0,0,0.05)', color: 'var(--text-muted)' }} />
                       </div>
-                    ) : (
-                      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No payment history available.</p>
-                    )}
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem', marginBottom: '0.2rem' }}>Name</span>
+                        <input type="text" value={editProfileData.name} onChange={(e) => setEditProfileData({ ...editProfileData, name: e.target.value })} required style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)' }} />
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem', marginBottom: '0.2rem' }}>Course</span>
+                        <select value={editProfileData.course} onChange={(e) => setEditProfileData({ ...editProfileData, course: e.target.value })} required style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)' }}>
+                          <option value="INTER">INTER</option>
+                          <option value="FINAL">FINAL</option>
+                        </select>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem', marginBottom: '0.2rem' }}>Mode</span>
+                        <select value={editProfileData.mode} onChange={(e) => setEditProfileData({ ...editProfileData, mode: e.target.value })} required style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)' }}>
+                          <option value="residential">residential</option>
+                          <option value="online">online</option>
+                        </select>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem', marginBottom: '0.2rem' }}>Email</span>
+                        <input type="email" value={editProfileData.email} onChange={(e) => setEditProfileData({ ...editProfileData, email: e.target.value })} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)' }} />
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem', marginBottom: '0.2rem' }}>Phone</span>
+                        <input type="text" value={editProfileData.phone} onChange={(e) => setEditProfileData({ ...editProfileData, phone: e.target.value })} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)' }} />
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem', marginBottom: '0.2rem' }}>Date of Birth</span>
+                        <input type="date" value={editProfileData.dob} onChange={(e) => setEditProfileData({ ...editProfileData, dob: e.target.value })} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)' }} />
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem', marginBottom: '0.2rem' }}>Batch</span>
+                        <select value={editProfileData.batch} onChange={(e) => setEditProfileData({ ...editProfileData, batch: e.target.value })} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)' }}>
+                          <option value="September 2026">September 2026</option>
+                          <option value="November 2026">November 2026</option>
+                        </select>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem', marginBottom: '0.2rem' }}>Group Choice</span>
+                        <select value={editProfileData.group} onChange={(e) => setEditProfileData({ ...editProfileData, group: e.target.value })} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)' }}>
+                          <option value="Group 1">Group 1</option>
+                          <option value="Group 2">Group 2</option>
+                          <option value="Both">Both</option>
+                        </select>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem', marginBottom: '0.2rem' }}>Aadhaar Number</span>
+                        <input type="text" value={editProfileData.aadharNumber} onChange={(e) => setEditProfileData({ ...editProfileData, aadharNumber: e.target.value })} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)' }} />
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem', marginBottom: '0.2rem' }}>Date of Joining</span>
+                        <input type="date" value={editProfileData.joiningDate} onChange={(e) => setEditProfileData({ ...editProfileData, joiningDate: e.target.value })} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)' }} />
+                      </div>
+                    </div>
                   </div>
-                </div>
+
+                  {/* Address Section Edit */}
+                  <div>
+                    <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.1rem', color: 'var(--primary-color)', borderBottom: '1px dashed var(--glass-border)', paddingBottom: '4px' }}>📍 Permanent Address</h3>
+                    <textarea value={editProfileData.address} onChange={(e) => setEditProfileData({ ...editProfileData, address: e.target.value })} rows="3" style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)', fontSize: '0.95rem' }}></textarea>
+                  </div>
+
+                  {/* Father's Details Edit */}
+                  <div>
+                    <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.1rem', color: 'var(--primary-color)', borderBottom: '1px dashed var(--glass-border)', paddingBottom: '4px' }}>🧔 Father's Details</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem 1.5rem', fontSize: '0.95rem' }}>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem', marginBottom: '0.2rem' }}>Father's Name</span>
+                        <input type="text" value={editProfileData.fatherName} onChange={(e) => setEditProfileData({ ...editProfileData, fatherName: e.target.value })} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)' }} />
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem', marginBottom: '0.2rem' }}>Father's Phone</span>
+                        <input type="text" value={editProfileData.fatherPhone} onChange={(e) => setEditProfileData({ ...editProfileData, fatherPhone: e.target.value })} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)' }} />
+                      </div>
+                      <div style={{ gridColumn: 'span 2' }}>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem', marginBottom: '0.2rem' }}>Occupation</span>
+                        <input type="text" value={editProfileData.fatherOccupation} onChange={(e) => setEditProfileData({ ...editProfileData, fatherOccupation: e.target.value })} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)' }} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Mother's Details Edit */}
+                  <div>
+                    <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.1rem', color: 'var(--primary-color)', borderBottom: '1px dashed var(--glass-border)', paddingBottom: '4px' }}>👩 Mother's Details</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem 1.5rem', fontSize: '0.95rem' }}>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem', marginBottom: '0.2rem' }}>Mother's Name</span>
+                        <input type="text" value={editProfileData.motherName} onChange={(e) => setEditProfileData({ ...editProfileData, motherName: e.target.value })} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)' }} />
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem', marginBottom: '0.2rem' }}>Mother's Phone</span>
+                        <input type="text" value={editProfileData.motherPhone} onChange={(e) => setEditProfileData({ ...editProfileData, motherPhone: e.target.value })} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)' }} />
+                      </div>
+                      <div style={{ gridColumn: 'span 2' }}>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem', marginBottom: '0.2rem' }}>Occupation</span>
+                        <input type="text" value={editProfileData.motherOccupation} onChange={(e) => setEditProfileData({ ...editProfileData, motherOccupation: e.target.value })} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)' }} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                    <button type="button" onClick={() => setIsEditingProfile(false)} style={{ flex: 1, padding: '0.75rem', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-main)', fontWeight: 'bold' }}>Cancel</button>
+                    <button type="submit" style={{ flex: 1, padding: '0.75rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Save Changes</button>
+                  </div>
+                </form>
+              ) : (
+                <>
+                  {/* Personal Section */}
+                  <div>
+                    <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.1rem', color: 'var(--primary-color)', borderBottom: '1px dashed var(--glass-border)', paddingBottom: '4px' }}>👤 Personal Details</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem 1.5rem', fontSize: '0.95rem' }}>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Student ID</span>
+                        <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.userId}</strong>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Course & Mode</span>
+                        <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.course} ({viewingProfileStudent.mode || 'residential'})</strong>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Email</span>
+                        <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.email || 'N/A'}</strong>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Phone</span>
+                        <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.phone || 'N/A'}</strong>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Date of Birth</span>
+                        <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.dob ? new Date(viewingProfileStudent.dob).toLocaleDateString() : 'N/A'}</strong>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Batch</span>
+                        <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.batch || 'N/A'}</strong>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Group Choice</span>
+                        <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.group || 'N/A'}</strong>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Aadhaar Number</span>
+                        <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.aadharNumber || 'N/A'}</strong>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Date of Joining</span>
+                        <strong style={{ color: 'var(--text-main)' }}>
+                          {viewingProfileStudent.joiningDate ? new Date(viewingProfileStudent.joiningDate).toLocaleDateString() : 'N/A'}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Address Section */}
+                  <div>
+                    <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.1rem', color: 'var(--primary-color)', borderBottom: '1px dashed var(--glass-border)', paddingBottom: '4px' }}>📍 Permanent Address</h3>
+                    <p style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-main)', lineHeight: '1.4' }}>{viewingProfileStudent.address || 'N/A'}</p>
+                  </div>
+
+                  {/* Parents Section */}
+                  <div>
+                    <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.1rem', color: 'var(--primary-color)', borderBottom: '1px dashed var(--glass-border)', paddingBottom: '4px' }}>🧔 Father's Details</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem 1.5rem', fontSize: '0.95rem' }}>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Father's Name</span>
+                        <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.fatherName || 'N/A'}</strong>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Father's Phone</span>
+                        <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.fatherPhone || 'N/A'}</strong>
+                      </div>
+                      <div style={{ gridColumn: 'span 2' }}>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Occupation</span>
+                        <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.fatherOccupation || 'N/A'}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.1rem', color: 'var(--primary-color)', borderBottom: '1px dashed var(--glass-border)', paddingBottom: '4px' }}>👩 Mother's Details</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem 1.5rem', fontSize: '0.95rem' }}>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Mother's Name</span>
+                        <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.motherName || 'N/A'}</strong>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Mother's Phone</span>
+                        <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.motherPhone || 'N/A'}</strong>
+                      </div>
+                      <div style={{ gridColumn: 'span 2' }}>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Occupation</span>
+                        <strong style={{ color: 'var(--text-main)' }}>{viewingProfileStudent.motherOccupation || 'N/A'}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Profile Status */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem', borderRadius: '8px', background: viewingProfileStudent.profileCompleted ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)', color: viewingProfileStudent.profileCompleted ? '#10b981' : '#ef4444', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                    <span>{viewingProfileStudent.profileCompleted ? '✅ Profile Completed' : '⚠️ Profile Incomplete'}</span>
+                  </div>
+
+                  {/* Fees & Payments Section */}
+                  {user.role === 'admin' && (
+                    <div>
+                      <h3 style={{ margin: '1rem 0 0.75rem 0', fontSize: '1.1rem', color: 'var(--primary-color)', borderBottom: '1px dashed var(--glass-border)', paddingBottom: '4px' }}>💳 Fees & Payments</h3>
+                      
+                      {/* Fee Status Summary */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '1rem', background: '#f8fafc', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', border: '1px solid var(--glass-border)' }}>
+                        <div>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>Total Fee</span>
+                          <strong style={{ fontSize: '1.1rem', color: 'var(--text-main)' }}>₹{viewingProfileStudent.totalFees || 0}</strong>
+                        </div>
+                        <div>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>Paid</span>
+                          <strong style={{ fontSize: '1.1rem', color: '#10b981' }}>₹{viewingProfileStudent.feesPaid || 0}</strong>
+                        </div>
+                        <div>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>Remaining</span>
+                          <strong style={{ fontSize: '1.1rem', color: '#ef4444' }}>₹{(viewingProfileStudent.totalFees || 0) - (viewingProfileStudent.feesPaid || 0)}</strong>
+                        </div>
+                        <div>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>Next Due</span>
+                          <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)' }}>
+                            {viewingProfileStudent.nextPaymentDueDate ? new Date(viewingProfileStudent.nextPaymentDueDate).toLocaleDateString() : 'N/A'}
+                          </strong>
+                        </div>
+                      </div>
+
+                      {/* Installments Schedule */}
+                      <div style={{ marginBottom: '1.5rem' }}>
+                        <h4 style={{ fontSize: '0.9rem', color: 'var(--text-main)', marginBottom: '0.5rem', fontWeight: 'bold' }}>📅 Installment Schedule</h4>
+                        {viewingProfileStudent.installments && viewingProfileStudent.installments.length > 0 ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            {viewingProfileStudent.installments.map((inst, idx) => (
+                              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white', padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
+                                <span style={{ fontWeight: 'bold', fontSize: '0.85rem', color: 'var(--text-main)' }}>Installment {idx + 1}: ₹{inst.amount}</span>
+                                <div style={{ fontSize: '0.85rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                  <span style={{ color: 'var(--text-muted)' }}>Due: {new Date(inst.dueDate).toLocaleDateString()}</span>
+                                  {inst.status === 'Paid' ? (
+                                    <span style={{ color: '#10b981', fontWeight: 'bold', padding: '0.1rem 0.4rem', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '4px' }}>Paid</span>
+                                  ) : (
+                                    <span style={{ color: '#ef4444', fontWeight: 'bold', padding: '0.1rem 0.4rem', background: 'rgba(239, 68, 68, 0.08)', borderRadius: '4px' }}>Unpaid</span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No installments configured yet.</p>
+                        )}
+                      </div>
+
+                      {/* Payment History */}
+                      <div>
+                        <h4 style={{ fontSize: '0.9rem', color: 'var(--text-main)', marginBottom: '0.5rem', fontWeight: 'bold' }}>💸 Payment History</h4>
+                        {viewingProfileStudent.feeHistory && viewingProfileStudent.feeHistory.length > 0 ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            {viewingProfileStudent.feeHistory.map((fee, idx) => (
+                              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
+                                <div>
+                                  <strong style={{ fontSize: '0.95rem', color: '#10b981' }}>+ ₹{fee.amount}</strong>
+                                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                    <span>Receipt: {fee.receiptNo || 'N/A'}</span>
+                                    <span style={{ marginLeft: '10px' }}>Date: {new Date(fee.date).toLocaleDateString()}</span>
+                                  </div>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.3rem' }}>
+                                  <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: fee.status === 'Pending' ? '#f59e0b' : (fee.status === 'Rejected' ? '#ef4444' : '#10b981') }}>
+                                    {fee.status}
+                                  </span>
+                                  <div style={{ display: 'flex', gap: '0.4rem' }}>
+                                    <button
+                                      onClick={() => setEditingPayment({
+                                        studentId: viewingProfileStudent.userId,
+                                        studentName: viewingProfileStudent.name,
+                                        paymentId: fee._id,
+                                        amount: fee.amount,
+                                        date: fee.date,
+                                        receiptNo: fee.receiptNo || '',
+                                        status: fee.status
+                                      })}
+                                      style={{ padding: '2px 6px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}
+                                    >
+                                      Edit
+                                    </button>
+                                    {fee.status === 'Pending' && (
+                                      <>
+                                        <button onClick={async () => {
+                                          try {
+                                            const res = await fetch(`/admin/student/${viewingProfileStudent.userId}/payment/${fee._id}/approve`, {
+                                              method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
+                                            });
+                                            if (!res.ok) throw new Error(await res.text());
+                                            fetchStudentsData();
+                                          } catch(e) { alert('Error: ' + e.message); }
+                                        }} style={{ padding: '2px 6px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Approve</button>
+                                        <button onClick={async () => {
+                                          try {
+                                            const res = await fetch(`/admin/student/${viewingProfileStudent.userId}/payment/${fee._id}/reject`, {
+                                              method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
+                                            });
+                                            if (!res.ok) throw new Error(await res.text());
+                                            fetchStudentsData();
+                                          } catch(e) { alert('Error: ' + e.message); }
+                                        }} style={{ padding: '2px 6px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Reject</button>
+                                      </>
+                                    )}
+                                    {(fee.status === 'Verified' || fee.status === 'Paid') && (
+                                      <button onClick={async () => {
+                                        if (!window.confirm(`Revert payment of ₹${fee.amount} to Pending (unmarked)?`)) return;
+                                        try {
+                                          const res = await fetch(`/admin/student/${viewingProfileStudent.userId}/payment/${fee._id}/revert`, {
+                                            method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
+                                          });
+                                          if (!res.ok) throw new Error(await res.text());
+                                          fetchStudentsData();
+                                        } catch(e) { alert('Error: ' + e.message); }
+                                      }} style={{ padding: '2px 6px', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Revert</button>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No payment history available.</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', borderTop: '1px solid var(--glass-border)', paddingTop: '1rem' }}>
-              <button className="modal-btn" onClick={() => setViewingProfileStudent(null)} style={{ margin: 0, padding: '0.6rem 1.5rem', fontSize: '0.95rem' }}>
-                Close
-              </button>
-            </div>
+            {!isEditingProfile && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', borderTop: '1px solid var(--glass-border)', paddingTop: '1rem' }}>
+                <button className="modal-btn" onClick={() => setViewingProfileStudent(null)} style={{ margin: 0, padding: '0.6rem 1.5rem', fontSize: '0.95rem' }}>
+                  Close
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
