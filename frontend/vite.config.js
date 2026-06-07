@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['logo.png'],
+      includeAssets: ['logo.png', 'pwa-icon.png'],
       manifest: {
         name: 'Chartered Mentor',
         short_name: 'Chartered Mentor',
@@ -18,12 +18,12 @@ export default defineConfig({
         display: 'standalone',
         icons: [
           {
-            src: '/logo.png',
+            src: '/pwa-icon.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: '/logo.png',
+            src: '/pwa-icon.png',
             sizes: '512x512',
             type: 'image/png'
           }
