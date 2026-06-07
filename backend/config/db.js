@@ -17,8 +17,8 @@ const connectDB = async () => {
 
 async function createAdminAndStaffIfNotExists() {
   try {
-    const adminId = process.env.ADMIN_USERID || "ADMIN001";
-    const adminPassword = process.env.ADMIN_PASSWORD || "admin123";
+    const adminId = process.env.ADMIN_USERID || "CM.ADMIN";
+    const adminPassword = process.env.ADMIN_PASSWORD || "growhigh";
 
     let admin = await User.findOne({ role: "admin" });
 
