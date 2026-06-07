@@ -206,7 +206,43 @@ const scanQr = async (req, res) => {
       });
     }
 
-    // IP RESTRICTION (Bypassed in testing branch)
+    // --- 1. IP RESTRICTION ---
+    // Read allowed IPs from env (comma-separated list). Fallback to new hardcoded IP.
+    const allowedIPsRaw = process.env.ALLOWED_IP || "192.168.68.120, 111.92.83.195, 103.182.166.206";
+    const ALLOWED_IPS = allowedIPsRaw.split(",").map(ip => ip.trim()).filter(Boolean);
+
+    let requestIP = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "";
+    if (requestIP.includes(",")) {
+       requestIP = requestIP.split(",")[0];
+    }
+    const cleanIP = requestIP.trim().replace("::ffff:", "");
+    
+    console.log("Debug IP Check:", cleanIP, "| Allowed:", ALLOWED_IPS);
+
+    let isIpAllowed = 
+      ALLOWED_IPS.includes(cleanIP) || 
+      cleanIP === "127.0.0.1" || 
+      cleanIP === "localhost" ||
+      cleanIP === "103.182.166.206" || // Explicitly allow user testing IP
+      cleanIP.startsWith("192.168.") ||
+      cleanIP.startsWith("10.");
+
+    if (!isIpAllowed) {
+      // Also check for 172.16.x.x to 172.31.x.x
+      const parts = cleanIP.split(".");
+      if (parts.length === 4 && parts[0] === "172") {
+        const secondOctet = parseInt(parts[1], 10);
+        if (secondOctet >= 16 && secondOctet <= 31) {
+          isIpAllowed = true;
+        }
+      }
+    }
+
+    if (!isIpAllowed) {
+      return res.status(403).json({
+        message: `Network Error: You must be connected to the Institute's WiFi to mark attendance. (Your IP: ${cleanIP})`,
+      });
+    }
 
     // --- 2. GPS RADIUS RESTRICTION ---
     if (!lat || !lng) {
@@ -217,7 +253,7 @@ const scanQr = async (req, res) => {
     // Update these values to the precise GPS coordinates of the institute
     const INST_LAT = process.env.INST_LAT ? parseFloat(process.env.INST_LAT) : 9.99232; 
     const INST_LNG = process.env.INST_LNG ? parseFloat(process.env.INST_LNG) : 76.31317;
-    const ALLOWED_RADIUS_METERS = process.env.ALLOWED_RADIUS_METERS ? parseInt(process.env.ALLOWED_RADIUS_METERS, 10) : 9999999; // Strict 50m radius (bypassed default for testing)
+    const ALLOWED_RADIUS_METERS = process.env.ALLOWED_RADIUS_METERS ? parseInt(process.env.ALLOWED_RADIUS_METERS, 10) : 50; // Strict 50m radius
     
     const getDistance = (lat1, lon1, lat2, lon2) => {
       const R = 6371e3; 
