@@ -1811,16 +1811,18 @@ function Dashboard({ user, onLogout }) {
                 <span>📅</span> Exam Scheduler
               </li>
               {user.role === 'admin' && (
-                <li className={`nav-item ${activeTab === 'payments' ? 'active' : ''}`} onClick={() => setActiveTab('payments')}>
-                  <span>💳</span> Payments
-                </li>
+                <>
+                  <li className={`nav-item ${activeTab === 'payments' ? 'active' : ''}`} onClick={() => setActiveTab('payments')}>
+                    <span>💳</span> Payments
+                  </li>
+                  <li className={`nav-item ${activeTab === 'campus_qr' ? 'active' : ''}`} onClick={() => setActiveTab('campus_qr')}>
+                    <span>🔲</span> Campus QR
+                  </li>
+                  <li className={`nav-item ${activeTab === 'goal_settings' ? 'active' : ''}`} onClick={() => setActiveTab('goal_settings')}>
+                    <span>🎯</span> Goal Settings
+                  </li>
+                </>
               )}
-              <li className={`nav-item ${activeTab === 'campus_qr' ? 'active' : ''}`} onClick={() => setActiveTab('campus_qr')}>
-                <span>🔲</span> Campus QR
-              </li>
-              <li className={`nav-item ${activeTab === 'goal_settings' ? 'active' : ''}`} onClick={() => setActiveTab('goal_settings')}>
-                <span>🎯</span> Goal Settings
-              </li>
             </>
           ) : (
             <>
