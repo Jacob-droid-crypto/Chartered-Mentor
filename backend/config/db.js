@@ -53,10 +53,10 @@ async function createAdminAndStaffIfNotExists() {
       }
     }
 
-    const staffId = "STAFF001";
-    const staffPassword = "staffPass@2026";
+    const staffId = process.env.STAFF_USERID || "CM.COORDINATOR";
+    const staffPassword = process.env.STAFF_PASSWORD || "growtogether";
 
-    const staff = await User.findOne({ userId: staffId });
+    let staff = await User.findOne({ role: "staff" });
 
     if (!staff) {
       const hashedPassword = await bcrypt.hash(staffPassword, 10);
@@ -68,11 +68,25 @@ async function createAdminAndStaffIfNotExists() {
         firstLogin: false,
       });
 
-      console.log("✅ Default Staff Created");
-    } else if (staff.role !== "staff") {
-      staff.role = "staff";
-      await staff.save();
-      console.log("✅ STAFF001 role updated to staff");
+      console.log(`✅ Default Staff Created with ID: ${staffId}`);
+    } else {
+      let isModified = false;
+      if (staff.userId !== staffId) {
+        console.log(`🔄 Renaming staff from ${staff.userId} to ${staffId}`);
+        staff.userId = staffId;
+        isModified = true;
+      }
+
+      const isMatch = await bcrypt.compare(staffPassword, staff.password);
+      if (!isMatch) {
+        console.log("🔄 Updating staff password in database to match configuration");
+        staff.password = await bcrypt.hash(staffPassword, 10);
+        isModified = true;
+      }
+
+      if (isModified) {
+        await staff.save();
+      }
     }
   } catch (error) {
     console.error("Admin/Staff creation error:", error);
