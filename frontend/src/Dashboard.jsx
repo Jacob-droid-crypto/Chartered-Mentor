@@ -463,6 +463,7 @@ const getEmbedUrl = (url) => {
 
 function Dashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [showNavDropdown, setShowNavDropdown] = useState(false);
   const [liveStudyHours, setLiveStudyHours] = useState(0);
   const [studyTrackerPeriod, setStudyTrackerPeriod] = useState('week');
   const [todayAttendanceFilter, setTodayAttendanceFilter] = useState('all'); // all, present, absent
@@ -1969,10 +1970,215 @@ function Dashboard({ user, onLogout }) {
                 : 'Display the active QR code for students to scan.'}
             </p>
           </div>
-          <div className="header-actions">
+          <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <div className="mobile-header-logout" onClick={onLogout} title="Logout">
               <span>🚪</span>
             </div>
+
+            {/* Three Dots Navigation Menu */}
+            <div className="header-nav-menu-container" style={{ position: 'relative' }}>
+              <button 
+                className="three-dots-btn" 
+                onClick={() => setShowNavDropdown(!showNavDropdown)}
+                title="Navigation Menu"
+                aria-label="Navigation Menu"
+              >
+                ⋮
+              </button>
+              {showNavDropdown && (
+                <>
+                  <div 
+                    className="nav-dropdown-backdrop" 
+                    onClick={() => setShowNavDropdown(false)} 
+                  />
+                  <div className="nav-dropdown-menu">
+                    <div className="nav-dropdown-header">Navigation</div>
+                    <ul className="nav-dropdown-list">
+                      <li 
+                        className={`nav-dropdown-item ${activeTab === 'dashboard' ? 'active' : ''}`} 
+                        onClick={() => {
+                          setShowNavDropdown(false);
+                          if (user.role === 'student' && data && !data.profileCompleted) {
+                            alert('Please complete your profile details first to unlock all dashboard features.');
+                            return;
+                          }
+                          setActiveTab('dashboard');
+                        }}
+                      >
+                        <span>📊</span> Dashboard
+                      </li>
+                      {(user.role === 'admin' || user.role === 'staff') ? (
+                        <>
+                          <li 
+                            className={`nav-dropdown-item ${activeTab === 'profile' ? 'active' : ''}`} 
+                            onClick={() => {
+                              setShowNavDropdown(false);
+                              setActiveTab('profile');
+                            }}
+                          >
+                            <span>👤</span> Profile
+                          </li>
+                          <li 
+                            className={`nav-dropdown-item ${activeTab === 'students' ? 'active' : ''}`} 
+                            onClick={() => {
+                              setShowNavDropdown(false);
+                              setActiveTab('students');
+                            }}
+                          >
+                            <span>🎓</span> Students
+                          </li>
+                          <li 
+                            className={`nav-dropdown-item ${activeTab === 'attendance' ? 'active' : ''}`} 
+                            onClick={() => {
+                              setShowNavDropdown(false);
+                              setActiveTab('attendance');
+                            }}
+                          >
+                            <span>📅</span> Attendance
+                          </li>
+                          <li 
+                            className={`nav-dropdown-item ${activeTab === 'papers' ? 'active' : ''}`} 
+                            onClick={() => {
+                              setShowNavDropdown(false);
+                              setActiveTab('papers');
+                            }}
+                          >
+                            <span>📄</span> Papers
+                          </li>
+                          <li 
+                            className={`nav-dropdown-item ${activeTab === 'schedules' ? 'active' : ''}`} 
+                            onClick={() => {
+                              setShowNavDropdown(false);
+                              setActiveTab('schedules');
+                            }}
+                          >
+                            <span>🗓️</span> Schedules
+                          </li>
+                          <li 
+                            className={`nav-dropdown-item ${activeTab === 'exam_scheduler' ? 'active' : ''}`} 
+                            onClick={() => {
+                              setShowNavDropdown(false);
+                              setActiveTab('exam_scheduler');
+                            }}
+                          >
+                            <span>📅</span> Exam Scheduler
+                          </li>
+                          {user.role === 'admin' && (
+                            <>
+                              <li 
+                                className={`nav-dropdown-item ${activeTab === 'payments' ? 'active' : ''}`} 
+                                onClick={() => {
+                                  setShowNavDropdown(false);
+                                  setActiveTab('payments');
+                                }}
+                              >
+                                <span>💳</span> Payments
+                              </li>
+                              <li 
+                                className={`nav-dropdown-item ${activeTab === 'campus_qr' ? 'active' : ''}`} 
+                                onClick={() => {
+                                  setShowNavDropdown(false);
+                                  setActiveTab('campus_qr');
+                                }}
+                              >
+                                <span>🔲</span> Campus QR
+                              </li>
+                              <li 
+                                className={`nav-dropdown-item ${activeTab === 'goal_settings' ? 'active' : ''}`} 
+                                onClick={() => {
+                                  setShowNavDropdown(false);
+                                  setActiveTab('goal_settings');
+                                }}
+                              >
+                                <span>🎯</span> Goal Settings
+                              </li>
+                            </>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <li 
+                            className={`nav-dropdown-item ${activeTab === 'attendance' ? 'active' : ''}`} 
+                            onClick={() => {
+                              setShowNavDropdown(false);
+                              if (data && !data.profileCompleted) {
+                                alert('Please complete your profile details first to unlock all dashboard features.');
+                                return;
+                              }
+                              setActiveTab('attendance');
+                            }}
+                          >
+                            <span>📅</span> Attendance Records
+                          </li>
+                          <li 
+                            className={`nav-dropdown-item ${activeTab === 'papers' ? 'active' : ''}`} 
+                            onClick={() => {
+                              setShowNavDropdown(false);
+                              if (data && !data.profileCompleted) {
+                                alert('Please complete your profile details first to unlock all dashboard features.');
+                                return;
+                              }
+                              setActiveTab('papers');
+                            }}
+                          >
+                            <span>📄</span> Exam Papers
+                          </li>
+                          <li 
+                            className={`nav-dropdown-item ${activeTab === 'schedules' ? 'active' : ''}`} 
+                            onClick={() => {
+                              setShowNavDropdown(false);
+                              if (data && !data.profileCompleted) {
+                                alert('Please complete your profile details first to unlock all dashboard features.');
+                                return;
+                              }
+                              setActiveTab('schedules');
+                            }}
+                          >
+                            <span>🗓️</span> My Schedule
+                          </li>
+                          <li 
+                            className={`nav-dropdown-item ${activeTab === 'payments' ? 'active' : ''}`} 
+                            onClick={() => {
+                              setShowNavDropdown(false);
+                              if (data && !data.profileCompleted) {
+                                alert('Please complete your profile details first to unlock all dashboard features.');
+                                return;
+                              }
+                              setActiveTab('payments');
+                            }}
+                          >
+                            <span>💳</span> Payments
+                          </li>
+                          <li 
+                            className={`nav-dropdown-item ${activeTab === 'study_tracker' ? 'active' : ''}`} 
+                            onClick={() => {
+                              setShowNavDropdown(false);
+                              if (data && !data.profileCompleted) {
+                                alert('Please complete your profile details first to unlock all dashboard features.');
+                                return;
+                              }
+                              setActiveTab('study_tracker');
+                            }}
+                          >
+                            <span>⏱️</span> Study Goal Tracker
+                          </li>
+                          <li 
+                            className={`nav-dropdown-item ${activeTab === 'profile' ? 'active' : ''}`} 
+                            onClick={() => {
+                              setShowNavDropdown(false);
+                              setActiveTab('profile');
+                            }}
+                          >
+                            <span>👤</span> Profile
+                          </li>
+                        </>
+                      )}
+                    </ul>
+                  </div>
+                </>
+              )}
+            </div>
+
             <div className="profile-section" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <span>{user.name}</span>
               {profileData?.profilePhoto || user.profilePhoto ? (
