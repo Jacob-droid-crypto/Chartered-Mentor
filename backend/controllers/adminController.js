@@ -641,7 +641,9 @@ const updateInstallmentStatus = (user) => {
     });
 
     // Subtract non-installment total from the last installment backwards
-    let initialDiscountRemaining = nonInstTotal;
+    const totalConfiguredInstallmentSum = user.installments.reduce((sum, inst) => sum + inst.amount, 0);
+    const targetRemaining = user.totalFees - nonInstTotal;
+    let initialDiscountRemaining = Math.max(0, totalConfiguredInstallmentSum - targetRemaining);
     for (let i = user.installments.length - 1; i >= 0; i--) {
       if (initialDiscountRemaining <= 0) break;
       const inst = user.installments[i];

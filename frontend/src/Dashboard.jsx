@@ -4405,8 +4405,17 @@ function Dashboard({ user, onLogout }) {
                 const totalCourseFee = Number(feeSetupStudent.totalFees);
                 const sumInstallments = insts.reduce((sum, inst) => sum + Number(inst.amount || 0), 0);
 
-                if (sumInstallments !== totalCourseFee) {
-                  alert(`The sum of installment amounts (₹${sumInstallments}) must exactly equal the Total Course Fee (₹${totalCourseFee}). Please adjust installment values.`);
+                // Calculate verified non-installment payments (initial payments)
+                const payments = (feeSetupStudent.feeHistory || [])
+                  .filter(p => p.status === 'Verified' || p.status === 'Paid');
+                const nonInstTotal = payments
+                  .filter(p => !/Inst\s*\d+/i.test(p.receiptNo || ''))
+                  .reduce((sum, p) => sum + p.amount, 0);
+
+                const allowedMin = totalCourseFee - nonInstTotal;
+
+                if (sumInstallments < allowedMin || sumInstallments > totalCourseFee) {
+                  alert(`The sum of installment amounts (₹${sumInstallments}) must be between ₹${allowedMin} (accounting for initial payment of ₹${nonInstTotal}) and ₹${totalCourseFee}. Please adjust installment values.`);
                   return;
                 }
 
@@ -4523,15 +4532,31 @@ function Dashboard({ user, onLogout }) {
                   {(() => {
                     const totalCourseFee = Number(feeSetupStudent.totalFees || 0);
                     const allocatedSum = (feeSetupStudent.installments || []).reduce((sum, inst) => sum + Number(inst.amount || 0), 0);
-                    const remainingVal = totalCourseFee - allocatedSum;
+                    
+                    const payments = (feeSetupStudent.feeHistory || [])
+                      .filter(p => p.status === 'Verified' || p.status === 'Paid');
+                    const nonInstTotal = payments
+                      .filter(p => !/Inst\s*\d+/i.test(p.receiptNo || ''))
+                      .reduce((sum, p) => sum + p.amount, 0);
+
+                    const targetRemaining = totalCourseFee - nonInstTotal;
+                    const remainingVal = targetRemaining - allocatedSum;
                     const isFullyAllocated = remainingVal === 0;
 
                     return (
-                      <div style={{ marginTop: '1.5rem', padding: '1rem', background: isFullyAllocated ? 'rgba(16, 185, 129, 0.06)' : 'rgba(245, 158, 11, 0.06)', borderRadius: '8px', border: `1px dashed ${isFullyAllocated ? '#10b981' : '#f59e0b'}`, display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem', fontWeight: 'bold' }}>
-                        <span style={{ color: 'var(--text-main)' }}>Allocated: ₹{allocatedSum} / ₹{totalCourseFee}</span>
-                        <span style={{ color: isFullyAllocated ? '#10b981' : '#f59e0b' }}>
-                          {isFullyAllocated ? '✓ Fees Fully Allocated' : `Remaining: ₹${remainingVal}`}
-                        </span>
+                      <div style={{ marginTop: '1.5rem', padding: '1rem', background: isFullyAllocated ? 'rgba(16, 185, 129, 0.06)' : 'rgba(245, 158, 11, 0.06)', borderRadius: '8px', border: `1px dashed ${isFullyAllocated ? '#10b981' : '#f59e0b'}`, display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.95rem', fontWeight: 'bold' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: 'var(--text-main)' }}>Allocated: ₹{allocatedSum} / ₹{totalCourseFee}</span>
+                          <span style={{ color: isFullyAllocated ? '#10b981' : '#f59e0b' }}>
+                            {isFullyAllocated ? '✓ Fees Fully Allocated' : `Remaining: ₹${remainingVal}`}
+                          </span>
+                        </div>
+                        {nonInstTotal > 0 && (
+                          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 'normal', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--glass-border)', paddingTop: '0.4rem' }}>
+                            <span>Initial Payment: ₹{nonInstTotal}</span>
+                            <span>Adjusted Target: ₹{targetRemaining}</span>
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
@@ -4676,7 +4701,9 @@ function Dashboard({ user, onLogout }) {
                                    name: student.name, 
                                    totalFees: student.totalFees || '', 
                                    nextPaymentDueDate: student.nextPaymentDueDate ? new Date(student.nextPaymentDueDate).toISOString().split('T')[0] : '',
-                                   installments: existingInstallments
+                                   installments: existingInstallments,
+                                   feeHistory: student.feeHistory || [],
+                                   feesPaid: student.feesPaid || 0
                                  }); 
                                  setActiveTab('feeSetup');
                                  setOpenMenuId(null); 
