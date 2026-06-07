@@ -7,6 +7,7 @@ const QuestionPaper = require("../models/QuestionPaper");
 const GoalConfig = require("../models/GoalConfig");
 const Schedule = require("../models/Schedule");
 const ExamSchedule = require("../models/ExamSchedule");
+const CampusQR = require("../models/CampusQR");
 
 const generateToken = (userId, role) => {
   return jwt.sign({ userId, role }, process.env.JWT_SECRET || "fallback_secret", {
@@ -1177,4 +1178,85 @@ module.exports = {
   createExamSchedule,
   updateExamSchedule,
   deleteExamSchedule
+};
+
+const getCampusQR = async (req, res) => {
+  try {
+    let config = await CampusQR.findOne();
+    if (!config) {
+      config = await CampusQR.create({
+        activeInToken: "CM-ATTENDANCE-IN",
+        activeOutToken: "CM-ATTENDANCE-OUT"
+      });
+    }
+    res.json(config);
+  } catch (err) {
+    console.error("Get campus QR error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const refreshCampusQR = async (req, res) => {
+  try {
+    const { type } = req.body; // 'IN' or 'OUT'
+    if (type !== 'IN' && type !== 'OUT') {
+      return res.status(400).json({ message: "Invalid type" });
+    }
+
+    let config = await CampusQR.findOne();
+    if (!config) {
+      config = new CampusQR();
+    }
+
+    const randomSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
+    if (type === 'IN') {
+      config.activeInToken = `CM-ATTENDANCE-IN-${randomSuffix}`;
+    } else {
+      config.activeOutToken = `CM-ATTENDANCE-OUT-${randomSuffix}`;
+    }
+    config.updatedAt = new Date();
+
+    await config.save();
+    res.json(config);
+  } catch (err) {
+    console.error("Refresh campus QR error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+module.exports = {
+  loginAdmin,
+  addStudent,
+  getAttendance,
+  getDailySummary,
+  getStudents,
+  deleteStudent,
+  resetPassword,
+  getProfile,
+  uploadQuestionPaper,
+  getAdminPapers,
+  deletePaper,
+  downloadAnswerPaper,
+  getPaymentConfig,
+  updatePaymentConfig,
+  updateStudentFees,
+  addStudentPayment,
+  approveStudentPayment,
+  rejectStudentPayment,
+  editStudentPayment,
+  revertStudentPayment,
+  updateStudentProfileByAdmin,
+  getGoalConfig,
+  updateGoalConfig,
+  createSchedule,
+  getAdminSchedules,
+  deleteSchedule,
+  manualCheckout,
+  downloadScheduleFileAdmin,
+  getExamSchedules,
+  createExamSchedule,
+  updateExamSchedule,
+  deleteExamSchedule,
+  getCampusQR,
+  refreshCampusQR
 };

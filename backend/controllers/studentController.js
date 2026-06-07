@@ -7,6 +7,7 @@ const User = require("../models/User");
 const Attendance = require("../models/Attendance");
 const Schedule = require("../models/Schedule");
 const ExamSchedule = require("../models/ExamSchedule");
+const CampusQR = require("../models/CampusQR");
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -237,10 +238,22 @@ const scanQr = async (req, res) => {
        });
     }
 
+    const campusQrConfig = await CampusQR.findOne();
     let type;
-    if (qrValue === "CM-ATTENDANCE-IN") type = "IN";
-    else if (qrValue === "CM-ATTENDANCE-OUT") type = "OUT";
-    else return res.status(401).json({ message: "Invalid QR code" });
+    if (campusQrConfig) {
+      if (qrValue === campusQrConfig.activeInToken) type = "IN";
+      else if (qrValue === campusQrConfig.activeOutToken) type = "OUT";
+      else {
+        // Fallback for testing/static values
+        if (qrValue === "CM-ATTENDANCE-IN") type = "IN";
+        else if (qrValue === "CM-ATTENDANCE-OUT") type = "OUT";
+        else return res.status(401).json({ message: "Invalid or expired QR code" });
+      }
+    } else {
+      if (qrValue === "CM-ATTENDANCE-IN") type = "IN";
+      else if (qrValue === "CM-ATTENDANCE-OUT") type = "OUT";
+      else return res.status(401).json({ message: "Invalid or expired QR code" });
+    }
 
     const course = student.course;
     const today = getISTDateString();

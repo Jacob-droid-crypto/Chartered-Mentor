@@ -8,9 +8,12 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
-const { loginAdmin, addStudent, getAttendance, getDailySummary, getStudents, deleteStudent, resetPassword, getProfile, uploadQuestionPaper, getAdminPapers, deletePaper, downloadAnswerPaper, getPaymentConfig, updatePaymentConfig, updateStudentFees, addStudentPayment, approveStudentPayment, rejectStudentPayment, editStudentPayment, revertStudentPayment, updateStudentProfileByAdmin, getGoalConfig, updateGoalConfig, manualCheckout, createSchedule, getAdminSchedules, deleteSchedule, downloadScheduleFileAdmin, getExamSchedules, createExamSchedule, updateExamSchedule, deleteExamSchedule } = require("../controllers/adminController");
+const { loginAdmin, addStudent, getAttendance, getDailySummary, getStudents, deleteStudent, resetPassword, getProfile, uploadQuestionPaper, getAdminPapers, deletePaper, downloadAnswerPaper, getPaymentConfig, updatePaymentConfig, updateStudentFees, addStudentPayment, approveStudentPayment, rejectStudentPayment, editStudentPayment, revertStudentPayment, updateStudentProfileByAdmin, getGoalConfig, updateGoalConfig, manualCheckout, createSchedule, getAdminSchedules, deleteSchedule, downloadScheduleFileAdmin, getExamSchedules, createExamSchedule, updateExamSchedule, deleteExamSchedule, getCampusQR, refreshCampusQR } = require("../controllers/adminController");
 const { updateProfile } = require("../controllers/studentController");
 const { protect, adminOnly, adminRoleRequired } = require("../middleware/authMiddleware");
+
+router.get("/campus-qr", protect, adminOnly, getCampusQR);
+router.post("/campus-qr/refresh", protect, adminOnly, refreshCampusQR);
 
 router.post("/login", loginAdmin);
 router.get("/students", protect, adminOnly, getStudents);
