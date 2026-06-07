@@ -1319,7 +1319,66 @@ function Dashboard({ user, onLogout }) {
     return days;
   };
 
-  const calculateStudentStats = () => {
+  const getCurrentAttendanceMonthStart = (joiningDateStr, today = new Date()) => {
+    if (!joiningDateStr) {
+      return new Date(today.getFullYear(), today.getMonth(), 1);
+    }
+    
+    const jDate = new Date(joiningDateStr);
+    if (isNaN(jDate.getTime())) {
+      return new Date(today.getFullYear(), today.getMonth(), 1);
+    }
+    jDate.setHours(0, 0, 0, 0);
+    const joinDay = jDate.getDate();
+    
+    let startYear = today.getFullYear();
+    let startMonth = today.getMonth();
+    
+    let candidate = new Date(startYear, startMonth, joinDay);
+    candidate.setHours(0, 0, 0, 0);
+    
+    if (candidate.getMonth() !== startMonth) {
+      candidate = new Date(startYear, startMonth + 1, 0);
+      candidate.setHours(0, 0, 0, 0);
+    }
+    
+    if (candidate > today) {
+      startMonth -= 1;
+      if (startMonth < 0) {
+        startMonth = 11;
+        startYear -= 1;
+      }
+      candidate = new Date(startYear, startMonth, joinDay);
+      candidate.setHours(0, 0, 0, 0);
+      if (candidate.getMonth() !== startMonth) {
+        candidate = new Date(startYear, startMonth + 1, 0);
+        candidate.setHours(0, 0, 0, 0);
+      }
+    }
+    
+    if (candidate < jDate) {
+      return new Date(jDate);
+    }
+    
+    return candidate;
+  };
+
+  const getStudentMonthDays = (joiningDateStr) => {
+    const days = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const startOfPeriod = getCurrentAttendanceMonthStart(joiningDateStr, today);
+    
+    let temp = new Date(startOfPeriod);
+    while (temp <= today) {
+      days.push(new Date(temp));
+      temp.setDate(temp.getDate() + 1);
+    }
+    return days;
+  };
+
+  const calculateStudentStatsForId = (studentId, joiningDateStr) => {
     const stats = {
       todayHours: 0,
       weekHours: 0,
@@ -1330,12 +1389,19 @@ function Dashboard({ user, onLogout }) {
       lowHoursMonth: [],
     };
 
-    if (!data || !data.attendanceSummary) return stats;
+    let studentLogs = [];
+    if (Array.isArray(data)) {
+      studentLogs = data.filter(item => item.studentId === studentId);
+    } else if (data && data.studentId === studentId) {
+      studentLogs = data.attendanceSummary || [];
+    } else if (data && user.userId === studentId) {
+      studentLogs = data.attendanceSummary || [];
+    }
 
     const todayStr = formatLocalDate(new Date());
     
     const summaryMap = {};
-    data.attendanceSummary.forEach(item => {
+    studentLogs.forEach(item => {
       summaryMap[item.date] = item;
     });
 
@@ -1343,7 +1409,7 @@ function Dashboard({ user, onLogout }) {
       stats.todayHours = parseFloat(summaryMap[todayStr].totalHours || 0);
     }
 
-    const joiningDate = data.joiningDate ? new Date(data.joiningDate) : null;
+    const joiningDate = joiningDateStr ? new Date(joiningDateStr) : null;
     if (joiningDate) {
       joiningDate.setHours(0, 0, 0, 0);
     }
@@ -1374,7 +1440,7 @@ function Dashboard({ user, onLogout }) {
       }
     });
 
-    const monthDays = getMonthDays();
+    const monthDays = getStudentMonthDays(joiningDateStr);
     monthDays.forEach(day => {
       const dateStr = formatLocalDate(day);
       if (joiningDate && day < joiningDate) return;
@@ -1400,6 +1466,10 @@ function Dashboard({ user, onLogout }) {
     });
 
     return stats;
+  };
+
+  const calculateStudentStats = () => {
+    return calculateStudentStatsForId(user.userId, data?.joiningDate);
   };
 
   // Attendance Aggregation Logic
@@ -1505,6 +1575,14 @@ function Dashboard({ user, onLogout }) {
       const d = new Date(item.date);
       if (isNaN(d.getTime())) return;
 
+      const studentInfo = Array.isArray(students) ? students.find(s => s.userId === item.studentId) : null;
+      const joiningDateStr = studentInfo?.joiningDate || (item.studentId === user.userId ? data?.joiningDate : null);
+      if (joiningDateStr) {
+        const jDate = new Date(joiningDateStr);
+        jDate.setHours(0, 0, 0, 0);
+        if (d < jDate) return;
+      }
+
       let keyToMatch = false;
       if (attendanceView === 'monthly') {
         const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -1548,31 +1626,48 @@ function Dashboard({ user, onLogout }) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
+      const studentInfo = Array.isArray(students) ? students.find(s => s.userId === record.studentId) : null;
+      const joiningDateStr = studentInfo?.joiningDate || (record.studentId === user.userId ? data?.joiningDate : null);
+      let jDate = null;
+      if (joiningDateStr) {
+        jDate = new Date(joiningDateStr);
+        jDate.setHours(0, 0, 0, 0);
+      }
+
       if (attendanceView === 'weekly') {
         const targetDate = new Date(attendanceDate);
         const startOfWeek = new Date(targetDate);
         startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+        startOfWeek.setHours(0, 0, 0, 0);
         const endOfWeek = new Date(startOfWeek);
         endOfWeek.setDate(startOfWeek.getDate() + 6);
+        endOfWeek.setHours(0, 0, 0, 0);
 
-        if (today > endOfWeek) {
-          expectedDays = 7;
-        } else if (today < startOfWeek) {
+        const activeStart = jDate && jDate > startOfWeek ? jDate : startOfWeek;
+        const activeEnd = today < endOfWeek ? today : endOfWeek;
+
+        if (activeStart > activeEnd) {
           expectedDays = 0;
         } else {
-          expectedDays = today.getDay() + 1; // days elapsed in current week
+          expectedDays = Math.floor((activeEnd.getTime() - activeStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
         }
       } else if (attendanceView === 'monthly') {
         const [year, month] = attendanceDate.split('-');
         const y = parseInt(year);
         const m = parseInt(month) - 1;
 
-        if (today.getFullYear() > y || (today.getFullYear() === y && today.getMonth() > m)) {
-          expectedDays = new Date(y, m + 1, 0).getDate();
-        } else if (today.getFullYear() < y || (today.getFullYear() === y && today.getMonth() < m)) {
+        const startOfMonth = new Date(y, m, 1);
+        startOfMonth.setHours(0, 0, 0, 0);
+        const endOfMonth = new Date(y, m + 1, 0);
+        endOfMonth.setHours(0, 0, 0, 0);
+
+        const activeStart = jDate && jDate > startOfMonth ? jDate : startOfMonth;
+        const activeEnd = today < endOfMonth ? today : endOfMonth;
+
+        if (activeStart > activeEnd) {
           expectedDays = 0;
         } else {
-          expectedDays = today.getDate(); // days elapsed in current month
+          expectedDays = Math.floor((activeEnd.getTime() - activeStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
         }
       }
 
@@ -5459,6 +5554,51 @@ function Dashboard({ user, onLogout }) {
                       </div>
                     </div>
                   )}
+
+                  {/* Attendance & Study Tracker Statistics Section */}
+                  <div style={{ marginTop: '1.5rem', borderTop: '1px dashed var(--glass-border)', paddingTop: '1.5rem' }}>
+                    <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.1rem', color: 'var(--primary-color)', borderBottom: '1px dashed var(--glass-border)', paddingBottom: '4px' }}>📈 Attendance & Study Statistics</h3>
+                    {(() => {
+                      const stats = calculateStudentStatsForId(viewingProfileStudent.userId, viewingProfileStudent.joiningDate);
+                      
+                      const expectedDays = getStudentMonthDays(viewingProfileStudent.joiningDate).length;
+                      const presentDays = Math.max(0, expectedDays - stats.monthAbsentCount);
+                      const attendanceRate = expectedDays > 0 
+                        ? Math.min(100, Math.round((presentDays / expectedDays) * 100))
+                        : 100;
+                      
+                      const cycleStart = getCurrentAttendanceMonthStart(viewingProfileStudent.joiningDate);
+                      const cycleStartStr = cycleStart ? cycleStart.toLocaleDateString() : 'N/A';
+                      const todayStr = new Date().toLocaleDateString();
+
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                          <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                            Current Cycle: <strong>{cycleStartStr}</strong> to <strong>{todayStr}</strong> ({expectedDays} elapsed days)
+                          </p>
+                          
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '1rem', background: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
+                            <div>
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>Attendance Rate</span>
+                              <strong style={{ fontSize: '1.1rem', color: attendanceRate >= 75 ? '#10b981' : '#ef4444' }}>{attendanceRate}%</strong>
+                            </div>
+                            <div>
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>Cycle Study Duration</span>
+                              <strong style={{ fontSize: '1.1rem', color: 'var(--text-main)' }}>{formatStudyTime(stats.monthHours)}</strong>
+                            </div>
+                            <div>
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>Absent Days</span>
+                              <strong style={{ fontSize: '1.1rem', color: stats.monthAbsentCount > 0 ? '#ef4444' : '#10b981' }}>{stats.monthAbsentCount} days</strong>
+                            </div>
+                            <div>
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>Shortfall Days</span>
+                              <strong style={{ fontSize: '1.1rem', color: stats.lowHoursMonth.length > 0 ? '#ef4444' : '#10b981' }}>{stats.lowHoursMonth.length} days</strong>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </>
               )}
             </div>
