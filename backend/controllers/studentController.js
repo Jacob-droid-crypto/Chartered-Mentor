@@ -224,6 +224,8 @@ const scanQr = async (req, res) => {
       cleanIP === "127.0.0.1" || 
       cleanIP === "localhost" ||
       cleanIP === "103.182.166.206" || // Explicitly allow user testing IP
+      cleanIP.startsWith("103.182.166.") || // Allow Institute's public WiFi IP range
+      cleanIP.startsWith("111.92.83.") || // Allow secondary Institute public line range
       cleanIP.startsWith("192.168.") ||
       cleanIP.startsWith("10.");
 
