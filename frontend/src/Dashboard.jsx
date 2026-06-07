@@ -1830,151 +1830,45 @@ function Dashboard({ user, onLogout }) {
       <div className="sparkle" style={{ top: '25%', right: '10%', animationDelay: '0.8s' }}></div>
       <div className="sparkle" style={{ top: '80%', right: '8%', animationDelay: '2.5s' }}></div>
 
-      {/* Sidebar */}
-      <aside className="sidebar">
-        <div className="logo-section" style={{ textAlign: 'center', padding: '1rem 0' }}>
-          <img src="/logo.png" alt="Chartered Mentor Logo" style={{ width: '80%', maxWidth: '160px', height: 'auto', margin: '0 auto', display: 'block' }} />
-        </div>
-        <ul className="nav-links">
-          <li className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => {
-            if (user.role === 'student' && data && !data.profileCompleted) {
-              alert('Please complete your profile details first to unlock all dashboard features.');
-              return;
-            }
-            setActiveTab('dashboard');
-          }}>
-            <span>📊</span> Dashboard
-          </li>
-          {(user.role === 'admin' || user.role === 'staff') ? (
-            <>
-              <li className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
-                <span>👤</span> Profile
-              </li>
-              <li className={`nav-item ${activeTab === 'students' ? 'active' : ''}`} onClick={() => setActiveTab('students')}>
-                <span>🎓</span> Students
-              </li>
-              <li className={`nav-item ${activeTab === 'attendance' ? 'active' : ''}`} onClick={() => setActiveTab('attendance')}>
-                <span>📅</span> Attendance
-              </li>
-              <li className={`nav-item ${activeTab === 'papers' ? 'active' : ''}`} onClick={() => setActiveTab('papers')}>
-                <span>📄</span> Papers
-              </li>
-              <li className={`nav-item ${activeTab === 'schedules' ? 'active' : ''}`} onClick={() => setActiveTab('schedules')}>
-                <span>🗓️</span> Schedules
-              </li>
-              <li className={`nav-item ${activeTab === 'exam_scheduler' ? 'active' : ''}`} onClick={() => setActiveTab('exam_scheduler')}>
-                <span>📅</span> Exam Scheduler
-              </li>
-              {user.role === 'admin' && (
-                <>
-                  <li className={`nav-item ${activeTab === 'payments' ? 'active' : ''}`} onClick={() => setActiveTab('payments')}>
-                    <span>💳</span> Payments
-                  </li>
-                  <li className={`nav-item ${activeTab === 'campus_qr' ? 'active' : ''}`} onClick={() => setActiveTab('campus_qr')}>
-                    <span>🔲</span> Campus QR
-                  </li>
-                  <li className={`nav-item ${activeTab === 'goal_settings' ? 'active' : ''}`} onClick={() => setActiveTab('goal_settings')}>
-                    <span>🎯</span> Goal Settings
-                  </li>
-                </>
-              )}
-            </>
-          ) : (
-            <>
-              <li className={`nav-item ${activeTab === 'attendance' ? 'active' : ''}`} onClick={() => {
-                if (data && !data.profileCompleted) {
-                  alert('Please complete your profile details first to unlock all dashboard features.');
-                  return;
-                }
-                setActiveTab('attendance');
-              }}>
-                <span>📅</span> Attendance Records
-              </li>
-              <li className={`nav-item ${activeTab === 'papers' ? 'active' : ''}`} onClick={() => {
-                if (data && !data.profileCompleted) {
-                  alert('Please complete your profile details first to unlock all dashboard features.');
-                  return;
-                }
-                setActiveTab('papers');
-              }}>
-                <span>📄</span> Exam Papers
-              </li>
-              <li className={`nav-item ${activeTab === 'schedules' ? 'active' : ''}`} onClick={() => {
-                if (data && !data.profileCompleted) {
-                  alert('Please complete your profile details first to unlock all dashboard features.');
-                  return;
-                }
-                setActiveTab('schedules');
-              }}>
-                <span>🗓️</span> My Schedule
-              </li>
-              <li className={`nav-item ${activeTab === 'payments' ? 'active' : ''}`} onClick={() => {
-                if (data && !data.profileCompleted) {
-                  alert('Please complete your profile details first to unlock all dashboard features.');
-                  return;
-                }
-                setActiveTab('payments');
-              }}>
-                <span>💳</span> Payments
-              </li>
-              <li className={`nav-item ${activeTab === 'study_tracker' ? 'active' : ''}`} onClick={() => {
-                if (data && !data.profileCompleted) {
-                  alert('Please complete your profile details first to unlock all dashboard features.');
-                  return;
-                }
-                setActiveTab('study_tracker');
-              }}>
-                <span>⏱️</span> Study Goal Tracker
-              </li>
-              <li className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
-                <span>👤</span> Profile
-              </li>
-            </>
-          )}
-        </ul>
-        <div className="logout-container" style={{ marginTop: 'auto' }}>
-          <button onClick={onLogout} style={{ width: '100%', padding: '0.75rem', background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Logout</button>
-        </div>
-      </aside>
-
       {/* Main Content */}
       <main className="main-content">
-        <header className="top-header">
-          <div className="welcome-text">
-            <h1>
-              {activeTab === 'dashboard' ? `Welcome back, ${user.name} 👋`
-                : activeTab === 'students' ? 'Manage Students'
-                : activeTab === 'attendance' ? 'Attendance Records'
-                : activeTab === 'profile' ? 'My Profile'
-                : activeTab === 'papers' ? 'Question Papers'
-                : activeTab === 'schedules' ? ((user.role === 'admin' || user.role === 'staff') ? 'Student Schedules' : 'My Study Schedule')
-                : activeTab === 'payments' ? (user.role === 'admin' ? 'Fee Ledger' : 'My Payments')
-                : activeTab === 'feeSetup' && feeSetupStudent ? `Fee Structure: ${feeSetupStudent.name}`
-                : activeTab === 'study_tracker' ? 'Study Goal Tracker'
-                : activeTab === 'goal_settings' ? 'Study Goal Settings'
-                : activeTab === 'exam_scheduler' ? 'Exam Scheduler'
-                : 'Campus QR'}
-            </h1>
-            <p>
-              {activeTab === 'dashboard' ? `Role: ${user.role === 'admin' ? 'Administrator' : user.role === 'staff' ? 'Staff' : 'Student (ID: ' + user.userId + ')'}`
-                : activeTab === 'students' ? 'Add new students or remove existing ones from the system.'
-                : activeTab === 'attendance' ? 'View and track your attendance logs.'
-                : activeTab === 'profile' ? 'Update your personal details and photo.'
-                : activeTab === 'papers' ? 'Manage and download scheduled question papers.'
-                : activeTab === 'schedules' ? ((user.role === 'admin' || user.role === 'staff') ? 'Create and manage study plans, classes, and tests for students.' : 'Track your study checklist, scheduled classes, and exams.')
-                : activeTab === 'payments' ? 'View fee payment history and balances.'
-                : activeTab === 'feeSetup' ? 'Configure total fees and next due date.'
-                : activeTab === 'study_tracker' ? 'Track days where you studied less than your configured daily target hours.'
-                : activeTab === 'goal_settings' ? 'Configure the mandatory study hours for each day of the week.'
-                : activeTab === 'exam_scheduler' ? 'Manually schedule exam dates and study schedule ending dates for students.'
-                : 'Display the active QR code for students to scan.'}
-            </p>
+        <header className="top-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '2rem', flexWrap: 'wrap' }}>
+          <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+            <div className="header-logo" style={{ display: 'flex', alignItems: 'center' }}>
+              <img src="/logo.png" alt="Chartered Mentor Logo" style={{ height: '45px', width: 'auto' }} />
+            </div>
+            <div className="welcome-text">
+              <h1 style={{ fontSize: '1.8rem', margin: 0, fontWeight: '600', color: 'var(--text-main)' }}>
+                {activeTab === 'dashboard' ? `Welcome back, ${user.name} 👋`
+                  : activeTab === 'students' ? 'Manage Students'
+                  : activeTab === 'attendance' ? 'Attendance Records'
+                  : activeTab === 'profile' ? 'My Profile'
+                  : activeTab === 'papers' ? 'Question Papers'
+                  : activeTab === 'schedules' ? ((user.role === 'admin' || user.role === 'staff') ? 'Student Schedules' : 'My Study Schedule')
+                  : activeTab === 'payments' ? (user.role === 'admin' ? 'Fee Ledger' : 'My Payments')
+                  : activeTab === 'feeSetup' && feeSetupStudent ? `Fee Structure: ${feeSetupStudent.name}`
+                  : activeTab === 'study_tracker' ? 'Study Goal Tracker'
+                  : activeTab === 'goal_settings' ? 'Study Goal Settings'
+                  : activeTab === 'exam_scheduler' ? 'Exam Scheduler'
+                  : 'Campus QR'}
+              </h1>
+              <p style={{ margin: '4px 0 0 0', fontSize: '0.95rem', color: 'var(--text-muted)' }}>
+                {activeTab === 'dashboard' ? `Role: ${user.role === 'admin' ? 'Administrator' : user.role === 'staff' ? 'Staff' : 'Student (ID: ' + user.userId + ')'}`
+                  : activeTab === 'students' ? 'Add new students or remove existing ones from the system.'
+                  : activeTab === 'attendance' ? 'View and track your attendance logs.'
+                  : activeTab === 'profile' ? 'Update your personal details and photo.'
+                  : activeTab === 'papers' ? 'Manage and download scheduled question papers.'
+                  : activeTab === 'schedules' ? ((user.role === 'admin' || user.role === 'staff') ? 'Create and manage study plans, classes, and tests for students.' : 'Track your study checklist, scheduled classes, and exams.')
+                  : activeTab === 'payments' ? 'View fee payment history and balances.'
+                  : activeTab === 'feeSetup' ? 'Configure total fees and next due date.'
+                  : activeTab === 'study_tracker' ? 'Track days where you studied less than your configured daily target hours.'
+                  : activeTab === 'goal_settings' ? 'Configure the mandatory study hours for each day of the week.'
+                  : activeTab === 'exam_scheduler' ? 'Manually schedule exam dates and study schedule ending dates for students.'
+                  : 'Display the active QR code for students to scan.'}
+              </p>
+            </div>
           </div>
           <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div className="mobile-header-logout" onClick={onLogout} title="Logout">
-              <span>🚪</span>
-            </div>
-
             {/* Three Dots Navigation Menu */}
             <div className="header-nav-menu-container" style={{ position: 'relative' }}>
               <button 
@@ -2173,6 +2067,20 @@ function Dashboard({ user, onLogout }) {
                           </li>
                         </>
                       )}
+
+                      {/* Divider */}
+                      <li style={{ height: '1px', backgroundColor: 'rgba(0, 0, 0, 0.08)', margin: '0.25rem 0' }} />
+
+                      {/* Logout Button */}
+                      <li 
+                        className="nav-dropdown-item danger" 
+                        onClick={() => {
+                          setShowNavDropdown(false);
+                          onLogout();
+                        }}
+                      >
+                        <span>🚪</span> Logout
+                      </li>
                     </ul>
                   </div>
                 </>
