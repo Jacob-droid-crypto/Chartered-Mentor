@@ -6,6 +6,7 @@ const PaymentConfig = require("../models/PaymentConfig");
 const QuestionPaper = require("../models/QuestionPaper");
 const GoalConfig = require("../models/GoalConfig");
 const Schedule = require("../models/Schedule");
+const ExamSchedule = require("../models/ExamSchedule");
 
 const generateToken = (userId, role) => {
   return jwt.sign({ userId, role }, process.env.JWT_SECRET || "fallback_secret", {
@@ -445,6 +446,9 @@ const deleteStudent = async (req, res) => {
 
     // Also clear out their schedules
     await Schedule.deleteMany({ target: id });
+
+    // Also clear out their exam schedules
+    await ExamSchedule.deleteMany({ studentId: id });
 
     res.json({ message: "Student deleted successfully" });
   } catch (err) {
@@ -992,6 +996,79 @@ const downloadScheduleFileAdmin = async (req, res) => {
   }
 };
 
+/* ================= EXAM SCHEDULER ================= */
+const getExamSchedules = async (req, res) => {
+  try {
+    const schedules = await ExamSchedule.find({}).sort({ date: 1 });
+    res.json(schedules);
+  } catch (err) {
+    console.error("Get exam schedules error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const createExamSchedule = async (req, res) => {
+  try {
+    const { studentId, type, date, examName } = req.body;
+    if (!studentId || !type || !date) {
+      return res.status(400).json({ message: "Student Name, Type, and Date are required" });
+    }
+
+    const student = await User.findOne({ userId: studentId, role: "student" });
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    const schedule = await ExamSchedule.create({
+      studentId,
+      studentName: student.name,
+      type,
+      date: new Date(date),
+      examName: type === "Exam" ? examName : "",
+    });
+
+    res.status(201).json({ message: "Exam/Schedule scheduled successfully", schedule });
+  } catch (err) {
+    console.error("Create exam schedule error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const updateExamSchedule = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { date, examName } = req.body;
+
+    const schedule = await ExamSchedule.findById(id);
+    if (!schedule) {
+      return res.status(404).json({ message: "Exam/Schedule not found" });
+    }
+
+    if (date !== undefined) schedule.date = new Date(date);
+    if (examName !== undefined) schedule.examName = schedule.type === "Exam" ? examName : "";
+
+    await schedule.save();
+    res.json({ message: "Exam/Schedule updated successfully", schedule });
+  } catch (err) {
+    console.error("Update exam schedule error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const deleteExamSchedule = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await ExamSchedule.findByIdAndDelete(id);
+    if (!deleted) {
+      return res.status(404).json({ message: "Exam/Schedule not found" });
+    }
+    res.json({ message: "Exam/Schedule deleted successfully" });
+  } catch (err) {
+    console.error("Delete exam schedule error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   loginAdmin,
   addStudent,
@@ -1020,5 +1097,9 @@ module.exports = {
   getAdminSchedules,
   deleteSchedule,
   manualCheckout,
-  downloadScheduleFileAdmin
+  downloadScheduleFileAdmin,
+  getExamSchedules,
+  createExamSchedule,
+  updateExamSchedule,
+  deleteExamSchedule
 };

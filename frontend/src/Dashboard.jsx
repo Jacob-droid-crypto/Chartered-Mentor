@@ -515,6 +515,20 @@ function Dashboard({ user, onLogout }) {
   const [selectedAttendanceStudentId, setSelectedAttendanceStudentId] = useState('');
   const [studentLogs, setStudentLogs] = useState([]);
 
+  // Exam Scheduler State
+  const [examSchedules, setExamSchedules] = useState([]);
+  const [schedulerStudentId, setSchedulerStudentId] = useState("");
+  const [schedulerType, setSchedulerType] = useState("Exam");
+  const [schedulerDate, setSchedulerDate] = useState("");
+  const [schedulerExamName, setSchedulerExamName] = useState("");
+  const [schedulerFilterDate, setSchedulerFilterDate] = useState(getLocalDateString());
+  
+  // Exam Scheduler Editing State
+  const [editingSchedule, setEditingSchedule] = useState(null);
+  const [editDate, setEditDate] = useState("");
+  const [editExamName, setEditExamName] = useState("");
+  const [showEditModal, setShowEditModal] = useState(false);
+
   // Profile State
   const [profileForm, setProfileForm] = useState({
     name: '', email: '', phone: '', course: '', profilePhoto: '',
@@ -795,6 +809,99 @@ function Dashboard({ user, onLogout }) {
     }
   };
 
+  const fetchExamSchedules = async () => {
+    try {
+      const endpoint = (user.role === 'admin' || user.role === 'staff') ? '/admin/exam-schedules' : '/student/exam-schedules';
+      const response = await fetch(endpoint, {
+        headers: { 'Authorization': `Bearer ${user.token}` }
+      });
+      const result = await response.json();
+      if (response.ok) setExamSchedules(result);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleCreateExamSchedule = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      const res = await fetch('/admin/exam-schedules', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${user.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          studentId: schedulerStudentId,
+          type: schedulerType,
+          date: schedulerDate,
+          examName: schedulerExamName
+        })
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.message);
+      alert(d.message || "Scheduled successfully!");
+      setSchedulerStudentId("");
+      setSchedulerType("Exam");
+      setSchedulerDate("");
+      setSchedulerExamName("");
+      e.target.reset();
+      fetchExamSchedules();
+    } catch (err) {
+      alert("Failed to schedule: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteExamSchedule = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this scheduled item?")) return;
+    try {
+      setLoading(true);
+      const res = await fetch(`/admin/exam-schedules/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${user.token}` }
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.message);
+      alert(d.message || "Deleted successfully!");
+      fetchExamSchedules();
+    } catch (err) {
+      alert("Failed to delete: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateExamSchedule = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      const res = await fetch(`/admin/exam-schedules/${editingSchedule._id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${user.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          date: editDate,
+          examName: editExamName
+        })
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.message);
+      alert(d.message || "Updated successfully!");
+      setShowEditModal(false);
+      setEditingSchedule(null);
+      fetchExamSchedules();
+    } catch (err) {
+      alert("Failed to update: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     const isAdminOrStaff = user.role === 'admin' || user.role === 'staff';
     if (activeTab === 'dashboard') {
@@ -806,6 +913,9 @@ function Dashboard({ user, onLogout }) {
       if (user.role === 'student') {
         fetchPaymentConfig();
         fetchGoalConfig();
+        fetchPapers();
+        fetchSchedules();
+        fetchExamSchedules();
       }
     }
     if (activeTab === 'students' && isAdminOrStaff) {
@@ -826,6 +936,10 @@ function Dashboard({ user, onLogout }) {
     if (activeTab === 'schedules') {
       fetchSchedules();
       if (isAdminOrStaff) fetchStudentsData();
+    }
+    if (activeTab === 'exam_scheduler' && isAdminOrStaff) {
+      fetchExamSchedules();
+      fetchStudentsData();
     }
     if (activeTab === 'payments') {
       fetchPaymentConfig();
@@ -915,7 +1029,6 @@ function Dashboard({ user, onLogout }) {
 
   const getStaffNotifications = () => {
     const notifications = [];
-    const todayStr = getLocalDateString();
 
     // Create a student map of userId -> name for fast lookup
     const studentMap = {};
@@ -925,51 +1038,7 @@ function Dashboard({ user, onLogout }) {
       });
     }
 
-    // 1. Present Students: currently INSIDE the campus
-    if (Array.isArray(students)) {
-      students.forEach(student => {
-        if (student.currentStatus === 'Inside') {
-          notifications.push({
-            id: `present-${student.userId}`,
-            type: 'present',
-            icon: '🟢',
-            message: `Student ${student.name} (${student.userId}) is currently INSIDE the campus.`,
-            severity: 'success',
-            rawTime: Date.now()
-          });
-        }
-      });
-    }
-
-    // 2. Study Hours Milestones & Warnings (Today)
-    if (Array.isArray(data)) {
-      const todayLogs = data.filter(d => d.date === todayStr);
-      todayLogs.forEach(record => {
-        const hours = parseFloat(record.totalHours || 0);
-        const name = record.studentName || studentMap[record.studentId] || record.studentId;
-        if (hours >= 10) {
-          notifications.push({
-            id: `high-hours-${record.studentId}`,
-            type: 'milestone',
-            icon: '🔥',
-            message: `Student ${name} (${record.studentId}) completed ${hours.toFixed(2)} study hours today.`,
-            severity: 'info',
-            rawTime: Date.now() - 1000
-          });
-        } else if (hours > 0 && hours < 3) {
-          notifications.push({
-            id: `low-hours-${record.studentId}`,
-            type: 'warning',
-            icon: '⚠️',
-            message: `Student ${name} (${record.studentId}) has low study hours today (${hours.toFixed(2)} hrs).`,
-            severity: 'warning',
-            rawTime: Date.now() - 2000
-          });
-        }
-      });
-    }
-
-    // 3. Exams / Answer Sheet Uploads (within last 48 hours)
+    // Only Exams / Answer Sheet Uploads (within last 48 hours)
     if (Array.isArray(papers)) {
       const fortyEightHoursAgo = Date.now() - 48 * 60 * 60 * 1000;
       papers.forEach(paper => {
@@ -992,7 +1061,87 @@ function Dashboard({ user, onLogout }) {
       });
     }
 
-    // Sort notifications: present first, then warnings/milestones, then exams (sorted by rawTime desc)
+    // Sort notifications by time desc
+    return notifications.sort((a, b) => b.rawTime - a.rawTime);
+  };
+
+  const getStudentNotifications = () => {
+    const notifications = [];
+    const today = new Date();
+    const todayStr = getLocalDateString(today);
+    
+    const tomorrow = new Date();
+    tomorrow.setDate(today.getDate() + 1);
+    const tomorrowStr = getLocalDateString(tomorrow);
+
+    // 1. Exam Notifications from Exam Schedules
+    if (Array.isArray(examSchedules)) {
+      examSchedules.forEach(item => {
+        if (item.type === "Exam") {
+          const examDateStr = getLocalDateString(new Date(item.date));
+          if (examDateStr === todayStr) {
+            notifications.push({
+              id: `exam-today-${item._id}`,
+              type: 'exam_today',
+              icon: '🚨',
+              message: `Exam Today: "${item.examName}" is scheduled for today!`,
+              severity: 'warning',
+              rawTime: new Date(item.date).getTime()
+            });
+          } else if (examDateStr === tomorrowStr) {
+            notifications.push({
+              id: `exam-tomorrow-${item._id}`,
+              type: 'exam_tomorrow',
+              icon: '⏳',
+              message: `Exam Tomorrow: "${item.examName}" is scheduled for tomorrow (${examDateStr}).`,
+              severity: 'info',
+              rawTime: new Date(item.date).getTime()
+            });
+          }
+        }
+      });
+    }
+
+    // 2. Question Paper Upload Notifications (within last 48 hours)
+    if (Array.isArray(papers)) {
+      const fortyEightHoursAgo = Date.now() - 48 * 60 * 60 * 1000;
+      papers.forEach(paper => {
+        const uploadTime = new Date(paper.createdAt).getTime();
+        if (uploadTime >= fortyEightHoursAgo) {
+          const dateStr = new Date(paper.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' });
+          const timeStr = new Date(paper.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          notifications.push({
+            id: `qp-upload-${paper._id}`,
+            type: 'qp_upload',
+            icon: '📄',
+            message: `New Question Paper Uploaded: Admin uploaded "${paper.title}" on ${dateStr} at ${timeStr}.`,
+            severity: 'success',
+            rawTime: uploadTime
+          });
+        }
+      });
+    }
+
+    // 3. Schedule Upload Notifications (within last 48 hours)
+    if (Array.isArray(schedules)) {
+      const fortyEightHoursAgo = Date.now() - 48 * 60 * 60 * 1000;
+      schedules.forEach(sch => {
+        const uploadTime = new Date(sch.createdAt).getTime();
+        if (uploadTime >= fortyEightHoursAgo) {
+          const dateStr = new Date(sch.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' });
+          const timeStr = new Date(sch.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          notifications.push({
+            id: `sch-upload-${sch._id}`,
+            type: 'sch_upload',
+            icon: '🗓️',
+            message: `New Schedule Uploaded: Admin uploaded study schedule "${sch.title}" on ${dateStr} at ${timeStr}.`,
+            severity: 'success',
+            rawTime: uploadTime
+          });
+        }
+      });
+    }
+
     return notifications.sort((a, b) => b.rawTime - a.rawTime);
   };
 
@@ -1658,6 +1807,9 @@ function Dashboard({ user, onLogout }) {
               <li className={`nav-item ${activeTab === 'schedules' ? 'active' : ''}`} onClick={() => setActiveTab('schedules')}>
                 <span>🗓️</span> Schedules
               </li>
+              <li className={`nav-item ${activeTab === 'exam_scheduler' ? 'active' : ''}`} onClick={() => setActiveTab('exam_scheduler')}>
+                <span>📅</span> Exam Scheduler
+              </li>
               {user.role === 'admin' && (
                 <li className={`nav-item ${activeTab === 'payments' ? 'active' : ''}`} onClick={() => setActiveTab('payments')}>
                   <span>💳</span> Payments
@@ -1743,6 +1895,7 @@ function Dashboard({ user, onLogout }) {
                 : activeTab === 'feeSetup' && feeSetupStudent ? `Fee Structure: ${feeSetupStudent.name}`
                 : activeTab === 'study_tracker' ? 'Study Goal Tracker'
                 : activeTab === 'goal_settings' ? 'Study Goal Settings'
+                : activeTab === 'exam_scheduler' ? 'Exam Scheduler'
                 : 'Campus QR'}
             </h1>
             <p>
@@ -1756,6 +1909,7 @@ function Dashboard({ user, onLogout }) {
                 : activeTab === 'feeSetup' ? 'Configure total fees and next due date.'
                 : activeTab === 'study_tracker' ? 'Track days where you studied less than your configured daily target hours.'
                 : activeTab === 'goal_settings' ? 'Configure the mandatory study hours for each day of the week.'
+                : activeTab === 'exam_scheduler' ? 'Manually schedule exam dates and study schedule ending dates for students.'
                 : 'Display the active QR code for students to scan.'}
             </p>
           </div>
@@ -2038,6 +2192,56 @@ function Dashboard({ user, onLogout }) {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.75rem' }}>
                     <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.25rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                       🔔 Staff Alerts & Notifications
+                    </h3>
+                    <span style={{ fontSize: '0.85rem', background: 'var(--primary-color)', color: 'white', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold' }}>
+                      {alerts.length} Active
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '350px', overflowY: 'auto', paddingRight: '0.5rem' }}>
+                    {alerts.length > 0 ? (
+                      alerts.map((alert) => (
+                        <div 
+                          key={alert.id} 
+                          style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '1rem', 
+                            padding: '1rem 1.25rem', 
+                            borderRadius: '12px', 
+                            background: alert.severity === 'warning' ? 'rgba(239, 68, 68, 0.04)' 
+                                      : alert.severity === 'success' ? 'rgba(16, 185, 129, 0.04)'
+                                      : alert.severity === 'info' ? 'rgba(59, 130, 246, 0.04)'
+                                      : 'rgba(0, 0, 0, 0.02)',
+                            border: alert.severity === 'warning' ? '1px solid rgba(239, 68, 68, 0.15)'
+                                   : alert.severity === 'success' ? '1px solid rgba(16, 185, 129, 0.15)'
+                                   : alert.severity === 'info' ? '1px solid rgba(59, 130, 246, 0.15)'
+                                   : '1px solid var(--glass-border)',
+                          }}
+                        >
+                          <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>{alert.icon}</span>
+                          <div style={{ flexGrow: 1, fontSize: '0.95rem', color: 'var(--text-main)', lineHeight: '1.4' }}>
+                            {alert.message}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--text-muted)' }}>
+                        <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>✨</span>
+                        No notifications or alerts today. Everything is running smoothly!
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {user.role === 'student' && (() => {
+              const alerts = getStudentNotifications();
+              return (
+                <div className="card" style={{ marginBottom: '2rem', padding: '1.5rem 2rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.75rem' }}>
+                    <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.25rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      🔔 My Alerts & Notifications
                     </h3>
                     <span style={{ fontSize: '0.85rem', background: 'var(--primary-color)', color: 'white', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold' }}>
                       {alerts.length} Active
@@ -3206,6 +3410,295 @@ function Dashboard({ user, onLogout }) {
                   </div>
                 </div>
               </>
+            )}
+          </>
+        ) : activeTab === 'exam_scheduler' ? (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
+              {/* Add Details Card */}
+              <div className="card">
+                <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  📝 Add Details
+                </h3>
+                <form onSubmit={handleCreateExamSchedule} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Student Name</label>
+                    <select
+                      value={schedulerStudentId}
+                      onChange={(e) => setSchedulerStudentId(e.target.value)}
+                      required
+                      style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }}
+                    >
+                      <option value="" style={{ background: 'var(--bg-main)', color: 'var(--text-main)' }}>Select Student...</option>
+                      {students && students.map(s => (
+                        <option key={s.userId} value={s.userId} style={{ background: 'var(--bg-main)', color: 'var(--text-main)' }}>
+                          {s.name} ({s.userId})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Exam/Schedule</label>
+                    <select
+                      value={schedulerType}
+                      onChange={(e) => setSchedulerType(e.target.value)}
+                      required
+                      style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }}
+                    >
+                      <option value="Exam" style={{ background: 'var(--bg-main)', color: 'var(--text-main)' }}>Exam</option>
+                      <option value="Schedule" style={{ background: 'var(--bg-main)', color: 'var(--text-main)' }}>Schedule</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Date</label>
+                    <input
+                      type="date"
+                      value={schedulerDate}
+                      onChange={(e) => setSchedulerDate(e.target.value)}
+                      required
+                      style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }}
+                    />
+                  </div>
+
+                  {schedulerType === "Exam" && (
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Exam Name</label>
+                      <input
+                        type="text"
+                        value={schedulerExamName}
+                        onChange={(e) => setSchedulerExamName(e.target.value)}
+                        placeholder="e.g. CA Final Audit"
+                        required
+                        style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }}
+                      />
+                    </div>
+                  )}
+
+                  <button type="submit" style={{ padding: '0.8rem', background: '#10b981', color: 'white', borderRadius: '8px', border: 'none', fontWeight: 'bold', cursor: 'pointer', marginTop: '0.5rem' }}>
+                    Save Entry
+                  </button>
+                </form>
+              </div>
+
+              {/* View / Date Filter Card */}
+              <div className="card">
+                <h3 style={{ marginBottom: '1rem' }}>🔍 View to admin/staff</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Date Filter</label>
+                    <input
+                      type="date"
+                      value={schedulerFilterDate}
+                      onChange={(e) => setSchedulerFilterDate(e.target.value)}
+                      style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)', marginBottom: '0.5rem' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                      onClick={() => {
+                        const yesterday = new Date();
+                        yesterday.setDate(yesterday.getDate() - 1);
+                        setSchedulerFilterDate(getLocalDateString(yesterday));
+                      }}
+                      style={{ flex: 1, padding: '0.5rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', borderRadius: '6px', cursor: 'pointer', color: 'var(--text-main)', fontSize: '0.85rem' }}
+                    >
+                      Yesterday
+                    </button>
+                    <button
+                      onClick={() => setSchedulerFilterDate(getLocalDateString(new Date()))}
+                      style={{ flex: 1, padding: '0.5rem', background: 'var(--primary-color)', border: 'none', borderRadius: '6px', cursor: 'pointer', color: 'white', fontSize: '0.85rem', fontWeight: 'bold' }}
+                    >
+                      Today
+                    </button>
+                    <button
+                      onClick={() => {
+                        const tomorrow = new Date();
+                        tomorrow.setDate(tomorrow.getDate() + 1);
+                        setSchedulerFilterDate(getLocalDateString(tomorrow));
+                      }}
+                      style={{ flex: 1, padding: '0.5rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', borderRadius: '6px', cursor: 'pointer', color: 'var(--text-main)', fontSize: '0.85rem' }}
+                    >
+                      Tomorrow
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.5rem' }}>
+                  {/* Exams Section */}
+                  <div>
+                    <h4 style={{ borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem', marginBottom: '0.75rem', color: 'var(--text-main)', fontSize: '1rem', fontWeight: 'bold' }}>
+                      📝 Exams on {schedulerFilterDate}
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '150px', overflowY: 'auto' }}>
+                      {examSchedules.filter(item => item.type === "Exam" && getLocalDateString(new Date(item.date)) === schedulerFilterDate).map(item => (
+                        <div key={item._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0.8rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--glass-border)', borderRadius: '6px' }}>
+                          <span style={{ fontWeight: '500' }}>{item.studentName}</span>
+                          <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>{item.examName}</span>
+                        </div>
+                      ))}
+                      {examSchedules.filter(item => item.type === "Exam" && getLocalDateString(new Date(item.date)) === schedulerFilterDate).length === 0 && (
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No exams scheduled for this date.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Schedule Section */}
+                  <div>
+                    <h4 style={{ borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem', marginBottom: '0.75rem', color: 'var(--text-main)', fontSize: '1rem', fontWeight: 'bold' }}>
+                      🗓️ Schedule Ending on {schedulerFilterDate}
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '150px', overflowY: 'auto' }}>
+                      {examSchedules.filter(item => item.type === "Schedule" && getLocalDateString(new Date(item.date)) === schedulerFilterDate).map(item => (
+                        <div key={item._id} style={{ padding: '0.6rem 0.8rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--glass-border)', borderRadius: '6px' }}>
+                          <span style={{ fontWeight: '500' }}>{item.studentName}</span>
+                        </div>
+                      ))}
+                      {examSchedules.filter(item => item.type === "Schedule" && getLocalDateString(new Date(item.date)) === schedulerFilterDate).length === 0 && (
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No schedules ending on this date.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* List of All Schedules & Exams */}
+            <div className="card">
+              <h3 style={{ marginBottom: '1rem' }}>📋 All Scheduled Exams & Study Schedules</h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+                Complete list of exams and schedules. Use the action buttons to edit dates or remove entries.
+              </p>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid var(--glass-border)' }}>
+                      <th style={{ padding: '1rem 0.75rem', color: 'var(--text-muted)' }}>Student Name</th>
+                      <th style={{ padding: '1rem 0.75rem', color: 'var(--text-muted)' }}>Type</th>
+                      <th style={{ padding: '1rem 0.75rem', color: 'var(--text-muted)' }}>Scheduled Date</th>
+                      <th style={{ padding: '1rem 0.75rem', color: 'var(--text-muted)' }}>Exam Name</th>
+                      <th style={{ padding: '1rem 0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {examSchedules.map((item) => (
+                      <tr key={item._id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                        <td style={{ padding: '1rem 0.75rem', fontWeight: '500' }}>{item.studentName}</td>
+                        <td style={{ padding: '1rem 0.75rem' }}>
+                          <span style={{ 
+                            padding: '3px 8px', 
+                            borderRadius: '12px', 
+                            fontSize: '0.8rem', 
+                            fontWeight: 'bold',
+                            background: item.type === "Exam" ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                            color: item.type === "Exam" ? '#ef4444' : '#3b82f6'
+                          }}>
+                            {item.type}
+                          </span>
+                        </td>
+                        <td style={{ padding: '1rem 0.75rem' }}>
+                          {new Date(item.date).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' })}
+                        </td>
+                        <td style={{ padding: '1rem 0.75rem', color: item.type === 'Exam' ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                          {item.type === 'Exam' ? item.examName : '-'}
+                        </td>
+                        <td style={{ padding: '1rem 0.75rem', textAlign: 'center' }}>
+                          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                            <button
+                              onClick={() => {
+                                setEditingSchedule(item);
+                                setEditDate(getLocalDateString(new Date(item.date)));
+                                setEditExamName(item.examName || "");
+                                setShowEditModal(true);
+                              }}
+                              style={{ padding: '4px 10px', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteExamSchedule(item._id)}
+                              style={{ padding: '4px 10px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {examSchedules.length === 0 && (
+                      <tr>
+                        <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                          No scheduled exams or ending study schedules yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Edit Modal */}
+            {showEditModal && editingSchedule && (
+              <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                <div className="card" style={{ width: '90%', maxWidth: '500px', padding: '2rem' }}>
+                  <h3 style={{ marginBottom: '1.5rem' }}>Edit Entry: {editingSchedule.type}</h3>
+                  <form onSubmit={handleUpdateExamSchedule} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Student Name</label>
+                      <input
+                        type="text"
+                        value={editingSchedule.studentName}
+                        disabled
+                        style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'rgba(0,0,0,0.05)', color: 'var(--text-muted)' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Scheduled Date</label>
+                      <input
+                        type="date"
+                        value={editDate}
+                        onChange={(e) => setEditDate(e.target.value)}
+                        required
+                        style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }}
+                      />
+                    </div>
+
+                    {editingSchedule.type === "Exam" && (
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Exam Name</label>
+                        <input
+                          type="text"
+                          value={editExamName}
+                          onChange={(e) => setEditExamName(e.target.value)}
+                          required
+                          style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }}
+                        />
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowEditModal(false);
+                          setEditingSchedule(null);
+                        }}
+                        style={{ padding: '0.6rem 1.2rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-main)' }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        style={{ padding: '0.6rem 1.2rem', background: '#10b981', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'white', fontWeight: 'bold' }}
+                      >
+                        Save Changes
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
             )}
           </>
         ) : activeTab === 'payments' ? (

@@ -8,7 +8,7 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
-const { loginAdmin, addStudent, getAttendance, getDailySummary, getStudents, deleteStudent, resetPassword, getProfile, uploadQuestionPaper, getAdminPapers, deletePaper, downloadAnswerPaper, getPaymentConfig, updatePaymentConfig, updateStudentFees, addStudentPayment, approveStudentPayment, rejectStudentPayment, editStudentPayment, revertStudentPayment, updateStudentProfileByAdmin, getGoalConfig, updateGoalConfig, manualCheckout, createSchedule, getAdminSchedules, deleteSchedule, downloadScheduleFileAdmin } = require("../controllers/adminController");
+const { loginAdmin, addStudent, getAttendance, getDailySummary, getStudents, deleteStudent, resetPassword, getProfile, uploadQuestionPaper, getAdminPapers, deletePaper, downloadAnswerPaper, getPaymentConfig, updatePaymentConfig, updateStudentFees, addStudentPayment, approveStudentPayment, rejectStudentPayment, editStudentPayment, revertStudentPayment, updateStudentProfileByAdmin, getGoalConfig, updateGoalConfig, manualCheckout, createSchedule, getAdminSchedules, deleteSchedule, downloadScheduleFileAdmin, getExamSchedules, createExamSchedule, updateExamSchedule, deleteExamSchedule } = require("../controllers/adminController");
 const { updateProfile } = require("../controllers/studentController");
 const { protect, adminOnly, adminRoleRequired } = require("../middleware/authMiddleware");
 
@@ -28,6 +28,12 @@ router.post("/schedule", protect, adminOnly, upload.single("file"), createSchedu
 router.get("/schedules", protect, adminOnly, getAdminSchedules);
 router.delete("/schedule/:id", protect, adminOnly, deleteSchedule);
 router.get("/schedule/:id/download", protect, adminOnly, downloadScheduleFileAdmin);
+
+// Exam Schedules
+router.get("/exam-schedules", protect, adminOnly, getExamSchedules);
+router.post("/exam-schedules", protect, adminOnly, createExamSchedule);
+router.put("/exam-schedules/:id", protect, adminOnly, updateExamSchedule);
+router.delete("/exam-schedules/:id", protect, adminOnly, deleteExamSchedule);
 
 // Papers
 router.post("/upload-paper", protect, adminOnly, upload.single("file"), uploadQuestionPaper);

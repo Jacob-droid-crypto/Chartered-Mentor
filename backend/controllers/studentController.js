@@ -6,6 +6,7 @@ const { OAuth2Client } = require("google-auth-library");
 const User = require("../models/User");
 const Attendance = require("../models/Attendance");
 const Schedule = require("../models/Schedule");
+const ExamSchedule = require("../models/ExamSchedule");
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -912,6 +913,18 @@ const getStudentAttendanceHistory = async (req, res) => {
   }
 };
 
+/* ================= STUDENT EXAM SCHEDULER ================= */
+const getStudentExamSchedules = async (req, res) => {
+  try {
+    const studentId = req.user.userId;
+    const schedules = await ExamSchedule.find({ studentId }).sort({ date: 1 });
+    res.json(schedules);
+  } catch (err) {
+    console.error("Get student exam schedules error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   loginStudent,
   changePassword,
@@ -933,5 +946,6 @@ module.exports = {
   toggleScheduleStatus,
   downloadScheduleFile,
   markScheduleOpened,
-  getStudentAttendanceHistory
+  getStudentAttendanceHistory,
+  getStudentExamSchedules
 };
