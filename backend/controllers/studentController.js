@@ -176,7 +176,8 @@ const getDashboard = async (req, res) => {
       profileCompleted: student.profileCompleted || false,
       batch: student.batch || "",
       dob: student.dob || null,
-      joiningDate: student.joiningDate || null
+      joiningDate: student.joiningDate || null,
+      installments: student.installments || []
     });
   } catch (err) {
     console.error(err);
