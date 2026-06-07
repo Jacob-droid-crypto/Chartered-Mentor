@@ -3584,57 +3584,69 @@ function Dashboard({ user, onLogout }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {examSchedules.map((item) => (
-                      <tr key={item._id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
-                        <td style={{ padding: '1rem 0.75rem', fontWeight: '500' }}>{item.studentName}</td>
-                        <td style={{ padding: '1rem 0.75rem' }}>
-                          <span style={{ 
-                            padding: '3px 8px', 
-                            borderRadius: '12px', 
-                            fontSize: '0.8rem', 
-                            fontWeight: 'bold',
-                            background: item.type === "Exam" ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
-                            color: item.type === "Exam" ? '#ef4444' : '#3b82f6'
-                          }}>
-                            {item.type}
-                          </span>
-                        </td>
-                        <td style={{ padding: '1rem 0.75rem' }}>
-                          {new Date(item.date).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' })}
-                        </td>
-                        <td style={{ padding: '1rem 0.75rem', color: item.type === 'Exam' ? 'var(--text-main)' : 'var(--text-muted)' }}>
-                          {item.type === 'Exam' ? item.examName : '-'}
-                        </td>
-                        <td style={{ padding: '1rem 0.75rem', textAlign: 'center' }}>
-                          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                            <button
-                              onClick={() => {
-                                setEditingSchedule(item);
-                                setEditDate(getLocalDateString(new Date(item.date)));
-                                setEditExamName(item.examName || "");
-                                setShowEditModal(true);
-                              }}
-                              style={{ padding: '4px 10px', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDeleteExamSchedule(item._id)}
-                              style={{ padding: '4px 10px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                    {examSchedules.length === 0 && (
-                      <tr>
-                        <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                          No scheduled exams or ending study schedules yet.
-                        </td>
-                      </tr>
-                    )}
+                    {(() => {
+                      const todayStr = getLocalDateString();
+                      const activeExamSchedules = examSchedules.filter(item => {
+                        const itemDateStr = getLocalDateString(new Date(item.date));
+                        return itemDateStr >= todayStr;
+                      });
+
+                      return activeExamSchedules.map((item) => (
+                        <tr key={item._id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                          <td style={{ padding: '1rem 0.75rem', fontWeight: '500' }}>{item.studentName}</td>
+                          <td style={{ padding: '1rem 0.75rem' }}>
+                            <span style={{ 
+                              padding: '3px 8px', 
+                              borderRadius: '12px', 
+                              fontSize: '0.8rem', 
+                              fontWeight: 'bold',
+                              background: item.type === "Exam" ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                              color: item.type === "Exam" ? '#ef4444' : '#3b82f6'
+                            }}>
+                              {item.type}
+                            </span>
+                          </td>
+                          <td style={{ padding: '1rem 0.75rem' }}>
+                            {new Date(item.date).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' })}
+                          </td>
+                          <td style={{ padding: '1rem 0.75rem', color: item.type === 'Exam' ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                            {item.type === 'Exam' ? item.examName : '-'}
+                          </td>
+                          <td style={{ padding: '1rem 0.75rem', textAlign: 'center' }}>
+                            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                              <button
+                                onClick={() => {
+                                  setEditingSchedule(item);
+                                  setEditDate(getLocalDateString(new Date(item.date)));
+                                  setEditExamName(item.examName || "");
+                                  setShowEditModal(true);
+                                }}
+                                style={{ padding: '4px 10px', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteExamSchedule(item._id)}
+                                style={{ padding: '4px 10px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                    {(() => {
+                      const todayStr = getLocalDateString();
+                      const activeCount = examSchedules.filter(item => getLocalDateString(new Date(item.date)) >= todayStr).length;
+                      return activeCount === 0 && (
+                        <tr>
+                          <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                            No scheduled exams or ending study schedules yet.
+                          </td>
+                        </tr>
+                      );
+                    })()}
                   </tbody>
                 </table>
               </div>
