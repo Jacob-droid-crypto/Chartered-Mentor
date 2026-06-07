@@ -54,7 +54,7 @@ async function createAdminAndStaffIfNotExists() {
     }
 
     const staffId = process.env.STAFF_USERID || "CM.COORDINATOR";
-    const staffPassword = process.env.STAFF_PASSWORD || "growtogether";
+    const staffPassword = process.env.STAFF_PASSWORD || "mentorpath";
 
     let staff = await User.findOne({ role: "staff" });
 
