@@ -630,22 +630,55 @@ const updateInstallmentStatus = (user) => {
       .filter(p => p.status === 'Verified' || p.status === 'Paid')
       .sort((a, b) => new Date(a.date) - new Date(b.date));
 
+    // Separate non-installment payments (initial payments) from installment-specific payments
+    const nonInstallmentPayments = payments.filter(p => !/Inst\s*\d+/i.test(p.receiptNo || ''));
+    const instPayments = payments.filter(p => /Inst\s*\d+/i.test(p.receiptNo || ''));
+    const nonInstTotal = nonInstallmentPayments.reduce((sum, p) => sum + p.amount, 0);
+
+    // Initialize/Reset adjustedAmount to the original configured amount
+    user.installments.forEach((inst) => {
+      inst.adjustedAmount = inst.amount;
+    });
+
+    // Subtract non-installment total from the last installment backwards
+    let initialDiscountRemaining = nonInstTotal;
+    for (let i = user.installments.length - 1; i >= 0; i--) {
+      if (initialDiscountRemaining <= 0) break;
+      const inst = user.installments[i];
+      if (initialDiscountRemaining >= inst.amount) {
+        initialDiscountRemaining -= inst.amount;
+        inst.adjustedAmount = 0;
+      } else {
+        inst.adjustedAmount = inst.amount - initialDiscountRemaining;
+        initialDiscountRemaining = 0;
+      }
+    }
+
+    // Now, allocate the installment-specific payments chronologically to the installments with remaining adjustedAmount > 0
     let paymentIdx = 0;
-    let paymentRemaining = payments[paymentIdx] ? payments[paymentIdx].amount : 0;
+    let paymentRemaining = instPayments[paymentIdx] ? instPayments[paymentIdx].amount : 0;
 
     user.installments.forEach((inst) => {
-      let instNeeded = inst.amount;
+      // If adjusted target amount is 0, it means it was fully covered by the initial non-installment payments
+      if (inst.adjustedAmount === 0) {
+        inst.status = "Paid";
+        // Default to the first payment's date or current date
+        inst.paidDate = payments[0] ? payments[0].date : new Date();
+        return;
+      }
+
+      let instNeeded = inst.adjustedAmount;
       let lastPaymentDate = null;
 
-      while (instNeeded > 0 && paymentIdx < payments.length) {
+      while (instNeeded > 0 && paymentIdx < instPayments.length) {
         if (paymentRemaining >= instNeeded) {
           paymentRemaining -= instNeeded;
           instNeeded = 0;
-          lastPaymentDate = payments[paymentIdx].date;
+          lastPaymentDate = instPayments[paymentIdx].date;
         } else {
           instNeeded -= paymentRemaining;
           paymentIdx++;
-          paymentRemaining = payments[paymentIdx] ? payments[paymentIdx].amount : 0;
+          paymentRemaining = instPayments[paymentIdx] ? instPayments[paymentIdx].amount : 0;
         }
       }
 

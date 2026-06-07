@@ -3911,7 +3911,7 @@ function Dashboard({ user, onLogout }) {
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                             {profileData.installments.map((inst, idx) => (
                               <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', background: 'white', padding: '0.6rem 0.8rem', borderRadius: '6px', border: '1px solid var(--glass-border)' }}>
-                                <div style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.85rem' }}>Installment {idx + 1}: ₹{inst.amount}</div>
+                                <div style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.85rem' }}>Installment {idx + 1}: ₹{inst.adjustedAmount !== undefined ? inst.adjustedAmount : inst.amount}</div>
                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
                                   <span>Due: {new Date(inst.dueDate).toLocaleDateString()}</span>
                                   {inst.status === 'Paid' ? (
@@ -3996,7 +3996,8 @@ function Dashboard({ user, onLogout }) {
                               
                               const enteredAmt = Number(amountInput);
                               const selectedIdx = Number(installmentSelect) - 1;
-                              const expectedAmt = profileData?.installments?.[selectedIdx]?.amount;
+                              const instObj = profileData?.installments?.[selectedIdx];
+                              const expectedAmt = instObj?.adjustedAmount !== undefined ? instObj.adjustedAmount : instObj?.amount;
                               
                               if (expectedAmt !== undefined && enteredAmt !== expectedAmt) {
                                 alert(`Error: The payment amount (₹${enteredAmt}) does not match the amount required for Installment ${installmentSelect} (₹${expectedAmt}).`);
@@ -4039,7 +4040,8 @@ function Dashboard({ user, onLogout }) {
                                   const val = e.target.value;
                                   if (val) {
                                     const idx = Number(val) - 1;
-                                    const expected = profileData?.installments?.[idx]?.amount;
+                                    const instObj = profileData?.installments?.[idx];
+                                    const expected = instObj?.adjustedAmount !== undefined ? instObj.adjustedAmount : instObj?.amount;
                                     if (expected && e.target.form.amount) {
                                       e.target.form.amount.value = expected;
                                     }
@@ -4050,7 +4052,7 @@ function Dashboard({ user, onLogout }) {
                                 <option value="">-- Select --</option>
                                 {profileData?.installments?.map((inst, idx) => (
                                   <option key={idx} value={idx + 1}>
-                                    Installment {idx + 1} (₹{inst.amount}) - {inst.status}
+                                    Installment {idx + 1} (₹{inst.adjustedAmount !== undefined ? inst.adjustedAmount : inst.amount}) - {inst.status}
                                   </option>
                                 ))}
                               </select>
@@ -5146,7 +5148,7 @@ function Dashboard({ user, onLogout }) {
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                             {viewingProfileStudent.installments.map((inst, idx) => (
                               <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white', padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
-                                <span style={{ fontWeight: 'bold', fontSize: '0.85rem', color: 'var(--text-main)' }}>Installment {idx + 1}: ₹{inst.amount}</span>
+                                <span style={{ fontWeight: 'bold', fontSize: '0.85rem', color: 'var(--text-main)' }}>Installment {idx + 1}: ₹{inst.adjustedAmount !== undefined ? inst.adjustedAmount : inst.amount}</span>
                                 <div style={{ fontSize: '0.85rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                                   <span style={{ color: 'var(--text-muted)' }}>Due: {new Date(inst.dueDate).toLocaleDateString()}</span>
                                   {inst.status === 'Paid' ? (
