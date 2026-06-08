@@ -641,42 +641,50 @@ const updateInstallmentStatus = (user) => {
       inst.adjustedAmount = inst.amount;
     });
 
-    user.installments.forEach((inst) => {
-      if (remainingPaid >= inst.amount) {
-        inst.status = "Paid";
-        // Find the payment date that completed this installment
-        let acc = 0;
-        let paidDate = null;
-        let coveredInitial = 0;
-        for (const p of payments) {
-          if (coveredInitial < implicitInitialFee) {
-            const neededForInitial = implicitInitialFee - coveredInitial;
-            if (p.amount >= neededForInitial) {
-              const extra = p.amount - neededForInitial;
-              coveredInitial = implicitInitialFee;
-              acc += extra;
-            } else {
-              coveredInitial += p.amount;
-            }
-          } else {
-            acc += p.amount;
-          }
+    const sumPaidInstallments = user.installments
+      .filter(inst => inst.status === "Paid")
+      .reduce((sum, inst) => sum + inst.amount, 0);
 
-          if (acc >= inst.amount) {
-            paidDate = p.date;
-            break;
+    if (remainingPaid >= sumPaidInstallments) {
+      let surplus = remainingPaid - sumPaidInstallments;
+
+      user.installments.forEach((inst) => {
+        if (inst.status === "Paid") {
+          inst.adjustedAmount = 0;
+          if (!inst.paidDate) {
+            inst.paidDate = payments.length > 0 ? payments[payments.length - 1].date : new Date();
+          }
+        } else {
+          if (surplus >= inst.amount) {
+            inst.status = "Paid";
+            inst.paidDate = payments.length > 0 ? payments[payments.length - 1].date : new Date();
+            inst.adjustedAmount = 0;
+            surplus -= inst.amount;
+          } else {
+            inst.status = "Unpaid";
+            inst.paidDate = null;
+            inst.adjustedAmount = inst.amount - surplus;
+            surplus = 0;
           }
         }
-        inst.paidDate = paidDate || new Date();
-        inst.adjustedAmount = 0;
-        remainingPaid -= inst.amount;
-      } else {
-        inst.status = "Unpaid";
-        inst.paidDate = null;
-        inst.adjustedAmount = inst.amount - remainingPaid;
-        remainingPaid = 0;
-      }
-    });
+      });
+    } else {
+      user.installments.forEach((inst) => {
+        if (remainingPaid >= inst.amount) {
+          inst.status = "Paid";
+          if (!inst.paidDate) {
+            inst.paidDate = payments.length > 0 ? payments[payments.length - 1].date : new Date();
+          }
+          inst.adjustedAmount = 0;
+          remainingPaid -= inst.amount;
+        } else {
+          inst.status = "Unpaid";
+          inst.paidDate = null;
+          inst.adjustedAmount = inst.amount - remainingPaid;
+          remainingPaid = 0;
+        }
+      });
+    }
 
     // Sync nextPaymentDueDate to first unpaid installment's dueDate
     const nextUnpaid = user.installments.find(inst => inst.status === "Unpaid");
@@ -698,11 +706,42 @@ const updateStudentFees = async (req, res) => {
       user.installments = installments.map(inst => ({
         amount: Number(inst.amount),
         dueDate: new Date(inst.dueDate),
-        status: inst.status || "Unpaid"
+        status: inst.status || "Unpaid",
+        paidDate: inst.status === "Paid" ? (inst.paidDate ? new Date(inst.paidDate) : new Date()) : null
       }));
     }
     
-    // Automatically allocate existing paid fees to installments
+    const sumInstallments = user.installments.reduce((sum, inst) => sum + inst.amount, 0);
+    const implicitInitialFee = Math.max(0, (user.totalFees || 0) - sumInstallments);
+    const sumPaidInstallments = user.installments
+      .filter(inst => inst.status === "Paid")
+      .reduce((sum, inst) => sum + inst.amount, 0);
+    
+    const requiredPaid = implicitInitialFee + sumPaidInstallments;
+    
+    const payments = (user.feeHistory || [])
+      .filter(p => p.status === 'Verified' || p.status === 'Paid' || p.status === 'Received');
+    const currentVerifiedPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+    
+    if (currentVerifiedPaid < requiredPaid) {
+      const diff = requiredPaid - currentVerifiedPaid;
+      const paidInst = user.installments.find(inst => inst.status === "Paid" && inst.paidDate);
+      const paymentDate = paidInst ? paidInst.paidDate : new Date();
+      
+      user.feeHistory.push({
+        amount: diff,
+        date: paymentDate,
+        receiptNo: "Manually Verified (Set Fee Structure)",
+        status: "Verified"
+      });
+      
+      user.feesPaid = (user.feesPaid || 0) + diff;
+    } else {
+      user.feesPaid = user.feeHistory
+        .filter(p => p.status === "Verified" || p.status === "Paid" || p.status === "Received")
+        .reduce((sum, p) => sum + Number(p.amount), 0);
+    }
+    
     updateInstallmentStatus(user);
     
     await user.save();
@@ -742,6 +781,7 @@ const addStudentPayment = async (req, res) => {
 const approveStudentPayment = async (req, res) => {
   try {
     const { studentId, paymentId } = req.params;
+    const { installmentIndex } = req.body;
     
     const user = await User.findOne({ userId: studentId, role: "student" });
     if (!user) return res.status(404).json({ message: "Student not found" });
@@ -755,6 +795,11 @@ const approveStudentPayment = async (req, res) => {
     
     payment.status = "Verified";
     user.feesPaid = (user.feesPaid || 0) + Number(payment.amount);
+    
+    if (installmentIndex !== undefined && installmentIndex !== null && user.installments[installmentIndex]) {
+      user.installments[installmentIndex].status = "Paid";
+      user.installments[installmentIndex].paidDate = payment.date || new Date();
+    }
     
     // Recalculate installments paid status
     updateInstallmentStatus(user);

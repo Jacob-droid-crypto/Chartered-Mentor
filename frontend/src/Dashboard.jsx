@@ -4271,7 +4271,7 @@ function Dashboard({ user, onLogout }) {
               <div className="card">
                 <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-main)' }}>Recent Received Payments</h3>
                 <div className="activity-list">
-                  {students && students.flatMap(s => (s.feeHistory || []).map(f => ({ ...f, studentName: s.name, studentId: s.userId })))
+                  {students && students.flatMap(s => (s.feeHistory || []).map(f => ({ ...f, studentObj: s, studentName: s.name, studentId: s.userId })))
                     .sort((a, b) => new Date(b.date) - new Date(a.date))
                     .slice(0, 50)
                     .map((fee, idx) => (
@@ -4286,7 +4286,79 @@ function Dashboard({ user, onLogout }) {
                         <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
                           <div style={{ fontWeight: 'bold', color: fee.status === 'Pending' ? '#f59e0b' : (fee.status === 'Rejected' ? '#ef4444' : '#10b981') }}>{fee.status}</div>
                           <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{new Date(fee.date).toLocaleDateString()}</div>
-                          {/* Payment verification actions removed globally and moved exclusively to student Set Fee Structure view */}
+                          {fee.status === 'Pending' && (() => {
+                            const unpaidInstallments = fee.studentObj?.installments || [];
+                            return (
+                              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                <select
+                                  id={`assign-installment-${fee._id}`}
+                                  defaultValue=""
+                                  style={{ padding: '0.3rem', borderRadius: '4px', border: '1px solid var(--glass-border)', fontSize: '0.85rem', background: 'white', color: 'var(--text-main)' }}
+                                >
+                                  <option value="">-- Select Installment --</option>
+                                  {unpaidInstallments.map((inst, uIdx) => (
+                                    <option key={uIdx} value={uIdx}>
+                                      Inst {uIdx + 1} (₹{inst.amount}) - {inst.status}
+                                    </option>
+                                  ))}
+                                </select>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    const selectEl = document.getElementById(`assign-installment-${fee._id}`);
+                                    const selectedIdxStr = selectEl ? selectEl.value : '';
+                                    const bodyData = {};
+                                    if (selectedIdxStr !== '') {
+                                      bodyData.installmentIndex = Number(selectedIdxStr);
+                                    }
+                                    try {
+                                      setLoading(true);
+                                      const res = await fetch(`/admin/student/${fee.studentId}/payment/${fee._id}/approve`, {
+                                        method: 'POST',
+                                        headers: { 
+                                          'Authorization': `Bearer ${user.token}`,
+                                          'Content-Type': 'application/json'
+                                        },
+                                        body: JSON.stringify(bodyData)
+                                      });
+                                      if (!res.ok) throw new Error(await res.text());
+                                      alert('Payment verified successfully!');
+                                      fetchStudentsData();
+                                    } catch(e) {
+                                      alert('Error: ' + e.message);
+                                    } finally {
+                                      setLoading(false);
+                                    }
+                                  }}
+                                  style={{ padding: '0.3rem 0.8rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
+                                >
+                                  Verify
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      setLoading(true);
+                                      const res = await fetch(`/admin/student/${fee.studentId}/payment/${fee._id}/reject`, {
+                                        method: 'POST',
+                                        headers: { 'Authorization': `Bearer ${user.token}` }
+                                      });
+                                      if (!res.ok) throw new Error(await res.text());
+                                      alert('Payment rejected successfully!');
+                                      fetchStudentsData();
+                                    } catch(e) {
+                                      alert('Error: ' + e.message);
+                                    } finally {
+                                      setLoading(false);
+                                    }
+                                  }}
+                                  style={{ padding: '0.3rem 0.8rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                     ))}
@@ -4924,6 +4996,44 @@ function Dashboard({ user, onLogout }) {
                             style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--glass-border)', color: 'var(--text-main)', background: 'transparent' }}
                           />
                         </div>
+                        <div style={{ flex: '1', minWidth: '130px' }}>
+                          <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Verification Status</label>
+                          <select
+                            value={inst.status || 'Unpaid'}
+                            onChange={e => {
+                              const updated = [...feeSetupStudent.installments];
+                              const newStatus = e.target.value;
+                              updated[index].status = newStatus;
+                              if (newStatus === 'Paid') {
+                                if (!updated[index].paidDate) {
+                                  updated[index].paidDate = getLocalDateString();
+                                }
+                              } else {
+                                updated[index].paidDate = '';
+                              }
+                              setFeeSetupStudent({ ...feeSetupStudent, installments: updated });
+                            }}
+                            style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--glass-border)', color: 'var(--text-main)', background: 'transparent' }}
+                          >
+                            <option value="Unpaid">Unpaid</option>
+                            <option value="Paid">Paid</option>
+                          </select>
+                        </div>
+                        <div style={{ flex: '1.2', minWidth: '160px' }}>
+                          <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Date of Payment</label>
+                          <input 
+                            type="date" 
+                            disabled={inst.status !== 'Paid'}
+                            required={inst.status === 'Paid'}
+                            value={inst.paidDate || ''}
+                            onChange={e => {
+                              const updated = [...feeSetupStudent.installments];
+                              updated[index].paidDate = e.target.value;
+                              setFeeSetupStudent({ ...feeSetupStudent, installments: updated });
+                            }}
+                            style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--glass-border)', color: 'var(--text-main)', background: 'transparent' }}
+                          />
+                        </div>
                         {(feeSetupStudent.installments || []).length > 1 && (
                           <button 
                             type="button"
@@ -5172,7 +5282,8 @@ function Dashboard({ user, onLogout }) {
                                    ? student.installments.map(inst => ({
                                        amount: inst.amount || '',
                                        dueDate: inst.dueDate ? new Date(inst.dueDate).toISOString().split('T')[0] : '',
-                                       status: inst.status || 'Unpaid'
+                                       status: inst.status || 'Unpaid',
+                                       paidDate: inst.paidDate ? new Date(inst.paidDate).toISOString().split('T')[0] : ''
                                      }))
                                    : [
                                        { amount: student.totalFees ? Math.round(Number(student.totalFees) / 3) : '', dueDate: '', status: 'Unpaid' },
