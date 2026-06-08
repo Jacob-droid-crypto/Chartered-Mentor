@@ -500,18 +500,6 @@ function StudentPaperCard({ paper, user, onRefresh }) {
   );
 }
 
-const getEmbedUrl = (url) => {
-  if (!url) return '';
-  const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-  if (match && match[1]) {
-    const sheetId = match[1];
-    const gidMatch = url.match(/[#&?]gid=([0-9]+)/);
-    const gid = gidMatch ? `&gid=${gidMatch[1]}` : '';
-    return `https://docs.google.com/spreadsheets/d/${sheetId}/htmlembed?chrome=false&widget=true&headers=false${gid}`;
-  }
-  return url;
-};
-
 function Dashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showNavDropdown, setShowNavDropdown] = useState(false);
@@ -847,7 +835,6 @@ function Dashboard({ user, onLogout }) {
 
   const [papers, setPapers] = useState([]);
   const [schedules, setSchedules] = useState([]);
-  const [activeSchedulesSheet, setActiveSchedulesSheet] = useState({});
 
   const fetchPapers = async () => {
     try {
@@ -3671,12 +3658,15 @@ function Dashboard({ user, onLogout }) {
                     onSubmit={async (e) => {
                       e.preventDefault();
                       const file = e.target.file.files[0];
-                      const googleSheetUrl = e.target.googleSheetUrl.value.trim();
-                      if (!file && !googleSheetUrl) {
-                        alert("Please provide either an uploaded file or a Google Sheet link.");
+                      if (!file) {
+                        alert("Please upload a PDF file.");
                         return;
                       }
-                      if (file && file.size > 4 * 1024 * 1024) {
+                      if (file.type !== 'application/pdf') {
+                        alert("Only PDF files are allowed for schedules.");
+                        return;
+                      }
+                      if (file.size > 4 * 1024 * 1024) {
                         alert("File size exceeds Vercel's 4.5MB upload limit. Please upload a smaller file under 4MB.");
                         return;
                       }
@@ -3685,12 +3675,7 @@ function Dashboard({ user, onLogout }) {
                       formData.append('title', e.target.title.value);
                       formData.append('target', e.target.target.value);
                       formData.append('date', e.target.date.value);
-                      if (file) {
-                        formData.append('file', file);
-                      }
-                      if (googleSheetUrl) {
-                        formData.append('googleSheetUrl', googleSheetUrl);
-                      }
+                      formData.append('file', file);
 
                       try {
                         setLoading(true);
@@ -3736,14 +3721,9 @@ function Dashboard({ user, onLogout }) {
                         <input type="date" name="date" required style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Upload Document / File (Optional if Link provided)</label>
-                        <input type="file" name="file" style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Upload Schedule PDF</label>
+                        <input type="file" name="file" accept=".pdf" required style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
                       </div>
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Google Sheet Link (Optional if File uploaded)</label>
-                      <input type="url" name="googleSheetUrl" placeholder="e.g. https://docs.google.com/spreadsheets/d/.../edit" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
                     </div>
 
                     <button type="submit" style={{ padding: '0.75rem', background: 'var(--primary-color)', color: 'white', borderRadius: '8px', border: 'none', fontWeight: 'bold', cursor: 'pointer', marginTop: '0.5rem' }}>Schedule Activity</button>
@@ -3797,32 +3777,18 @@ function Dashboard({ user, onLogout }) {
                                       const url = window.URL.createObjectURL(blob);
                                       const a = document.createElement('a');
                                       a.href = url;
-                                      a.download = sched.fileName || 'file';
+                                      a.download = sched.fileName || 'file.pdf';
                                       document.body.appendChild(a);
                                       a.click();
                                       a.remove();
                                     } catch (err) {
-                                      alert("Error downloading file: " + err.message);
+                                      alert("Error downloading schedule: " + err.message);
                                     }
                                   }}
                                   style={{ padding: '0.45rem 0.9rem', background: 'rgba(59, 130, 246, 0.08)', color: 'var(--primary-color)', border: '1px solid rgba(59, 130, 246, 0.2)', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 'bold' }}
-                                  title="Download Attached File"
+                                  title="Download PDF Schedule"
                                 >
-                                  Attachment 📥
-                                </button>
-                              )}
-                              {sched.googleSheetUrl && (
-                                <button
-                                  onClick={() => {
-                                    setActiveSchedulesSheet(prev => ({
-                                      ...prev,
-                                      [sched._id]: !prev[sched._id]
-                                    }));
-                                  }}
-                                  style={{ padding: '0.45rem 0.9rem', background: 'rgba(16, 185, 129, 0.08)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 'bold' }}
-                                  title="Open / Close Google Sheet"
-                                >
-                                  {activeSchedulesSheet[sched._id] ? "Close Sheet ❌" : "Open Sheet 📊"}
+                                  Download PDF 📥
                                 </button>
                               )}
                               <span style={{
@@ -3855,25 +3821,6 @@ function Dashboard({ user, onLogout }) {
                               </button>
                             </div>
                           </div>
-                          {activeSchedulesSheet[sched._id] && sched.googleSheetUrl && (
-                            <div style={{
-                              width: '100%',
-                              padding: '1rem',
-                              background: 'rgba(255, 255, 255, 0.6)',
-                              border: '1px solid var(--glass-border)',
-                              borderRadius: '12px',
-                              backdropFilter: 'blur(10px)',
-                              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.05)',
-                              marginTop: '-0.4rem',
-                              animation: 'slideDown 0.3s ease-out'
-                            }}>
-                              <iframe
-                                src={getEmbedUrl(sched.googleSheetUrl)}
-                                style={{ width: '100%', height: '600px', border: 'none', borderRadius: '8px' }}
-                                title="Google Sheet"
-                              />
-                            </div>
-                          )}
                         </div>
                       );
                     })}
@@ -3934,13 +3881,13 @@ function Dashboard({ user, onLogout }) {
                                       const url = window.URL.createObjectURL(blob);
                                       const a = document.createElement('a');
                                       a.href = url;
-                                      a.download = sched.fileName || 'file';
+                                      a.download = sched.fileName || 'schedule.pdf';
                                       document.body.appendChild(a);
                                       a.click();
                                       a.remove();
                                       fetchSchedules();
                                     } catch (err) {
-                                      alert("Error downloading file: " + err.message);
+                                      alert("Error downloading schedule: " + err.message);
                                     }
                                   }}
                                   style={{
@@ -3955,63 +3902,11 @@ function Dashboard({ user, onLogout }) {
                                     boxShadow: '0 4px 10px rgba(59, 130, 246, 0.2)'
                                   }}
                                 >
-                                  Download File 📥
-                                </button>
-                              )}
-                              {sched.googleSheetUrl && (
-                                <button
-                                  onClick={async () => {
-                                    if (!sched.openedAt) {
-                                      try {
-                                        await fetch(`/student/schedule/${sched._id}/open`, {
-                                          method: 'POST',
-                                          headers: { 'Authorization': `Bearer ${user.token}` }
-                                        });
-                                        fetchSchedules();
-                                      } catch (err) {
-                                        console.error("Failed to mark schedule as opened:", err);
-                                      }
-                                    }
-                                    setActiveSchedulesSheet(prev => ({
-                                      ...prev,
-                                      [sched._id]: !prev[sched._id]
-                                    }));
-                                  }}
-                                  style={{
-                                    padding: '0.55rem 1.2rem',
-                                    background: 'rgba(16, 185, 129, 0.1)',
-                                    color: '#10b981',
-                                    border: '1px solid rgba(16, 185, 129, 0.2)',
-                                    borderRadius: '8px',
-                                    fontSize: '0.85rem',
-                                    fontWeight: 'bold',
-                                    cursor: 'pointer',
-                                  }}
-                                >
-                                  {activeSchedulesSheet[sched._id] ? "Close Sheet ❌" : "Open Sheet 📊"}
+                                  Download PDF 📥
                                 </button>
                               )}
                             </div>
                           </div>
-                          {activeSchedulesSheet[sched._id] && sched.googleSheetUrl && (
-                            <div style={{
-                              width: '100%',
-                              padding: '1rem',
-                              background: 'rgba(255, 255, 255, 0.6)',
-                              border: '1px solid var(--glass-border)',
-                              borderRadius: '12px',
-                              backdropFilter: 'blur(10px)',
-                              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.05)',
-                              marginTop: '-0.4rem',
-                              animation: 'slideDown 0.3s ease-out'
-                            }}>
-                              <iframe
-                                src={getEmbedUrl(sched.googleSheetUrl)}
-                                style={{ width: '100%', height: '600px', border: 'none', borderRadius: '8px' }}
-                                title="Google Sheet"
-                              />
-                            </div>
-                          )}
                         </div>
                       );
                     })}
