@@ -180,7 +180,20 @@ function Login({ onLoginSuccess }) {
       
       <div className="login-card">
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <img src="/logo.png" alt="Chartered Mentor Logo" style={{ width: '280px', height: 'auto', margin: '0 auto 1.5rem auto', display: 'block' }} />
+          <img 
+            src="/logo.png" 
+            alt="Chartered Mentor Logo" 
+            style={{ 
+              width: '340px', 
+              height: 'auto', 
+              margin: '0 auto 1.5rem auto', 
+              display: 'block',
+              filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.06))',
+              transition: 'transform 0.3s ease'
+            }} 
+            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+          />
           <h2>
             {view === 'login' ? 'Welcome Back ✨' 
               : view === 'google_verify' ? 'Verify Identity' 

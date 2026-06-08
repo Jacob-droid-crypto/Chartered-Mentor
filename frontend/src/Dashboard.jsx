@@ -2290,7 +2290,18 @@ function Dashboard({ user, onLogout }) {
             </div>
 
             <div className="header-logo" style={{ display: 'flex', alignItems: 'center' }}>
-              <img src="/logo.png" alt="Chartered Mentor Logo" style={{ height: '70px', width: 'auto' }} />
+              <img 
+                src="/logo.png" 
+                alt="Chartered Mentor Logo" 
+                style={{ 
+                  height: '90px', 
+                  width: 'auto', 
+                  filter: 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.06))',
+                  transition: 'transform 0.3s ease'
+                }} 
+                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.03)'}
+                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              />
             </div>
             <div className="welcome-text">
               <h1 style={{ fontSize: '1.8rem', margin: 0, fontWeight: '600', color: 'var(--text-main)' }}>
