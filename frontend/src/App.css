@@ -750,6 +750,11 @@
     color: var(--primary-color);
   }
   
+  .mobile-bottom-nav-item:active {
+    transform: scale(0.92);
+    transition: transform 0.1s ease;
+  }
+
   .mobile-bottom-nav-item.active {
     color: var(--primary-color);
     border-bottom: 3px solid var(--primary-color);
