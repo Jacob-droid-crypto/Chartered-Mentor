@@ -642,7 +642,7 @@ const downloadPaper = async (req, res) => {
     const paper = await QuestionPaper.findById(id);
 
     if (!paper) {
-      return res.status(404).json({ message: "Paper not found" });
+      return res.status(404).json({ message: "Question Paper not found" });
     }
 
     const buffer = Buffer.from(paper.fileData, "base64");
@@ -754,7 +754,7 @@ const startStudentExam = async (req, res) => {
 
     const paper = await QuestionPaper.findOne({ _id: id, target: user.userId });
     if (!paper) {
-      return res.status(404).json({ message: "Paper not found" });
+      return res.status(404).json({ message: "Question Paper not found" });
     }
 
     // Date comparison (midnight local time or date string splitting)
@@ -799,7 +799,7 @@ const submitAnswerPaper = async (req, res) => {
 
     const paper = await QuestionPaper.findOne({ _id: id, target: user.userId });
     if (!paper) {
-      return res.status(404).json({ message: "Paper not found" });
+      return res.status(404).json({ message: "Question Paper not found" });
     }
 
     if (!paper.startTime) {
@@ -843,7 +843,7 @@ const downloadStudentAnswerPaper = async (req, res) => {
     const paper = await QuestionPaper.findOne({ _id: id, target: user.userId });
 
     if (!paper) {
-      return res.status(404).json({ message: "Paper not found" });
+      return res.status(404).json({ message: "Question Paper not found" });
     }
 
     if (!paper.answerFileData) {

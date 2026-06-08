@@ -2250,7 +2250,7 @@ function Dashboard({ user, onLogout }) {
                               setActiveTab('papers');
                             }}
                           >
-                            <span>📄</span> Papers
+                            <span>📄</span> Question Papers
                           </li>
                           <li
                             className={`nav-dropdown-item ${activeTab === 'schedules' ? 'active' : ''}`}
@@ -2328,7 +2328,7 @@ function Dashboard({ user, onLogout }) {
                               setActiveTab('papers');
                             }}
                           >
-                            <span>📄</span> Exam Papers
+                            <span>📄</span> Question Papers
                           </li>
                           <li
                             className={`nav-dropdown-item ${activeTab === 'schedules' ? 'active' : ''}`}
@@ -3464,12 +3464,12 @@ function Dashboard({ user, onLogout }) {
         ) : activeTab === 'papers' ? (
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h2>{(user.role === 'admin' || user.role === 'staff') ? 'Manage Exam Papers' : 'Your Exam Papers'}</h2>
+              <h2>{(user.role === 'admin' || user.role === 'staff') ? 'Manage Question Papers' : 'Your Question Papers'}</h2>
             </div>
 
             {(user.role === 'admin' || user.role === 'staff') && (
               <div className="card" style={{ marginBottom: '2rem' }}>
-                <h3 style={{ marginBottom: '1rem' }}>Upload New Paper for Student</h3>
+                <h3 style={{ marginBottom: '1rem' }}>Upload New Question Paper for Student</h3>
                 <form
                   onSubmit={async (e) => {
                     e.preventDefault();
@@ -3498,7 +3498,7 @@ function Dashboard({ user, onLogout }) {
                         body: formData
                       });
                       if (!res.ok) throw new Error(await res.text());
-                      alert('Paper scheduled successfully!');
+                      alert('Question Paper scheduled successfully!');
                       e.target.reset();
                       fetchPapers();
                     } catch (err) {
@@ -3509,7 +3509,7 @@ function Dashboard({ user, onLogout }) {
                   }}
                   style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
                 >
-                  <input type="text" name="title" placeholder="Paper Title (e.g. Midterm Physics)" required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
+                  <input type="text" name="title" placeholder="Question Paper Title (e.g. Midterm Physics)" required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
 
                   <select name="target" required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }}>
                     <option value="">Select a Student...</option>
@@ -3540,7 +3540,7 @@ function Dashboard({ user, onLogout }) {
             )}
 
             <div className="card">
-              <h3 style={{ marginBottom: '1.5rem' }}>{(user.role === 'admin' || user.role === 'staff') ? 'Scheduled Papers' : 'Available Papers'}</h3>
+              <h3 style={{ marginBottom: '1.5rem' }}>{(user.role === 'admin' || user.role === 'staff') ? 'Scheduled Question Papers' : 'Available Question Papers'}</h3>
               <div className="activity-list">
                 {papers.map((paper) => {
                   if (user.role === 'student') {
@@ -3614,7 +3614,7 @@ function Dashboard({ user, onLogout }) {
                               a.click();
                               a.remove();
                             } catch (err) {
-                              alert("Error downloading QP");
+                              alert("Error downloading question paper");
                             }
                           }} style={{ padding: '0.45rem 0.9rem', background: 'rgba(59, 130, 246, 0.08)', color: 'var(--primary-color)', border: '1px solid rgba(59, 130, 246, 0.2)', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }} title="Download Question Paper">
                             QP 📥
@@ -3644,7 +3644,7 @@ function Dashboard({ user, onLogout }) {
                           )}
 
                           <button onClick={async () => {
-                            if (!window.confirm('Delete this paper?')) return;
+                            if (!window.confirm('Delete this question paper?')) return;
                             await fetch(`/admin/paper/${paper._id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${user.token}` } });
                             fetchPapers();
                           }} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '1.2rem', padding: '0 0.5rem' }}>🗑️</button>
@@ -3653,7 +3653,7 @@ function Dashboard({ user, onLogout }) {
                     </div>
                   );
                 })}
-                {papers.length === 0 && <p style={{ color: 'var(--text-muted)' }}>No papers available.</p>}
+                {papers.length === 0 && <p style={{ color: 'var(--text-muted)' }}>No question papers available.</p>}
               </div>
             </div>
           </>
@@ -6302,7 +6302,7 @@ function Dashboard({ user, onLogout }) {
                 onClick={() => setActiveTab('papers')}
               >
                 <span className="nav-icon">📄</span>
-                <span className="nav-text">Papers</span>
+                <span className="nav-text">Question Papers</span>
               </li>
               <li
                 className={`mobile-bottom-nav-item ${activeTab === 'schedules' ? 'active' : ''}`}
@@ -6370,7 +6370,7 @@ function Dashboard({ user, onLogout }) {
                 }}
               >
                 <span className="nav-icon">📄</span>
-                <span className="nav-text">Papers</span>
+                <span className="nav-text">Question Papers</span>
               </li>
               <li
                 className={`mobile-bottom-nav-item ${activeTab === 'schedules' ? 'active' : ''}`}

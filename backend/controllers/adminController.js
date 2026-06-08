@@ -531,7 +531,7 @@ const uploadQuestionPaper = async (req, res) => {
       uploadDuration: uploadDuration ? parseInt(uploadDuration) : 15,
     });
 
-    res.json({ message: "Paper scheduled successfully!" });
+    res.json({ message: "Question Paper scheduled successfully!" });
   } catch (error) {
     console.error("Upload paper error:", error);
     res.status(500).json({ message: "Server error" });
@@ -554,7 +554,7 @@ const deletePaper = async (req, res) => {
   try {
     const { id } = req.params;
     await QuestionPaper.findByIdAndDelete(id);
-    res.json({ message: "Paper deleted successfully" });
+    res.json({ message: "Question Paper deleted successfully" });
   } catch (err) {
     console.error("Delete paper error:", err);
     res.status(500).json({ message: "Server error" });
@@ -568,7 +568,7 @@ const downloadAnswerPaper = async (req, res) => {
     const paper = await QuestionPaper.findById(id);
 
     if (!paper) {
-      return res.status(404).json({ message: "Paper not found" });
+      return res.status(404).json({ message: "Question Paper not found" });
     }
 
     if (!paper.answerFileData) {
