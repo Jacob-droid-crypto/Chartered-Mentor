@@ -1903,7 +1903,7 @@ function Dashboard({ user, onLogout }) {
           "Total Absent (Leaves)": record.totalAbsent,
         };
 
-        if (attendanceView === 'monthly' || attendanceView === 'range') {
+        if (attendanceView === 'weekly' || attendanceView === 'monthly' || attendanceView === 'range') {
           row["Late Logins"] = record.lateCount || 0;
         }
 
