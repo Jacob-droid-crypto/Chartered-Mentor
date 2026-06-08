@@ -770,3 +770,16 @@
     padding-bottom: 100px !important; /* Ensure content isn't covered by bottom nav */
   }
 }
+
+.header-logo-img {
+  height: 180px;
+  width: auto;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.12));
+  transition: transform 0.3s ease, filter 0.3s ease;
+}
+
+@media screen and (max-width: 768px) {
+  .header-logo-img {
+    height: 90px;
+  }
+}

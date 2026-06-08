@@ -2387,31 +2387,6 @@ function Dashboard({ user, onLogout }) {
               )}
             </div>
 
-            <div 
-              className="header-logo" 
-              style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-              onClick={() => setActiveTab('dashboard')}
-              title="Go to Dashboard"
-            >
-              <img 
-                src="/logo.png" 
-                alt="Chartered Mentor Logo" 
-                style={{ 
-                  height: '120px', 
-                  width: 'auto', 
-                  filter: 'drop-shadow(0 6px 16px rgba(0, 0, 0, 0.12))',
-                  transition: 'transform 0.3s ease, filter 0.3s ease'
-                }} 
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'scale(1.07)';
-                  e.currentTarget.style.filter = 'drop-shadow(0 8px 20px rgba(0,0,0,0.18))';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'scale(1)';
-                  e.currentTarget.style.filter = 'drop-shadow(0 6px 16px rgba(0, 0, 0, 0.12))';
-                }}
-              />
-            </div>
             <div className="welcome-text">
               <h1 style={{ fontSize: '1.8rem', margin: 0, fontWeight: '600', color: 'var(--text-main)' }}>
                 {activeTab === 'dashboard' ? `Welcome back, ${user.name} 👋`
@@ -2453,6 +2428,31 @@ function Dashboard({ user, onLogout }) {
                   {user.name ? user.name.charAt(0).toUpperCase() : '?'}
                 </div>
               )}
+            </div>
+            <div 
+              className="header-logo" 
+              style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+              onClick={() => setActiveTab('dashboard')}
+              title="Go to Dashboard"
+            >
+              <img 
+                src="/logo.png" 
+                alt="Chartered Mentor Logo" 
+                className="header-logo-img"
+                style={{ 
+                  width: 'auto', 
+                  filter: 'drop-shadow(0 6px 16px rgba(0, 0, 0, 0.12))',
+                  transition: 'transform 0.3s ease, filter 0.3s ease'
+                }} 
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'scale(1.07)';
+                  e.currentTarget.style.filter = 'drop-shadow(0 8px 20px rgba(0,0,0,0.18))';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.filter = 'drop-shadow(0 6px 16px rgba(0, 0, 0, 0.12))';
+                }}
+              />
             </div>
           </div>
         </header>
