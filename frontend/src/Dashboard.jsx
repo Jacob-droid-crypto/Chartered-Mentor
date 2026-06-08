@@ -2454,16 +2454,6 @@ function Dashboard({ user, onLogout }) {
             </div>
           </div>
           <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div className="profile-section" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <span>{user.name}</span>
-              {profileData?.profilePhoto || user.profilePhoto ? (
-                <img src={profileData?.profilePhoto || user.profilePhoto} alt="Profile" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid white' }} />
-              ) : (
-                <div className="avatar" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold' }}>
-                  {user.name ? user.name.charAt(0).toUpperCase() : '?'}
-                </div>
-              )}
-            </div>
             <div 
               className="header-logo" 
               style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
@@ -2488,6 +2478,16 @@ function Dashboard({ user, onLogout }) {
                   e.currentTarget.style.filter = 'drop-shadow(0 6px 16px rgba(0, 0, 0, 0.12))';
                 }}
               />
+            </div>
+            <div className="profile-section" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <span>{user.name}</span>
+              {profileData?.profilePhoto || user.profilePhoto ? (
+                <img src={profileData?.profilePhoto || user.profilePhoto} alt="Profile" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid white' }} />
+              ) : (
+                <div className="avatar" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold' }}>
+                  {user.name ? user.name.charAt(0).toUpperCase() : '?'}
+                </div>
+              )}
             </div>
           </div>
         </header>
