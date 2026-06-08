@@ -3206,7 +3206,7 @@ function Dashboard({ user, onLogout }) {
                     style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }}
                   />
                 )}
-                {user.role === 'admin' && attendanceView !== 'student' && (
+                {(user.role === 'admin' || user.role === 'staff') && attendanceView !== 'student' && (
                   <button onClick={handleExportExcel} style={{ padding: '0.6rem 1rem', borderRadius: '8px', border: 'none', background: '#10b981', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}>
                     📥 Export Excel
                   </button>
