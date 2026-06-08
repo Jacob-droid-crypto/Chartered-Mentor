@@ -2134,15 +2134,18 @@ function Dashboard({ user, onLogout }) {
       <main className="main-content">
         <header className="top-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '2rem', flexWrap: 'wrap' }}>
           <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
-            {/* Three Dots Navigation Menu */}
+            {/* Navigation Menu (Three Bars Hamburger) */}
             <div className="header-nav-menu-container" style={{ position: 'relative' }}>
               <button 
-                className="three-dots-btn" 
+                className={`three-bars-btn ${showNavDropdown ? 'open' : ''}`}
                 onClick={() => setShowNavDropdown(!showNavDropdown)}
                 title="Navigation Menu"
                 aria-label="Navigation Menu"
+                style={{ position: 'relative', zIndex: 1000 }}
               >
-                ⋮
+                <div className="bar-line"></div>
+                <div className="bar-line"></div>
+                <div className="bar-line"></div>
               </button>
               {showNavDropdown && (
                 <>
@@ -2151,6 +2154,7 @@ function Dashboard({ user, onLogout }) {
                     onClick={() => setShowNavDropdown(false)} 
                   />
                   <div className="nav-dropdown-menu">
+                    <div className="mobile-drag-handle" />
                     <div className="nav-dropdown-header">Navigation</div>
                     <ul className="nav-dropdown-list">
                       <li 
