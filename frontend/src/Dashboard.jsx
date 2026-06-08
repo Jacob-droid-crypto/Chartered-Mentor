@@ -17,27 +17,27 @@ const getLocalDateString = (date = new Date()) => {
 const getStudentCustomMonthRange = (joiningDateStr, targetDateStr) => {
   const jDate = new Date(joiningDateStr);
   const targetDate = new Date(targetDateStr);
-  
+
   if (isNaN(jDate.getTime()) || isNaN(targetDate.getTime())) {
     return null;
   }
-  
+
   jDate.setHours(0, 0, 0, 0);
   targetDate.setHours(0, 0, 0, 0);
-  
+
   const targetYear = targetDate.getFullYear();
   const targetMonth = targetDate.getMonth(); // 0-11
   const dojDay = jDate.getDate();
-  
+
   let startYear = targetYear;
   let startMonth = targetMonth;
-  
+
   const lastDayOfTargetMonth = new Date(startYear, startMonth + 1, 0).getDate();
   const startDay = Math.min(dojDay, lastDayOfTargetMonth);
-  
+
   let startDate = new Date(startYear, startMonth, startDay);
   startDate.setHours(0, 0, 0, 0);
-  
+
   if (targetDate < startDate) {
     startMonth -= 1;
     if (startMonth < 0) {
@@ -49,7 +49,7 @@ const getStudentCustomMonthRange = (joiningDateStr, targetDateStr) => {
     startDate = new Date(startYear, startMonth, prevStartDay);
     startDate.setHours(0, 0, 0, 0);
   }
-  
+
   let endYear = startDate.getFullYear();
   let endMonth = startDate.getMonth() + 1;
   if (endMonth > 11) {
@@ -61,7 +61,7 @@ const getStudentCustomMonthRange = (joiningDateStr, targetDateStr) => {
   const endDate = new Date(endYear, endMonth, endDay);
   endDate.setDate(endDate.getDate() - 1);
   endDate.setHours(23, 59, 59, 999);
-  
+
   return { startDate, endDate };
 };
 
@@ -114,7 +114,7 @@ function StudentPaperCard({ paper, user, onRefresh }) {
         }
       });
       if (!res.ok) throw new Error(await res.text());
-      
+
       // 2. Trigger automatic download of the question paper
       const downloadRes = await fetch(`/student/paper/${paper._id}/download`, {
         headers: { 'Authorization': `Bearer ${user.token}` }
@@ -165,14 +165,14 @@ function StudentPaperCard({ paper, user, onRefresh }) {
         let result;
         try {
           result = JSON.parse(text);
-        } catch(e) {
-          throw new Error(res.status === 413 
-            ? "File is too large for the hosting platform (limit is 4.5MB total). Please compress your file." 
+        } catch (e) {
+          throw new Error(res.status === 413
+            ? "File is too large for the hosting platform (limit is 4.5MB total). Please compress your file."
             : "Server error: " + text.slice(0, 100)
           );
         }
         if (!res.ok) throw new Error(result.message);
-        
+
         alert("Answer sheets uploaded successfully!");
         onRefresh();
       } catch (err) {
@@ -260,7 +260,7 @@ function StudentPaperCard({ paper, user, onRefresh }) {
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
-              } catch(err) {
+              } catch (err) {
                 alert("Error downloading answer sheet");
               }
             }} style={{ padding: '0.55rem 1.2rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
@@ -268,8 +268,8 @@ function StudentPaperCard({ paper, user, onRefresh }) {
             </button>
             {!isTimeExpired && (
               <>
-                <input 
-                  type="file" 
+                <input
+                  type="file"
                   id={`re-upload-${paper._id}`}
                   accept=".pdf,.png,.jpg,.jpeg"
                   onChange={(e) => {
@@ -281,7 +281,7 @@ function StudentPaperCard({ paper, user, onRefresh }) {
                   }}
                   style={{ display: 'none' }}
                 />
-                <label 
+                <label
                   htmlFor={`re-upload-${paper._id}`}
                   style={{
                     display: 'inline-block',
@@ -353,7 +353,7 @@ function StudentPaperCard({ paper, user, onRefresh }) {
         </div>
 
         {/* Upload Answer Form */}
-        <div 
+        <div
           onDragEnter={handleDrag}
           onDragOver={handleDrag}
           onDragLeave={handleDrag}
@@ -379,8 +379,8 @@ function StudentPaperCard({ paper, user, onRefresh }) {
               <p style={{ margin: '0 0 1rem 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                 or click below to choose a file (PDF or Images, Max 10MB)
               </p>
-              <input 
-                type="file" 
+              <input
+                type="file"
                 id={`ans-upload-${paper._id}`}
                 accept=".pdf,.png,.jpg,.jpeg"
                 onChange={(e) => {
@@ -390,7 +390,7 @@ function StudentPaperCard({ paper, user, onRefresh }) {
                 }}
                 style={{ display: 'none' }}
               />
-              <label 
+              <label
                 htmlFor={`ans-upload-${paper._id}`}
                 style={{
                   display: 'inline-block',
@@ -426,7 +426,7 @@ function StudentPaperCard({ paper, user, onRefresh }) {
           </div>
         </div>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <button 
+          <button
             onClick={handleStartExam}
             style={{
               padding: '0.65rem 1.5rem',
@@ -442,8 +442,8 @@ function StudentPaperCard({ paper, user, onRefresh }) {
           >
             ▶️ Start Exam
           </button>
-          <input 
-            type="file" 
+          <input
+            type="file"
             id={`direct-upload-${paper._id}`}
             accept=".pdf,.png,.jpg,.jpeg"
             onChange={async (e) => {
@@ -465,10 +465,10 @@ function StudentPaperCard({ paper, user, onRefresh }) {
                     }
                   });
                   if (!startRes.ok) throw new Error(await startRes.text());
-                  
+
                   // 2. Upload file
                   await handleFileUpload(file);
-                } catch(err) {
+                } catch (err) {
                   alert("Failed to start/upload: " + err.message);
                 } finally {
                   setUploading(false);
@@ -477,7 +477,7 @@ function StudentPaperCard({ paper, user, onRefresh }) {
             }}
             style={{ display: 'none' }}
           />
-          <label 
+          <label
             htmlFor={`direct-upload-${paper._id}`}
             style={{
               display: 'inline-block',
@@ -565,7 +565,7 @@ function Dashboard({ user, onLogout }) {
   // Attendance Filters
   const [attendanceView, setAttendanceView] = useState('daily'); // daily, weekly, monthly, student
   const [attendanceSearch, setAttendanceSearch] = useState('');
-    const [attendanceDate, setAttendanceDate] = useState(getLocalDateString());
+  const [attendanceDate, setAttendanceDate] = useState(getLocalDateString());
   const [attendanceStartDate, setAttendanceStartDate] = useState(() => {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
@@ -581,7 +581,7 @@ function Dashboard({ user, onLogout }) {
   const [schedulerDate, setSchedulerDate] = useState("");
   const [schedulerExamName, setSchedulerExamName] = useState("");
   const [schedulerFilterDate, setSchedulerFilterDate] = useState(getLocalDateString());
-  
+
   // Exam Scheduler Editing State
   const [editingSchedule, setEditingSchedule] = useState(null);
   const [editDate, setEditDate] = useState("");
@@ -603,7 +603,7 @@ function Dashboard({ user, onLogout }) {
   const [feeSetupStudent, setFeeSetupStudent] = useState(null);
   const [showFeeDuePopup, setShowFeeDuePopup] = useState(false);
   const [editingPayment, setEditingPayment] = useState(null);
-  
+
   // Campus QR Rotation States
   const [campusQRConfig, setCampusQRConfig] = useState({
     activeInToken: "CM-ATTENDANCE-IN",
@@ -628,8 +628,8 @@ function Dashboard({ user, onLogout }) {
         const response = await fetch(`/student/scan-qr`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            studentId: user.userId, 
+          body: JSON.stringify({
+            studentId: user.userId,
             qrValue: qrData,
             lat: latitude,
             lng: longitude
@@ -682,16 +682,16 @@ function Dashboard({ user, onLogout }) {
       if (res.ok) {
         const logs = await res.json();
         const dailyLogs = logs.filter(log => log.studentId === record.studentId && log.date === record.date);
-        
+
         const inLog = dailyLogs.find(log => log.type === 'IN');
         const outLog = dailyLogs.find(log => log.type === 'OUT');
-        
+
         let checkInDisplay = 'No Check-In record found';
         if (inLog) {
           const inDate = new Date(inLog.timestamp);
           checkInDisplay = isNaN(inDate.getTime()) ? (inLog.time || '-') : inDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         }
-        
+
         let initialCheckoutTime = '18:00';
         if (outLog) {
           const outDate = new Date(outLog.timestamp);
@@ -709,7 +709,7 @@ function Dashboard({ user, onLogout }) {
             initialCheckoutTime = `${h}:${m}`;
           }
         }
-        
+
         setManualCheckoutData(prev => ({
           ...prev,
           checkInTimeDisplay: checkInDisplay,
@@ -848,7 +848,7 @@ function Dashboard({ user, onLogout }) {
   const [papers, setPapers] = useState([]);
   const [schedules, setSchedules] = useState([]);
   const [activeSchedulesSheet, setActiveSchedulesSheet] = useState({});
-  
+
   const fetchPapers = async () => {
     try {
       const endpoint = (user.role === 'admin' || user.role === 'staff') ? '/admin/papers' : '/student/papers';
@@ -1036,7 +1036,7 @@ function Dashboard({ user, onLogout }) {
         setLiveStudyHours(0);
         return;
       }
-      
+
       // Sort logs by timestamp/createdAt ascending to ensure correct order
       const sortedLogs = [...todayLogs].sort((a, b) => {
         const tA = new Date(a.timestamp || a.createdAt).getTime();
@@ -1138,7 +1138,7 @@ function Dashboard({ user, onLogout }) {
     const notifications = [];
     const today = new Date();
     const todayStr = getLocalDateString(today);
-    
+
     const tomorrow = new Date();
     tomorrow.setDate(today.getDate() + 1);
     const tomorrowStr = getLocalDateString(tomorrow);
@@ -1231,7 +1231,7 @@ function Dashboard({ user, onLogout }) {
     try {
       const res = await fetch('/admin/campus-qr/refresh', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Authorization': `Bearer ${user.token}`,
           'Content-Type': 'application/json'
         },
@@ -1349,10 +1349,10 @@ function Dashboard({ user, onLogout }) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const dayOfWeek = today.getDay();
-    
+
     const sunday = new Date(today);
     sunday.setDate(today.getDate() - dayOfWeek);
-    
+
     let temp = new Date(sunday);
     while (temp <= today) {
       days.push(new Date(temp));
@@ -1366,7 +1366,7 @@ function Dashboard({ user, onLogout }) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    
+
     let temp = new Date(firstOfMonth);
     while (temp <= today) {
       days.push(new Date(temp));
@@ -1379,25 +1379,25 @@ function Dashboard({ user, onLogout }) {
     if (!joiningDateStr) {
       return new Date(today.getFullYear(), today.getMonth(), 1);
     }
-    
+
     const jDate = new Date(joiningDateStr);
     if (isNaN(jDate.getTime())) {
       return new Date(today.getFullYear(), today.getMonth(), 1);
     }
     jDate.setHours(0, 0, 0, 0);
     const joinDay = jDate.getDate();
-    
+
     let startYear = today.getFullYear();
     let startMonth = today.getMonth();
-    
+
     let candidate = new Date(startYear, startMonth, joinDay);
     candidate.setHours(0, 0, 0, 0);
-    
+
     if (candidate.getMonth() !== startMonth) {
       candidate = new Date(startYear, startMonth + 1, 0);
       candidate.setHours(0, 0, 0, 0);
     }
-    
+
     if (candidate > today) {
       startMonth -= 1;
       if (startMonth < 0) {
@@ -1411,11 +1411,11 @@ function Dashboard({ user, onLogout }) {
         candidate.setHours(0, 0, 0, 0);
       }
     }
-    
+
     if (candidate < jDate) {
       return new Date(jDate);
     }
-    
+
     return candidate;
   };
 
@@ -1423,9 +1423,9 @@ function Dashboard({ user, onLogout }) {
     const days = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     const startOfPeriod = getCurrentAttendanceMonthStart(joiningDateStr, today);
-    
+
     let temp = new Date(startOfPeriod);
     while (temp <= today) {
       days.push(new Date(temp));
@@ -1455,7 +1455,7 @@ function Dashboard({ user, onLogout }) {
     }
 
     const todayStr = formatLocalDate(new Date());
-    
+
     const summaryMap = {};
     studentLogs.forEach(item => {
       summaryMap[item.date] = item;
@@ -1656,7 +1656,7 @@ function Dashboard({ user, onLogout }) {
           const targetMonthKey = attendanceDate.substring(0, 7);
           if (monthKey === targetMonthKey) keyToMatch = true;
         }
-            } else if (attendanceView === 'weekly') {
+      } else if (attendanceView === 'weekly') {
         const targetDate = new Date(attendanceDate);
         const startOfWeek = new Date(targetDate);
         startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
@@ -1680,13 +1680,13 @@ function Dashboard({ user, onLogout }) {
 
       if (keyToMatch) {
         if (!aggregatedMap[item.studentId]) {
-          aggregatedMap[item.studentId] = { 
-            studentId: item.studentId, 
-            studentName: item.studentName || studentMap[item.studentId] || 'Unknown Student', 
-            course: item.course, 
-            totalPresent: 0, 
-            totalAbsent: 0, 
-            presentDates: [], 
+          aggregatedMap[item.studentId] = {
+            studentId: item.studentId,
+            studentName: item.studentName || studentMap[item.studentId] || 'Unknown Student',
+            course: item.course,
+            totalPresent: 0,
+            totalAbsent: 0,
+            presentDates: [],
             totalHours: 0,
             lateCount: 0
           };
@@ -1789,7 +1789,7 @@ function Dashboard({ user, onLogout }) {
         }
       }
 
-            if (attendanceView === 'range') {
+      if (attendanceView === 'range') {
         const start = attendanceStartDate ? new Date(attendanceStartDate) : new Date();
         const end = attendanceEndDate ? new Date(attendanceEndDate) : new Date();
         start.setHours(0, 0, 0, 0);
@@ -1853,7 +1853,7 @@ function Dashboard({ user, onLogout }) {
             dateList.push(dateStr);
           }
         }
-            } else if (attendanceView === 'monthly') {
+      } else if (attendanceView === 'monthly') {
         const [year, month] = attendanceDate.split('-');
         const y = parseInt(year);
         const m = parseInt(month) - 1;
@@ -1869,7 +1869,7 @@ function Dashboard({ user, onLogout }) {
       } else if (attendanceView === 'range') {
         const start = attendanceStartDate ? new Date(attendanceStartDate) : new Date();
         const end = attendanceEndDate ? new Date(attendanceEndDate) : new Date();
-        
+
         let curr = new Date(start);
         while (curr <= end) {
           const dateStr = curr.toISOString().split('T')[0];
@@ -1903,7 +1903,7 @@ function Dashboard({ user, onLogout }) {
           "Total Absent (Leaves)": record.totalAbsent,
         };
 
-                if (attendanceView === 'monthly' || attendanceView === 'range') {
+        if (attendanceView === 'monthly' || attendanceView === 'range') {
           row["Late Logins"] = record.lateCount || 0;
         }
 
@@ -1924,7 +1924,7 @@ function Dashboard({ user, onLogout }) {
 
           const logsForDate = studentDateLogs[record.studentId] || {};
           const log = logsForDate[dateStr];
-          
+
           if (isBeforeJoining) {
             row[dateStr] = ""; // Keep as blank
           } else if (log && log.status === 'Present') {
@@ -2136,7 +2136,7 @@ function Dashboard({ user, onLogout }) {
           <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
             {/* Navigation Menu (Three Bars Hamburger) */}
             <div className="header-nav-menu-container" style={{ position: 'relative' }}>
-              <button 
+              <button
                 className={`three-bars-btn ${showNavDropdown ? 'open' : ''}`}
                 onClick={() => setShowNavDropdown(!showNavDropdown)}
                 title="Navigation Menu"
@@ -2149,16 +2149,16 @@ function Dashboard({ user, onLogout }) {
               </button>
               {showNavDropdown && (
                 <>
-                  <div 
-                    className="nav-dropdown-backdrop" 
-                    onClick={() => setShowNavDropdown(false)} 
+                  <div
+                    className="nav-dropdown-backdrop"
+                    onClick={() => setShowNavDropdown(false)}
                   />
                   <div className="nav-dropdown-menu">
                     <div className="mobile-drag-handle" />
                     <div className="nav-dropdown-header">Navigation</div>
                     <ul className="nav-dropdown-list">
-                      <li 
-                        className={`nav-dropdown-item ${activeTab === 'dashboard' ? 'active' : ''}`} 
+                      <li
+                        className={`nav-dropdown-item ${activeTab === 'dashboard' ? 'active' : ''}`}
                         onClick={() => {
                           setShowNavDropdown(false);
                           if (user.role === 'student' && data && !data.profileCompleted) {
@@ -2172,8 +2172,8 @@ function Dashboard({ user, onLogout }) {
                       </li>
                       {(user.role === 'admin' || user.role === 'staff') ? (
                         <>
-                          <li 
-                            className={`nav-dropdown-item ${activeTab === 'profile' ? 'active' : ''}`} 
+                          <li
+                            className={`nav-dropdown-item ${activeTab === 'profile' ? 'active' : ''}`}
                             onClick={() => {
                               setShowNavDropdown(false);
                               setActiveTab('profile');
@@ -2181,8 +2181,8 @@ function Dashboard({ user, onLogout }) {
                           >
                             <span>👤</span> Profile
                           </li>
-                          <li 
-                            className={`nav-dropdown-item ${activeTab === 'students' ? 'active' : ''}`} 
+                          <li
+                            className={`nav-dropdown-item ${activeTab === 'students' ? 'active' : ''}`}
                             onClick={() => {
                               setShowNavDropdown(false);
                               setActiveTab('students');
@@ -2190,8 +2190,8 @@ function Dashboard({ user, onLogout }) {
                           >
                             <span>🎓</span> Students
                           </li>
-                          <li 
-                            className={`nav-dropdown-item ${activeTab === 'attendance' ? 'active' : ''}`} 
+                          <li
+                            className={`nav-dropdown-item ${activeTab === 'attendance' ? 'active' : ''}`}
                             onClick={() => {
                               setShowNavDropdown(false);
                               setActiveTab('attendance');
@@ -2199,8 +2199,8 @@ function Dashboard({ user, onLogout }) {
                           >
                             <span>📅</span> Attendance
                           </li>
-                          <li 
-                            className={`nav-dropdown-item ${activeTab === 'papers' ? 'active' : ''}`} 
+                          <li
+                            className={`nav-dropdown-item ${activeTab === 'papers' ? 'active' : ''}`}
                             onClick={() => {
                               setShowNavDropdown(false);
                               setActiveTab('papers');
@@ -2208,8 +2208,8 @@ function Dashboard({ user, onLogout }) {
                           >
                             <span>📄</span> Papers
                           </li>
-                          <li 
-                            className={`nav-dropdown-item ${activeTab === 'schedules' ? 'active' : ''}`} 
+                          <li
+                            className={`nav-dropdown-item ${activeTab === 'schedules' ? 'active' : ''}`}
                             onClick={() => {
                               setShowNavDropdown(false);
                               setActiveTab('schedules');
@@ -2217,8 +2217,8 @@ function Dashboard({ user, onLogout }) {
                           >
                             <span>🗓️</span> Schedules
                           </li>
-                          <li 
-                            className={`nav-dropdown-item ${activeTab === 'exam_scheduler' ? 'active' : ''}`} 
+                          <li
+                            className={`nav-dropdown-item ${activeTab === 'exam_scheduler' ? 'active' : ''}`}
                             onClick={() => {
                               setShowNavDropdown(false);
                               setActiveTab('exam_scheduler');
@@ -2228,8 +2228,8 @@ function Dashboard({ user, onLogout }) {
                           </li>
                           {user.role === 'admin' && (
                             <>
-                              <li 
-                                className={`nav-dropdown-item ${activeTab === 'payments' ? 'active' : ''}`} 
+                              <li
+                                className={`nav-dropdown-item ${activeTab === 'payments' ? 'active' : ''}`}
                                 onClick={() => {
                                   setShowNavDropdown(false);
                                   setActiveTab('payments');
@@ -2237,8 +2237,8 @@ function Dashboard({ user, onLogout }) {
                               >
                                 <span>💳</span> Payments
                               </li>
-                              <li 
-                                className={`nav-dropdown-item ${activeTab === 'campus_qr' ? 'active' : ''}`} 
+                              <li
+                                className={`nav-dropdown-item ${activeTab === 'campus_qr' ? 'active' : ''}`}
                                 onClick={() => {
                                   setShowNavDropdown(false);
                                   setActiveTab('campus_qr');
@@ -2246,8 +2246,8 @@ function Dashboard({ user, onLogout }) {
                               >
                                 <span>🔲</span> Campus QR
                               </li>
-                              <li 
-                                className={`nav-dropdown-item ${activeTab === 'goal_settings' ? 'active' : ''}`} 
+                              <li
+                                className={`nav-dropdown-item ${activeTab === 'goal_settings' ? 'active' : ''}`}
                                 onClick={() => {
                                   setShowNavDropdown(false);
                                   setActiveTab('goal_settings');
@@ -2260,8 +2260,8 @@ function Dashboard({ user, onLogout }) {
                         </>
                       ) : (
                         <>
-                          <li 
-                            className={`nav-dropdown-item ${activeTab === 'attendance' ? 'active' : ''}`} 
+                          <li
+                            className={`nav-dropdown-item ${activeTab === 'attendance' ? 'active' : ''}`}
                             onClick={() => {
                               setShowNavDropdown(false);
                               if (data && !data.profileCompleted) {
@@ -2273,8 +2273,8 @@ function Dashboard({ user, onLogout }) {
                           >
                             <span>📅</span> Attendance Records
                           </li>
-                          <li 
-                            className={`nav-dropdown-item ${activeTab === 'papers' ? 'active' : ''}`} 
+                          <li
+                            className={`nav-dropdown-item ${activeTab === 'papers' ? 'active' : ''}`}
                             onClick={() => {
                               setShowNavDropdown(false);
                               if (data && !data.profileCompleted) {
@@ -2286,8 +2286,8 @@ function Dashboard({ user, onLogout }) {
                           >
                             <span>📄</span> Exam Papers
                           </li>
-                          <li 
-                            className={`nav-dropdown-item ${activeTab === 'schedules' ? 'active' : ''}`} 
+                          <li
+                            className={`nav-dropdown-item ${activeTab === 'schedules' ? 'active' : ''}`}
                             onClick={() => {
                               setShowNavDropdown(false);
                               if (data && !data.profileCompleted) {
@@ -2299,8 +2299,8 @@ function Dashboard({ user, onLogout }) {
                           >
                             <span>🗓️</span> My Schedule
                           </li>
-                          <li 
-                            className={`nav-dropdown-item ${activeTab === 'payments' ? 'active' : ''}`} 
+                          <li
+                            className={`nav-dropdown-item ${activeTab === 'payments' ? 'active' : ''}`}
                             onClick={() => {
                               setShowNavDropdown(false);
                               if (data && !data.profileCompleted) {
@@ -2312,8 +2312,8 @@ function Dashboard({ user, onLogout }) {
                           >
                             <span>💳</span> Payments
                           </li>
-                          <li 
-                            className={`nav-dropdown-item ${activeTab === 'study_tracker' ? 'active' : ''}`} 
+                          <li
+                            className={`nav-dropdown-item ${activeTab === 'study_tracker' ? 'active' : ''}`}
                             onClick={() => {
                               setShowNavDropdown(false);
                               if (data && !data.profileCompleted) {
@@ -2325,8 +2325,8 @@ function Dashboard({ user, onLogout }) {
                           >
                             <span>⏱️</span> Study Goal Tracker
                           </li>
-                          <li 
-                            className={`nav-dropdown-item ${activeTab === 'profile' ? 'active' : ''}`} 
+                          <li
+                            className={`nav-dropdown-item ${activeTab === 'profile' ? 'active' : ''}`}
                             onClick={() => {
                               setShowNavDropdown(false);
                               setActiveTab('profile');
@@ -2340,10 +2340,10 @@ function Dashboard({ user, onLogout }) {
                       {/* Divider */}
                       <li style={{ height: '1px', backgroundColor: 'rgba(0, 0, 0, 0.08)', margin: '0.25rem 0' }} />
 
-                      {/* Logout Button */}
-                      <li 
-                        className="nav-dropdown-item danger" 
-                        onClick={() => {
+                       {/* Logout Button */}
+                       <li 
+                         className="nav-dropdown-item danger" 
+                         onClick={() => {
                           setShowNavDropdown(false);
                           onLogout();
                         }}
@@ -2356,18 +2356,29 @@ function Dashboard({ user, onLogout }) {
               )}
             </div>
 
-            <div className="header-logo" style={{ display: 'flex', alignItems: 'center' }}>
+            <div 
+              className="header-logo" 
+              style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+              onClick={() => setActiveTab('dashboard')}
+              title="Go to Dashboard"
+            >
               <img 
                 src="/logo.png" 
                 alt="Chartered Mentor Logo" 
                 style={{ 
-                  height: '90px', 
+                  height: '120px', 
                   width: 'auto', 
-                  filter: 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.06))',
-                  transition: 'transform 0.3s ease'
+                  filter: 'drop-shadow(0 6px 16px rgba(0, 0, 0, 0.12))',
+                  transition: 'transform 0.3s ease, filter 0.3s ease'
                 }} 
-                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.03)'}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'scale(1.07)';
+                  e.currentTarget.style.filter = 'drop-shadow(0 8px 20px rgba(0,0,0,0.18))';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.filter = 'drop-shadow(0 6px 16px rgba(0, 0, 0, 0.12))';
+                }}
               />
             </div>
             <div className="welcome-text">
@@ -2386,7 +2397,7 @@ function Dashboard({ user, onLogout }) {
                   : 'Campus QR'}
               </h1>
               <p style={{ margin: '4px 0 0 0', fontSize: '0.95rem', color: 'var(--text-muted)' }}>
-                {activeTab === 'dashboard' ? `Role: ${user.role === 'admin' ? 'Administrator' : user.role === 'staff' ? 'Staff' : 'Student (ID: ' + user.userId + ')'}`
+                {activeTab === 'dashboard' ? `Role: ${user.role === 'admin' ? 'Administrator' : user.role === 'staff' ? 'Staff' : 'Student (ID: ' + user.userId + ')' }`
                   : activeTab === 'students' ? 'Add new students or remove existing ones from the system.'
                   : activeTab === 'attendance' ? 'View and track your attendance logs.'
                   : activeTab === 'profile' ? 'Update your personal details and photo.'
@@ -2426,7 +2437,7 @@ function Dashboard({ user, onLogout }) {
               const todayDayIndex = new Date().getDay();
               const todayKey = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][todayDayIndex];
               const todayTarget = goalConfig[todayKey] !== undefined ? goalConfig[todayKey] : 12;
-              
+
               const todayLogs = data?.todayLogs || [];
               const lastLog = todayLogs.length > 0 ? todayLogs[todayLogs.length - 1] : null;
               const isCurrentlyCheckedIn = lastLog && lastLog.type === 'IN';
@@ -2475,9 +2486,9 @@ function Dashboard({ user, onLogout }) {
                   )}
 
                   {motivationalQuote && (
-                    <div className="card" style={{ 
-                      marginBottom: '2rem', 
-                      background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(236, 72, 153, 0.03))', 
+                    <div className="card" style={{
+                      marginBottom: '2rem',
+                      background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(236, 72, 153, 0.03))',
                       borderLeft: '5px solid var(--primary-color)',
                       padding: '1.25rem 1.5rem',
                       borderRadius: '16px',
@@ -2507,7 +2518,7 @@ function Dashboard({ user, onLogout }) {
                           justifyContent: 'space-between',
                           gap: '1.5rem',
                           padding: '1.75rem',
-                          background: isCurrentlyCheckedIn 
+                          background: isCurrentlyCheckedIn
                             ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(255, 255, 255, 0.9))'
                             : 'white',
                           border: isCurrentlyCheckedIn ? '1.5px solid #10b981' : '1px solid var(--glass-border)',
@@ -2521,13 +2532,13 @@ function Dashboard({ user, onLogout }) {
                                 TODAY'S STUDY HOURS
                               </h3>
                             </div>
-                            <div className="value" style={{ 
-                              fontSize: '2.6rem', 
-                              fontWeight: '800', 
-                              fontFamily: 'monospace, var(--font-mono)', 
+                            <div className="value" style={{
+                              fontSize: '2.6rem',
+                              fontWeight: '800',
+                              fontFamily: 'monospace, var(--font-mono)',
                               letterSpacing: '-1px',
-                              background: isCurrentlyCheckedIn 
-                                ? 'linear-gradient(to right, #10b981, #047857)' 
+                              background: isCurrentlyCheckedIn
+                                ? 'linear-gradient(to right, #10b981, #047857)'
                                 : 'linear-gradient(to right, var(--text-main), #475569)',
                               WebkitBackgroundClip: 'text',
                               WebkitTextFillColor: 'transparent',
@@ -2538,15 +2549,15 @@ function Dashboard({ user, onLogout }) {
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem' }}>
                               {isCurrentlyCheckedIn ? (
-                                <span style={{ 
-                                  display: 'inline-flex', 
-                                  alignItems: 'center', 
-                                  gap: '6px', 
-                                  fontSize: '0.75rem', 
-                                  fontWeight: 'bold', 
-                                  color: '#10b981', 
-                                  background: 'rgba(16, 185, 129, 0.1)', 
-                                  padding: '3px 8px', 
+                                <span style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 'bold',
+                                  color: '#10b981',
+                                  background: 'rgba(16, 185, 129, 0.1)',
+                                  padding: '3px 8px',
                                   borderRadius: '20px',
                                   textTransform: 'uppercase',
                                   letterSpacing: '0.5px'
@@ -2555,15 +2566,15 @@ function Dashboard({ user, onLogout }) {
                                   Active Ticking
                                 </span>
                               ) : (
-                                <span style={{ 
-                                  display: 'inline-flex', 
-                                  alignItems: 'center', 
-                                  gap: '6px', 
-                                  fontSize: '0.75rem', 
-                                  fontWeight: 'bold', 
-                                  color: '#64748b', 
-                                  background: '#f1f5f9', 
-                                  padding: '3px 8px', 
+                                <span style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 'bold',
+                                  color: '#64748b',
+                                  background: '#f1f5f9',
+                                  padding: '3px 8px',
                                   borderRadius: '20px',
                                   textTransform: 'uppercase',
                                   letterSpacing: '0.5px'
@@ -2576,7 +2587,7 @@ function Dashboard({ user, onLogout }) {
                               </span>
                             </div>
                           </div>
-                          
+
                           {/* SVG Circular Progress Ring */}
                           <div style={{ position: 'relative', width: '90px', height: '90px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                             <svg width="90" height="90" viewBox="0 0 90 90" style={{ transform: 'rotate(-90deg)', width: '100%', height: '100%' }}>
@@ -2598,7 +2609,7 @@ function Dashboard({ user, onLogout }) {
                                 strokeDasharray={2 * Math.PI * 38}
                                 strokeDashoffset={2 * Math.PI * 38 - (progressPercent / 100) * 2 * Math.PI * 38}
                                 strokeLinecap="round"
-                                style={{ 
+                                style={{
                                   transition: 'stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
                                   filter: isCurrentlyCheckedIn ? 'drop-shadow(0 0 4px rgba(16, 185, 129, 0.3))' : 'none'
                                 }}
@@ -2685,22 +2696,22 @@ function Dashboard({ user, onLogout }) {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '350px', overflowY: 'auto', paddingRight: '0.5rem' }}>
                     {alerts.length > 0 ? (
                       alerts.map((alert) => (
-                        <div 
-                          key={alert.id} 
-                          style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: '1rem', 
-                            padding: '1rem 1.25rem', 
-                            borderRadius: '12px', 
-                            background: alert.severity === 'warning' ? 'rgba(239, 68, 68, 0.04)' 
-                                      : alert.severity === 'success' ? 'rgba(16, 185, 129, 0.04)'
-                                      : alert.severity === 'info' ? 'rgba(59, 130, 246, 0.04)'
-                                      : 'rgba(0, 0, 0, 0.02)',
+                        <div
+                          key={alert.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '1rem',
+                            padding: '1rem 1.25rem',
+                            borderRadius: '12px',
+                            background: alert.severity === 'warning' ? 'rgba(239, 68, 68, 0.04)'
+                              : alert.severity === 'success' ? 'rgba(16, 185, 129, 0.04)'
+                                : alert.severity === 'info' ? 'rgba(59, 130, 246, 0.04)'
+                                  : 'rgba(0, 0, 0, 0.02)',
                             border: alert.severity === 'warning' ? '1px solid rgba(239, 68, 68, 0.15)'
-                                   : alert.severity === 'success' ? '1px solid rgba(16, 185, 129, 0.15)'
-                                   : alert.severity === 'info' ? '1px solid rgba(59, 130, 246, 0.15)'
-                                   : '1px solid var(--glass-border)',
+                              : alert.severity === 'success' ? '1px solid rgba(16, 185, 129, 0.15)'
+                                : alert.severity === 'info' ? '1px solid rgba(59, 130, 246, 0.15)'
+                                  : '1px solid var(--glass-border)',
                           }}
                         >
                           <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>{alert.icon}</span>
@@ -2735,22 +2746,22 @@ function Dashboard({ user, onLogout }) {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '350px', overflowY: 'auto', paddingRight: '0.5rem' }}>
                     {alerts.length > 0 ? (
                       alerts.map((alert) => (
-                        <div 
-                          key={alert.id} 
-                          style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: '1rem', 
-                            padding: '1rem 1.25rem', 
-                            borderRadius: '12px', 
-                            background: alert.severity === 'warning' ? 'rgba(239, 68, 68, 0.04)' 
-                                      : alert.severity === 'success' ? 'rgba(16, 185, 129, 0.04)'
-                                      : alert.severity === 'info' ? 'rgba(59, 130, 246, 0.04)'
-                                      : 'rgba(0, 0, 0, 0.02)',
+                        <div
+                          key={alert.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '1rem',
+                            padding: '1rem 1.25rem',
+                            borderRadius: '12px',
+                            background: alert.severity === 'warning' ? 'rgba(239, 68, 68, 0.04)'
+                              : alert.severity === 'success' ? 'rgba(16, 185, 129, 0.04)'
+                                : alert.severity === 'info' ? 'rgba(59, 130, 246, 0.04)'
+                                  : 'rgba(0, 0, 0, 0.02)',
                             border: alert.severity === 'warning' ? '1px solid rgba(239, 68, 68, 0.15)'
-                                   : alert.severity === 'success' ? '1px solid rgba(16, 185, 129, 0.15)'
-                                   : alert.severity === 'info' ? '1px solid rgba(59, 130, 246, 0.15)'
-                                   : '1px solid var(--glass-border)',
+                              : alert.severity === 'success' ? '1px solid rgba(16, 185, 129, 0.15)'
+                                : alert.severity === 'info' ? '1px solid rgba(59, 130, 246, 0.15)'
+                                  : '1px solid var(--glass-border)',
                           }}
                         >
                           <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>{alert.icon}</span>
@@ -2955,14 +2966,14 @@ function Dashboard({ user, onLogout }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h2>Your Profile</h2>
             </div>
-            
+
             {user.role === 'student' && data && !data.profileCompleted && (
-              <div style={{ 
-                padding: '1.5rem', 
-                background: 'rgba(239, 68, 68, 0.08)', 
-                borderLeft: '4px solid #ef4444', 
-                borderRadius: '8px', 
-                marginBottom: '2rem', 
+              <div style={{
+                padding: '1.5rem',
+                background: 'rgba(239, 68, 68, 0.08)',
+                borderLeft: '4px solid #ef4444',
+                borderRadius: '8px',
+                marginBottom: '2rem',
                 boxShadow: '0 4px 15px rgba(239, 68, 68, 0.05)',
                 maxWidth: '800px'
               }}>
@@ -2977,11 +2988,11 @@ function Dashboard({ user, onLogout }) {
 
             <div className="card" style={{ maxWidth: '800px', padding: '2rem' }}>
               <form onSubmit={handleProfileSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                
+
                 {/* SECTION 1: Personal & Account Details */}
                 <div>
                   <h3 style={{ borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem', marginBottom: '1.5rem', color: 'var(--primary-color)', fontSize: '1.2rem', fontWeight: 'bold' }}>👤 Personal Details</h3>
-                  
+
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
                     <div style={{ display: 'flex', gap: '2rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1.2rem', padding: '1rem', background: 'rgba(59, 130, 246, 0.04)', borderRadius: '12px', border: '1px dashed rgba(59, 130, 246, 0.2)' }}>
                       <div className="avatar" style={{ width: '80px', height: '80px', fontSize: '2.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', borderRadius: '50%', background: 'var(--primary-color)' }}>
@@ -3071,7 +3082,7 @@ function Dashboard({ user, onLogout }) {
                 {user.role === 'student' && (
                   <div>
                     <h3 style={{ borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem', marginBottom: '1.5rem', color: 'var(--primary-color)', fontSize: '1.2rem', fontWeight: 'bold' }}>👨‍👩‍👧 Parents Information</h3>
-                    
+
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.8rem' }}>
                       {/* Father's Details */}
                       <div style={{ padding: '1.2rem', background: 'rgba(255, 255, 255, 0.4)', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
@@ -3115,14 +3126,14 @@ function Dashboard({ user, onLogout }) {
                   </div>
                 )}
 
-                <button type="submit" style={{ 
-                  marginTop: '1rem', 
-                  padding: '1rem', 
-                  background: '#10b981', 
-                  color: 'white', 
-                  border: 'none', 
-                  borderRadius: '8px', 
-                  fontWeight: 'bold', 
+                <button type="submit" style={{
+                  marginTop: '1rem',
+                  padding: '1rem',
+                  background: '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontWeight: 'bold',
                   fontSize: '1.1rem',
                   cursor: 'pointer',
                   boxShadow: '0 4px 10px rgba(16, 185, 129, 0.2)',
@@ -3155,14 +3166,14 @@ function Dashboard({ user, onLogout }) {
                   <option value="daily">Daily View</option>
                   <option value="weekly">Weekly Total</option>
                   <option value="monthly">Monthly Total</option>
-                                    {(user.role === 'admin' || user.role === 'staff' || user.role === 'student') && (
+                  {(user.role === 'admin' || user.role === 'staff' || user.role === 'student') && (
                     <option value="student">Student Log History</option>
                   )}
                   {(user.role === 'admin' || user.role === 'staff' || user.role === 'student') && (
                     <option value="range">Custom Date Range</option>
                   )}
                 </select>
-                                {attendanceView === 'student' && (user.role === 'admin' || user.role === 'staff') && (
+                {attendanceView === 'student' && (user.role === 'admin' || user.role === 'staff') && (
                   <select
                     value={selectedAttendanceStudentId}
                     onChange={(e) => setSelectedAttendanceStudentId(e.target.value)}
@@ -3221,11 +3232,11 @@ function Dashboard({ user, onLogout }) {
             <div className="card">
               <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
                 {attendanceView === 'daily' ? 'Showing attendance details for selected date.' :
-                 attendanceView === 'student' ? 'Showing detailed check-in and check-out history.' :
-                 `Showing aggregated ${attendanceView} attendance for the selected period.`}
+                  attendanceView === 'student' ? 'Showing detailed check-in and check-out history.' :
+                    `Showing aggregated ${attendanceView} attendance for the selected period.`}
               </p>
               <div className="activity-list">
-                                {attendanceView === 'student' ? (() => {
+                {attendanceView === 'student' ? (() => {
                   const targetId = (user.role === 'student') ? user.userId : selectedAttendanceStudentId;
                   if (!targetId) {
                     return <p style={{ color: 'var(--text-muted)' }}>Please select a student to view their history.</p>;
@@ -3246,11 +3257,11 @@ function Dashboard({ user, onLogout }) {
                       {filteredLogs.map((log, index) => {
                         const logDate = new Date(log.timestamp);
                         return (
-                          <div key={index} className="activity-item" style={{ 
-                            display: 'flex', 
-                            justifyContent: 'space-between', 
-                            alignItems: 'center', 
-                            padding: '1rem', 
+                          <div key={index} className="activity-item" style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '1rem',
                             background: 'rgba(255, 255, 255, 0.4)',
                             borderRadius: '12px',
                             border: '1px solid var(--glass-border)',
@@ -3258,7 +3269,7 @@ function Dashboard({ user, onLogout }) {
                             gap: '1rem'
                           }}>
                             <div className="activity-info" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                              <div className="activity-dot" style={{ 
+                              <div className="activity-dot" style={{
                                 background: log.type === 'IN' ? '#10b981' : '#ef4444',
                                 width: '10px',
                                 height: '10px',
@@ -3365,10 +3376,10 @@ function Dashboard({ user, onLogout }) {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'white', padding: '0.5rem 1rem', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={autoRotate} 
-                    onChange={(e) => setAutoRotate(e.target.checked)} 
+                  <input
+                    type="checkbox"
+                    checked={autoRotate}
+                    onChange={(e) => setAutoRotate(e.target.checked)}
                     style={{ cursor: 'pointer', width: '16px', height: '16px' }}
                   />
                   🔄 Auto-rotate codes (15s)
@@ -3382,8 +3393,8 @@ function Dashboard({ user, onLogout }) {
                 <div style={{ background: 'white', padding: '1.5rem', borderRadius: '16px', display: 'inline-block', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', border: '1px solid var(--glass-border)' }}>
                   <QRCodeSVG value={campusQRConfig.activeInToken || 'CM-ATTENDANCE-IN'} size={220} />
                 </div>
-                <button 
-                  onClick={() => refreshCampusQR('IN')} 
+                <button
+                  onClick={() => refreshCampusQR('IN')}
                   style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.2rem', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', transition: 'all 0.2s' }}
                 >
                   🔄 Refresh Check-IN QR
@@ -3396,8 +3407,8 @@ function Dashboard({ user, onLogout }) {
                 <div style={{ background: 'white', padding: '1.5rem', borderRadius: '16px', display: 'inline-block', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', border: '1px solid var(--glass-border)' }}>
                   <QRCodeSVG value={campusQRConfig.activeOutToken || 'CM-ATTENDANCE-OUT'} size={220} />
                 </div>
-                <button 
-                  onClick={() => refreshCampusQR('OUT')} 
+                <button
+                  onClick={() => refreshCampusQR('OUT')}
                   style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.2rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', transition: 'all 0.2s' }}
                 >
                   🔄 Refresh Check-OUT QR
@@ -3411,11 +3422,11 @@ function Dashboard({ user, onLogout }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h2>{(user.role === 'admin' || user.role === 'staff') ? 'Manage Exam Papers' : 'Your Exam Papers'}</h2>
             </div>
-            
+
             {(user.role === 'admin' || user.role === 'staff') && (
               <div className="card" style={{ marginBottom: '2rem' }}>
                 <h3 style={{ marginBottom: '1rem' }}>Upload New Paper for Student</h3>
-                <form 
+                <form
                   onSubmit={async (e) => {
                     e.preventDefault();
                     const formData = new FormData();
@@ -3423,11 +3434,11 @@ function Dashboard({ user, onLogout }) {
                     formData.append('target', e.target.target.value);
                     formData.append('examDuration', e.target.examDuration.value);
                     formData.append('uploadDuration', e.target.uploadDuration.value);
-                    
+
                     // Convert local date value (midnight) to ISO string
                     const localDate = new Date(e.target.scheduledTime.value + "T00:00:00");
                     formData.append('scheduledTime', localDate.toISOString());
-                    
+
                     const file = e.target.file.files[0];
                     if (file && file.size > 4 * 1024 * 1024) {
                       alert("File size exceeds Vercel's 4.5MB upload limit. Please upload a smaller file under 4MB.");
@@ -3442,27 +3453,27 @@ function Dashboard({ user, onLogout }) {
                         headers: { 'Authorization': `Bearer ${user.token}` },
                         body: formData
                       });
-                      if(!res.ok) throw new Error(await res.text());
+                      if (!res.ok) throw new Error(await res.text());
                       alert('Paper scheduled successfully!');
                       e.target.reset();
                       fetchPapers();
-                    } catch(err) {
+                    } catch (err) {
                       alert('Upload failed: ' + err.message);
                     } finally {
                       setLoading(false);
                     }
-                  }} 
+                  }}
                   style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
                 >
                   <input type="text" name="title" placeholder="Paper Title (e.g. Midterm Physics)" required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }} />
-                  
+
                   <select name="target" required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent' }}>
                     <option value="">Select a Student...</option>
                     {students && students.map(s => (
                       <option key={s.userId} value={s.userId}>{s.name} ({s.userId})</option>
                     ))}
                   </select>
-                  
+
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                     <div>
                       <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Exam Duration Including Reading Time (minutes)</label>
@@ -3490,11 +3501,11 @@ function Dashboard({ user, onLogout }) {
                 {papers.map((paper) => {
                   if (user.role === 'student') {
                     return (
-                      <StudentPaperCard 
-                        key={paper._id} 
-                        paper={paper} 
-                        user={user} 
-                        onRefresh={fetchPapers} 
+                      <StudentPaperCard
+                        key={paper._id}
+                        paper={paper}
+                        user={user}
+                        onRefresh={fetchPapers}
                       />
                     );
                   }
@@ -3533,7 +3544,7 @@ function Dashboard({ user, onLogout }) {
                         </div>
                         {paper.startTime && (
                           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
-                            Started: {new Date(paper.startTime).toLocaleString()} 
+                            Started: {new Date(paper.startTime).toLocaleString()}
                             {paper.answerUploadedAt && ` • Submitted: ${new Date(paper.answerUploadedAt).toLocaleString()}`}
                           </div>
                         )}
@@ -3558,7 +3569,7 @@ function Dashboard({ user, onLogout }) {
                               document.body.appendChild(a);
                               a.click();
                               a.remove();
-                            } catch(err) {
+                            } catch (err) {
                               alert("Error downloading QP");
                             }
                           }} style={{ padding: '0.45rem 0.9rem', background: 'rgba(59, 130, 246, 0.08)', color: 'var(--primary-color)', border: '1px solid rgba(59, 130, 246, 0.2)', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }} title="Download Question Paper">
@@ -3580,7 +3591,7 @@ function Dashboard({ user, onLogout }) {
                                 document.body.appendChild(a);
                                 a.click();
                                 a.remove();
-                              } catch(err) {
+                              } catch (err) {
                                 alert("Error downloading answer sheet");
                               }
                             }} style={{ padding: '0.45rem 0.9rem', background: 'rgba(16, 185, 129, 0.08)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }} title="Download Scanned Answer Sheet">
@@ -3589,8 +3600,8 @@ function Dashboard({ user, onLogout }) {
                           )}
 
                           <button onClick={async () => {
-                            if(!window.confirm('Delete this paper?')) return;
-                            await fetch(`/admin/paper/${paper._id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${user.token}` }});
+                            if (!window.confirm('Delete this paper?')) return;
+                            await fetch(`/admin/paper/${paper._id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${user.token}` } });
                             fetchPapers();
                           }} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '1.2rem', padding: '0 0.5rem' }}>🗑️</button>
                         </div>
@@ -3609,10 +3620,10 @@ function Dashboard({ user, onLogout }) {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                   <h2>Manage Student Schedules</h2>
                 </div>
-                
+
                 <div className="card" style={{ marginBottom: '2rem' }}>
                   <h3 style={{ marginBottom: '1.5rem' }}>Schedule New Activity</h3>
-                  <form 
+                  <form
                     onSubmit={async (e) => {
                       e.preventDefault();
                       const file = e.target.file.files[0];
@@ -3641,22 +3652,22 @@ function Dashboard({ user, onLogout }) {
                         setLoading(true);
                         const res = await fetch('/admin/schedule', {
                           method: 'POST',
-                          headers: { 
+                          headers: {
                             'Authorization': `Bearer ${user.token}`
                           },
                           body: formData
                         });
                         const resData = await res.json();
-                        if(!res.ok) throw new Error(resData.message);
+                        if (!res.ok) throw new Error(resData.message);
                         alert('Schedule created successfully!');
                         e.target.reset();
                         fetchSchedules();
-                      } catch(err) {
+                      } catch (err) {
                         alert('Scheduling failed: ' + err.message);
                       } finally {
                         setLoading(false);
                       }
-                    }} 
+                    }}
                     style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}
                   >
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.2rem' }}>
@@ -3705,12 +3716,12 @@ function Dashboard({ user, onLogout }) {
 
                       return (
                         <div key={sched._id} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', width: '100%' }}>
-                          <div className="activity-item" style={{ 
-                            display: 'flex', 
-                            justifyContent: 'space-between', 
-                            alignItems: 'center', 
-                            padding: '1.2rem', 
-                            background: 'white', 
+                          <div className="activity-item" style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '1.2rem',
+                            background: 'white',
                             border: '1px solid var(--glass-border)',
                             borderRadius: '12px',
                             boxShadow: '0 2px 8px rgba(0,0,0,0.01)'
@@ -3731,7 +3742,7 @@ function Dashboard({ user, onLogout }) {
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                               {sched.fileName && (
-                                <button 
+                                <button
                                   onClick={async () => {
                                     try {
                                       const res = await fetch(`/admin/schedule/${sched._id}/download`, {
@@ -3746,7 +3757,7 @@ function Dashboard({ user, onLogout }) {
                                       document.body.appendChild(a);
                                       a.click();
                                       a.remove();
-                                    } catch(err) {
+                                    } catch (err) {
                                       alert("Error downloading file: " + err.message);
                                     }
                                   }}
@@ -3757,7 +3768,7 @@ function Dashboard({ user, onLogout }) {
                                 </button>
                               )}
                               {sched.googleSheetUrl && (
-                                <button 
+                                <button
                                   onClick={() => {
                                     setActiveSchedulesSheet(prev => ({
                                       ...prev,
@@ -3770,29 +3781,29 @@ function Dashboard({ user, onLogout }) {
                                   {activeSchedulesSheet[sched._id] ? "Close Sheet ❌" : "Open Sheet 📊"}
                                 </button>
                               )}
-                              <span style={{ 
-                                fontSize: '0.8rem', 
+                              <span style={{
+                                fontSize: '0.8rem',
                                 fontWeight: 'bold',
-                                padding: '4px 10px', 
+                                padding: '4px 10px',
                                 borderRadius: '12px',
                                 color: isCompleted ? '#10b981' : '#f59e0b',
                                 background: isCompleted ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)'
                               }}>
                                 {sched.status}
                               </span>
-                              <button 
+                              <button
                                 onClick={async () => {
-                                  if(!window.confirm('Delete this schedule?')) return;
+                                  if (!window.confirm('Delete this schedule?')) return;
                                   try {
-                                    const res = await fetch(`/admin/schedule/${sched._id}`, { 
-                                      method: 'DELETE', 
+                                    const res = await fetch(`/admin/schedule/${sched._id}`, {
+                                      method: 'DELETE',
                                       headers: { 'Authorization': `Bearer ${user.token}` }
                                     });
-                                    if(res.ok) fetchSchedules();
-                                  } catch(e) {
+                                    if (res.ok) fetchSchedules();
+                                  } catch (e) {
                                     console.error(e);
                                   }
-                                }} 
+                                }}
                                 style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '1.2rem', padding: '0 0.5rem' }}
                                 title="Delete Schedule"
                               >
@@ -3812,8 +3823,8 @@ function Dashboard({ user, onLogout }) {
                               marginTop: '-0.4rem',
                               animation: 'slideDown 0.3s ease-out'
                             }}>
-                              <iframe 
-                                src={getEmbedUrl(sched.googleSheetUrl)} 
+                              <iframe
+                                src={getEmbedUrl(sched.googleSheetUrl)}
                                 style={{ width: '100%', height: '600px', border: 'none', borderRadius: '8px' }}
                                 title="Google Sheet"
                               />
@@ -3831,7 +3842,7 @@ function Dashboard({ user, onLogout }) {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                   <h2>My Study Schedules</h2>
                 </div>
-                
+
                 <div className="card">
                   <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
                     Below are your scheduled study guides/plans. Click download to access the files.
@@ -3840,12 +3851,12 @@ function Dashboard({ user, onLogout }) {
                     {schedules.map((sched) => {
                       return (
                         <div key={sched._id} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', width: '100%' }}>
-                          <div className="activity-item" style={{ 
-                            display: 'flex', 
-                            justifyContent: 'space-between', 
-                            alignItems: 'center', 
-                            padding: '1.2rem', 
-                            background: 'white', 
+                          <div className="activity-item" style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '1.2rem',
+                            background: 'white',
                             border: '1px solid var(--glass-border)',
                             borderRadius: '12px',
                             transition: 'all 0.2s ease',
@@ -3884,7 +3895,7 @@ function Dashboard({ user, onLogout }) {
                                       a.click();
                                       a.remove();
                                       fetchSchedules();
-                                    } catch(err) {
+                                    } catch (err) {
                                       alert("Error downloading file: " + err.message);
                                     }
                                   }}
@@ -3950,8 +3961,8 @@ function Dashboard({ user, onLogout }) {
                               marginTop: '-0.4rem',
                               animation: 'slideDown 0.3s ease-out'
                             }}>
-                              <iframe 
-                                src={getEmbedUrl(sched.googleSheetUrl)} 
+                              <iframe
+                                src={getEmbedUrl(sched.googleSheetUrl)}
                                 style={{ width: '100%', height: '600px', border: 'none', borderRadius: '8px' }}
                                 title="Google Sheet"
                               />
@@ -4149,10 +4160,10 @@ function Dashboard({ user, onLogout }) {
                         <tr key={item._id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
                           <td style={{ padding: '1rem 0.75rem', fontWeight: '500' }}>{item.studentName}</td>
                           <td style={{ padding: '1rem 0.75rem' }}>
-                            <span style={{ 
-                              padding: '3px 8px', 
-                              borderRadius: '12px', 
-                              fontSize: '0.8rem', 
+                            <span style={{
+                              padding: '3px 8px',
+                              borderRadius: '12px',
+                              fontSize: '0.8rem',
                               fontWeight: 'bold',
                               background: item.type === "Exam" ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
                               color: item.type === "Exam" ? '#ef4444' : '#3b82f6'
@@ -4274,176 +4285,176 @@ function Dashboard({ user, onLogout }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h2>{user.role === 'admin' ? 'Payment Settings & Tracking' : 'Fee Payments'}</h2>
             </div>
-            
+
             {user.role === 'admin' ? (
               <>
                 <div className="card" style={{ marginBottom: '2rem', maxWidth: '800px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
-                  <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '1rem', borderRadius: '50%', fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    🏦
-                  </div>
-                  <div>
-                    <h3 style={{ margin: 0 }}>Institute Payment Account Setup</h3>
-                    <p style={{ color: 'var(--text-muted)', margin: '0.2rem 0 0 0', fontSize: '0.9rem' }}>Configure the bank and UPI details where students will remit their fees.</p>
-                  </div>
-                </div>
-                
-                <form 
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    const formData = {
-                      accountName: e.target.accountName.value,
-                      accountNumber: e.target.accountNumber.value,
-                      bankName: e.target.bankName.value,
-                      ifscCode: e.target.ifscCode.value,
-                      upiId: e.target.upiId.value
-                    };
-                    try {
-                      setLoading(true);
-                      const res = await fetch('/admin/payment-config', {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify(formData)
-                      });
-                      if(!res.ok) throw new Error(await res.text());
-                      alert('Payment configuration saved!');
-                      fetchPaymentConfig();
-                    } catch(err) {
-                      alert('Error: ' + err.message);
-                    } finally {
-                      setLoading(false);
-                    }
-                  }} 
-                  style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}
-                >
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem' }}>
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'bold' }}>Institute/Account Name</label>
-                      <input type="text" name="accountName" placeholder="e.g. Chartered Mentor Pvt Ltd" defaultValue={paymentConfig?.accountName || ''} required style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'rgba(255, 255, 255, 0.5)', color: 'var(--text-main)', fontSize: '1rem' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
+                    <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '1rem', borderRadius: '50%', fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      🏦
                     </div>
                     <div>
-                      <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'bold' }}>Account Number</label>
-                      <input type="text" name="accountNumber" placeholder="e.g. 123456789012" defaultValue={paymentConfig?.accountNumber || ''} required style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'rgba(255, 255, 255, 0.5)', color: 'var(--text-main)', fontSize: '1rem' }} />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'bold' }}>Bank Name</label>
-                      <input type="text" name="bankName" placeholder="e.g. HDFC Bank" defaultValue={paymentConfig?.bankName || ''} required style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'rgba(255, 255, 255, 0.5)', color: 'var(--text-main)', fontSize: '1rem' }} />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'bold' }}>IFSC Code</label>
-                      <input type="text" name="ifscCode" placeholder="e.g. HDFC0001234" defaultValue={paymentConfig?.ifscCode || ''} required style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'rgba(255, 255, 255, 0.5)', color: 'var(--text-main)', fontSize: '1rem' }} />
+                      <h3 style={{ margin: 0 }}>Institute Payment Account Setup</h3>
+                      <p style={{ color: 'var(--text-muted)', margin: '0.2rem 0 0 0', fontSize: '0.9rem' }}>Configure the bank and UPI details where students will remit their fees.</p>
                     </div>
                   </div>
-                  
-                  <div style={{ padding: '1.5rem', background: 'rgba(59, 130, 246, 0.05)', borderRadius: '12px', border: '1px dashed rgba(59, 130, 246, 0.3)' }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', color: '#3b82f6', fontSize: '0.95rem', fontWeight: 'bold' }}>📱 UPI ID (Optional but recommended)</label>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>Adding a UPI ID will automatically generate a scannable QR code on the student's dashboard.</p>
-                    <input type="text" name="upiId" placeholder="e.g. institute@upi" defaultValue={paymentConfig?.upiId || ''} style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)', fontSize: '1rem' }} />
-                  </div>
-                  
-                  <button type="submit" style={{ padding: '1rem', background: '#10b981', color: 'white', borderRadius: '8px', border: 'none', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 4px 6px rgba(16, 185, 129, 0.2)' }}>Save Payment Settings</button>
-                </form>
-              </div>
 
-              <div className="card">
-                <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-main)' }}>Recent Received Payments</h3>
-                <div className="activity-list">
-                  {students && students.flatMap(s => (s.feeHistory || []).map(f => ({ ...f, studentObj: s, studentName: s.name, studentId: s.userId })))
-                    .sort((a, b) => new Date(b.date) - new Date(a.date))
-                    .slice(0, 50)
-                    .map((fee, idx) => (
-                      <div key={idx} className="activity-item" style={{ alignItems: 'center' }}>
-                        <div>
-                          <strong style={{ fontSize: '1.1rem', color: '#10b981' }}>+ ₹{fee.amount}</strong>
-                          <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.2rem' }}>
-                            <span>From: <strong>{fee.studentName}</strong> (#{fee.studentId})</span>
-                            <span style={{ marginLeft: '1rem' }}>Receipt: {fee.receiptNo || 'N/A'}</span>
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      const formData = {
+                        accountName: e.target.accountName.value,
+                        accountNumber: e.target.accountNumber.value,
+                        bankName: e.target.bankName.value,
+                        ifscCode: e.target.ifscCode.value,
+                        upiId: e.target.upiId.value
+                      };
+                      try {
+                        setLoading(true);
+                        const res = await fetch('/admin/payment-config', {
+                          method: 'POST',
+                          headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
+                          body: JSON.stringify(formData)
+                        });
+                        if (!res.ok) throw new Error(await res.text());
+                        alert('Payment configuration saved!');
+                        fetchPaymentConfig();
+                      } catch (err) {
+                        alert('Error: ' + err.message);
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}
+                  >
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem' }}>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'bold' }}>Institute/Account Name</label>
+                        <input type="text" name="accountName" placeholder="e.g. Chartered Mentor Pvt Ltd" defaultValue={paymentConfig?.accountName || ''} required style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'rgba(255, 255, 255, 0.5)', color: 'var(--text-main)', fontSize: '1rem' }} />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'bold' }}>Account Number</label>
+                        <input type="text" name="accountNumber" placeholder="e.g. 123456789012" defaultValue={paymentConfig?.accountNumber || ''} required style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'rgba(255, 255, 255, 0.5)', color: 'var(--text-main)', fontSize: '1rem' }} />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'bold' }}>Bank Name</label>
+                        <input type="text" name="bankName" placeholder="e.g. HDFC Bank" defaultValue={paymentConfig?.bankName || ''} required style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'rgba(255, 255, 255, 0.5)', color: 'var(--text-main)', fontSize: '1rem' }} />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'bold' }}>IFSC Code</label>
+                        <input type="text" name="ifscCode" placeholder="e.g. HDFC0001234" defaultValue={paymentConfig?.ifscCode || ''} required style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'rgba(255, 255, 255, 0.5)', color: 'var(--text-main)', fontSize: '1rem' }} />
+                      </div>
+                    </div>
+
+                    <div style={{ padding: '1.5rem', background: 'rgba(59, 130, 246, 0.05)', borderRadius: '12px', border: '1px dashed rgba(59, 130, 246, 0.3)' }}>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', color: '#3b82f6', fontSize: '0.95rem', fontWeight: 'bold' }}>📱 UPI ID (Optional but recommended)</label>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>Adding a UPI ID will automatically generate a scannable QR code on the student's dashboard.</p>
+                      <input type="text" name="upiId" placeholder="e.g. institute@upi" defaultValue={paymentConfig?.upiId || ''} style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)', fontSize: '1rem' }} />
+                    </div>
+
+                    <button type="submit" style={{ padding: '1rem', background: '#10b981', color: 'white', borderRadius: '8px', border: 'none', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 4px 6px rgba(16, 185, 129, 0.2)' }}>Save Payment Settings</button>
+                  </form>
+                </div>
+
+                <div className="card">
+                  <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-main)' }}>Recent Received Payments</h3>
+                  <div className="activity-list">
+                    {students && students.flatMap(s => (s.feeHistory || []).map(f => ({ ...f, studentObj: s, studentName: s.name, studentId: s.userId })))
+                      .sort((a, b) => new Date(b.date) - new Date(a.date))
+                      .slice(0, 50)
+                      .map((fee, idx) => (
+                        <div key={idx} className="activity-item" style={{ alignItems: 'center' }}>
+                          <div>
+                            <strong style={{ fontSize: '1.1rem', color: '#10b981' }}>+ ₹{fee.amount}</strong>
+                            <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.2rem' }}>
+                              <span>From: <strong>{fee.studentName}</strong> (#{fee.studentId})</span>
+                              <span style={{ marginLeft: '1rem' }}>Receipt: {fee.receiptNo || 'N/A'}</span>
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
+                            <div style={{ fontWeight: 'bold', color: fee.status === 'Pending' ? '#f59e0b' : (fee.status === 'Rejected' ? '#ef4444' : '#10b981') }}>{fee.status}</div>
+                            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{new Date(fee.date).toLocaleDateString()}</div>
+                            {fee.status === 'Pending' && (() => {
+                              const unpaidInstallments = fee.studentObj?.installments || [];
+                              return (
+                                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                  <select
+                                    id={`assign-installment-${fee._id}`}
+                                    defaultValue=""
+                                    style={{ padding: '0.3rem', borderRadius: '4px', border: '1px solid var(--glass-border)', fontSize: '0.85rem', background: 'white', color: 'var(--text-main)' }}
+                                  >
+                                    <option value="">-- Select Installment --</option>
+                                    {unpaidInstallments.map((inst, uIdx) => (
+                                      <option key={uIdx} value={uIdx}>
+                                        Inst {uIdx + 1} (₹{inst.amount}) - {inst.status}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      const selectEl = document.getElementById(`assign-installment-${fee._id}`);
+                                      const selectedIdxStr = selectEl ? selectEl.value : '';
+                                      const bodyData = {};
+                                      if (selectedIdxStr !== '') {
+                                        bodyData.installmentIndex = Number(selectedIdxStr);
+                                      }
+                                      try {
+                                        setLoading(true);
+                                        const res = await fetch(`/admin/student/${fee.studentId}/payment/${fee._id}/approve`, {
+                                          method: 'POST',
+                                          headers: {
+                                            'Authorization': `Bearer ${user.token}`,
+                                            'Content-Type': 'application/json'
+                                          },
+                                          body: JSON.stringify(bodyData)
+                                        });
+                                        if (!res.ok) throw new Error(await res.text());
+                                        alert('Payment verified successfully!');
+                                        fetchStudentsData();
+                                      } catch (e) {
+                                        alert('Error: ' + e.message);
+                                      } finally {
+                                        setLoading(false);
+                                      }
+                                    }}
+                                    style={{ padding: '0.3rem 0.8rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
+                                  >
+                                    Verify
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      try {
+                                        setLoading(true);
+                                        const res = await fetch(`/admin/student/${fee.studentId}/payment/${fee._id}/reject`, {
+                                          method: 'POST',
+                                          headers: { 'Authorization': `Bearer ${user.token}` }
+                                        });
+                                        if (!res.ok) throw new Error(await res.text());
+                                        alert('Payment rejected successfully!');
+                                        fetchStudentsData();
+                                      } catch (e) {
+                                        alert('Error: ' + e.message);
+                                      } finally {
+                                        setLoading(false);
+                                      }
+                                    }}
+                                    style={{ padding: '0.3rem 0.8rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
+                                  >
+                                    Reject
+                                  </button>
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
-                        <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
-                          <div style={{ fontWeight: 'bold', color: fee.status === 'Pending' ? '#f59e0b' : (fee.status === 'Rejected' ? '#ef4444' : '#10b981') }}>{fee.status}</div>
-                          <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{new Date(fee.date).toLocaleDateString()}</div>
-                          {fee.status === 'Pending' && (() => {
-                            const unpaidInstallments = fee.studentObj?.installments || [];
-                            return (
-                              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                                <select
-                                  id={`assign-installment-${fee._id}`}
-                                  defaultValue=""
-                                  style={{ padding: '0.3rem', borderRadius: '4px', border: '1px solid var(--glass-border)', fontSize: '0.85rem', background: 'white', color: 'var(--text-main)' }}
-                                >
-                                  <option value="">-- Select Installment --</option>
-                                  {unpaidInstallments.map((inst, uIdx) => (
-                                    <option key={uIdx} value={uIdx}>
-                                      Inst {uIdx + 1} (₹{inst.amount}) - {inst.status}
-                                    </option>
-                                  ))}
-                                </select>
-                                <button
-                                  type="button"
-                                  onClick={async () => {
-                                    const selectEl = document.getElementById(`assign-installment-${fee._id}`);
-                                    const selectedIdxStr = selectEl ? selectEl.value : '';
-                                    const bodyData = {};
-                                    if (selectedIdxStr !== '') {
-                                      bodyData.installmentIndex = Number(selectedIdxStr);
-                                    }
-                                    try {
-                                      setLoading(true);
-                                      const res = await fetch(`/admin/student/${fee.studentId}/payment/${fee._id}/approve`, {
-                                        method: 'POST',
-                                        headers: { 
-                                          'Authorization': `Bearer ${user.token}`,
-                                          'Content-Type': 'application/json'
-                                        },
-                                        body: JSON.stringify(bodyData)
-                                      });
-                                      if (!res.ok) throw new Error(await res.text());
-                                      alert('Payment verified successfully!');
-                                      fetchStudentsData();
-                                    } catch(e) {
-                                      alert('Error: ' + e.message);
-                                    } finally {
-                                      setLoading(false);
-                                    }
-                                  }}
-                                  style={{ padding: '0.3rem 0.8rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
-                                >
-                                  Verify
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={async () => {
-                                    try {
-                                      setLoading(true);
-                                      const res = await fetch(`/admin/student/${fee.studentId}/payment/${fee._id}/reject`, {
-                                        method: 'POST',
-                                        headers: { 'Authorization': `Bearer ${user.token}` }
-                                      });
-                                      if (!res.ok) throw new Error(await res.text());
-                                      alert('Payment rejected successfully!');
-                                      fetchStudentsData();
-                                    } catch(e) {
-                                      alert('Error: ' + e.message);
-                                    } finally {
-                                      setLoading(false);
-                                    }
-                                  }}
-                                  style={{ padding: '0.3rem 0.8rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
-                                >
-                                  Reject
-                                </button>
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      </div>
-                    ))}
-                  {(!students || students.flatMap(s => s.feeHistory || []).length === 0) && (
-                    <p style={{ color: 'var(--text-muted)' }}>No payment history available.</p>
-                  )}
+                      ))}
+                    {(!students || students.flatMap(s => s.feeHistory || []).length === 0) && (
+                      <p style={{ color: 'var(--text-muted)' }}>No payment history available.</p>
+                    )}
+                  </div>
                 </div>
-              </div>
               </>
             ) : (
               <>
@@ -4496,13 +4507,13 @@ function Dashboard({ user, onLogout }) {
                       )}
                     </div>
                   </div>
-                  
+
                   <div style={{ flex: 1.5, minWidth: '300px' }}>
                     <h3 style={{ marginBottom: '1rem', color: 'var(--text-main)' }}>Payment Instructions</h3>
                     {paymentConfig ? (
                       <div style={{ padding: '1.5rem', background: 'white', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
                         <p style={{ marginBottom: '1.5rem', color: 'var(--text-muted)' }}>Please remit your fee payments using the details or QR code below:</p>
-                        
+
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2rem' }}>
                           <div style={{ flex: 1, minWidth: '200px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             <div>
@@ -4530,7 +4541,7 @@ function Dashboard({ user, onLogout }) {
                               </div>
                             )}
                           </div>
-                          
+
                           {paymentConfig.upiId && (
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid var(--glass-border)', width: '100%', maxWidth: '220px', margin: '0 auto' }}>
                               <span style={{ marginBottom: '0.75rem', fontSize: '1rem', color: 'var(--text-main)', fontWeight: 'bold' }}>Scan to Pay</span>
@@ -4541,66 +4552,66 @@ function Dashboard({ user, onLogout }) {
                             </div>
                           )}
                         </div>
-                        
+
                         {/* Direct Payment Entry Form */}
                         <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--glass-border)' }}>
                           <h4 style={{ marginBottom: '1rem', color: 'var(--text-main)', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             ✍️ Report Your Payment
                           </h4>
-                          <form 
+                          <form
                             onSubmit={async (e) => {
                               e.preventDefault();
                               const amountInput = e.target.amount.value;
                               const receiptInput = e.target.receipt.value;
                               const installmentSelect = e.target.installmentNumber.value;
-                              
+
                               if (!amountInput || !receiptInput || !installmentSelect) {
                                 alert('Please fill in all payment details');
                                 return;
                               }
-                              
+
                               const enteredAmt = Number(amountInput);
                               const selectedIdx = Number(installmentSelect) - 1;
                               const instObj = profileData?.installments?.[selectedIdx];
                               const expectedAmt = instObj?.adjustedAmount !== undefined ? instObj.adjustedAmount : instObj?.amount;
-                              
+
                               if (expectedAmt !== undefined && enteredAmt !== expectedAmt) {
                                 alert(`Error: The payment amount (₹${enteredAmt}) does not match the amount required for Installment ${installmentSelect} (₹${expectedAmt}).`);
                                 return;
                               }
-                              
+
                               try {
                                 setLoading(true);
                                 const res = await fetch('/student/payment', {
                                   method: 'POST',
-                                  headers: { 
-                                    'Authorization': `Bearer ${user.token}`, 
-                                    'Content-Type': 'application/json' 
+                                  headers: {
+                                    'Authorization': `Bearer ${user.token}`,
+                                    'Content-Type': 'application/json'
                                   },
-                                  body: JSON.stringify({ 
-                                    amount: enteredAmt, 
-                                    receiptNo: `Inst ${installmentSelect} - ${receiptInput}` 
+                                  body: JSON.stringify({
+                                    amount: enteredAmt,
+                                    receiptNo: `Inst ${installmentSelect} - ${receiptInput}`
                                   })
                                 });
                                 if (!res.ok) throw new Error(await res.text());
                                 alert('Payment report submitted and is pending admin approval.');
                                 e.target.reset();
                                 fetchProfileData();
-                              } catch(err) { 
-                                alert('Error: ' + err.message); 
+                              } catch (err) {
+                                alert('Error: ' + err.message);
                               } finally {
                                 setLoading(false);
                               }
-                            }} 
+                            }}
                             style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', width: '100%' }}
                           >
                             <div>
                               <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 'bold', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                                 Installment Number
                               </label>
-                              <select 
-                                name="installmentNumber" 
-                                required 
+                              <select
+                                name="installmentNumber"
+                                required
                                 onChange={(e) => {
                                   const val = e.target.value;
                                   if (val) {
@@ -4626,30 +4637,30 @@ function Dashboard({ user, onLogout }) {
                               <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 'bold', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                                 Payment Amount (₹)
                               </label>
-                              <input 
-                                type="number" 
-                                name="amount" 
-                                required 
-                                min="1" 
-                                placeholder="e.g. 10000" 
-                                style={{ width: '100%', padding: '0.7rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)', fontSize: '0.9rem' }} 
+                              <input
+                                type="number"
+                                name="amount"
+                                required
+                                min="1"
+                                placeholder="e.g. 10000"
+                                style={{ width: '100%', padding: '0.7rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)', fontSize: '0.9rem' }}
                               />
                             </div>
                             <div style={{ gridColumn: 'span 2' }}>
                               <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 'bold', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                                 Transaction ID / Reference ID
                               </label>
-                              <input 
-                                type="text" 
-                                name="receipt" 
-                                required 
-                                placeholder="Enter UPI Reference / UTR Number" 
-                                style={{ width: '100%', padding: '0.7rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)', fontSize: '0.9rem' }} 
+                              <input
+                                type="text"
+                                name="receipt"
+                                required
+                                placeholder="Enter UPI Reference / UTR Number"
+                                style={{ width: '100%', padding: '0.7rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)', fontSize: '0.9rem' }}
                               />
                             </div>
                             <div style={{ gridColumn: 'span 2', marginTop: '0.5rem' }}>
-                              <button 
-                                type="submit" 
+                              <button
+                                type="submit"
                                 style={{ width: '100%', padding: '0.8rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', transition: 'all 0.2s', boxShadow: '0 4px 6px rgba(16, 185, 129, 0.15)' }}
                               >
                                 Submit Payment Report
@@ -4672,7 +4683,7 @@ function Dashboard({ user, onLogout }) {
                     )}
                   </div>
                 </div>
-                
+
                 <div className="card">
                   <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-main)' }}>Payment History</h3>
                   <div className="activity-list">
@@ -4804,7 +4815,7 @@ function Dashboard({ user, onLogout }) {
                     <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
                       Showing days where you studied less than your configured target hours.
                     </p>
-                    
+
                     {totalDaysCount === 0 ? (
                       <div style={{ padding: '2rem', textAlign: 'center', background: 'rgba(16, 185, 129, 0.04)', borderRadius: '12px', border: '1px dashed rgba(16, 185, 129, 0.3)' }}>
                         <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '1rem' }}>🎉</span>
@@ -4819,7 +4830,7 @@ function Dashboard({ user, onLogout }) {
                           const dateObj = new Date(day.date);
                           const dayName = dateObj.toLocaleDateString(undefined, { weekday: 'long' });
                           const shortfallHours = Math.max(0, day.target - day.hours);
-                          
+
                           return (
                             <div key={idx} className="activity-item" style={{ alignItems: 'center' }}>
                               <div className="activity-info">
@@ -4880,7 +4891,7 @@ function Dashboard({ user, onLogout }) {
                   if (!res.ok) throw new Error(await res.text());
                   alert('Study target configuration saved successfully!');
                   fetchGoalConfig();
-                } catch(err) {
+                } catch (err) {
                   alert('Error: ' + err.message);
                 } finally {
                   setLoading(false);
@@ -4965,7 +4976,7 @@ function Dashboard({ user, onLogout }) {
             <div className="card" style={{ maxWidth: '700px' }}>
               <form onSubmit={async (e) => {
                 e.preventDefault();
-                
+
                 const insts = feeSetupStudent.installments || [];
                 const totalCourseFee = Number(feeSetupStudent.totalFees);
                 const sumInstallments = insts.reduce((sum, inst) => sum + Number(inst.amount || 0), 0);
@@ -4991,8 +5002,8 @@ function Dashboard({ user, onLogout }) {
                   const res = await fetch(`/admin/student/${feeSetupStudent.userId}/fees`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                      totalFees: totalCourseFee, 
+                    body: JSON.stringify({
+                      totalFees: totalCourseFee,
                       installments: insts
                     })
                   });
@@ -5001,32 +5012,32 @@ function Dashboard({ user, onLogout }) {
                   fetchStudentsData();
                   setActiveTab('students');
                   setFeeSetupStudent(null);
-                } catch(err) { alert('Error: ' + err.message); }
+                } catch (err) { alert('Error: ' + err.message); }
               }} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                
+
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: 'var(--text-main)' }}>Total Course Fee (₹)</label>
-                  <input 
-                    type="number" 
-                    required 
-                    min="0" 
-                    value={feeSetupStudent.totalFees} 
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    value={feeSetupStudent.totalFees}
                     onChange={e => {
                       const newTotal = e.target.value;
                       setFeeSetupStudent({
                         ...feeSetupStudent,
                         totalFees: newTotal
                       });
-                    }} 
-                    style={{ width: '100%', padding: '1rem', borderRadius: '8px', border: '1px solid var(--glass-border)', fontSize: '1.1rem', background: 'transparent', color: 'var(--text-main)' }} 
+                    }}
+                    style={{ width: '100%', padding: '1rem', borderRadius: '8px', border: '1px solid var(--glass-border)', fontSize: '1.1rem', background: 'transparent', color: 'var(--text-main)' }}
                   />
                 </div>
 
                 <div style={{ background: 'rgba(59, 130, 246, 0.03)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                     <h3 style={{ margin: 0, fontSize: '1.1rem' }}>📅 Installments Configuration</h3>
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       onClick={() => {
                         const currentInsts = feeSetupStudent.installments || [];
                         setFeeSetupStudent({
@@ -5045,10 +5056,10 @@ function Dashboard({ user, onLogout }) {
                       <div key={index} style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', background: 'white', padding: '1rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
                         <div style={{ flex: '1', minWidth: '120px' }}>
                           <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Installment {index + 1} Amount (₹)</label>
-                          <input 
-                            type="number" 
-                            required 
-                            min="1" 
+                          <input
+                            type="number"
+                            required
+                            min="1"
                             placeholder="Amount"
                             value={inst.amount}
                             onChange={e => {
@@ -5061,9 +5072,9 @@ function Dashboard({ user, onLogout }) {
                         </div>
                         <div style={{ flex: '1.2', minWidth: '160px' }}>
                           <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Due Date</label>
-                          <input 
-                            type="date" 
-                            required 
+                          <input
+                            type="date"
+                            required
                             value={inst.dueDate}
                             onChange={e => {
                               const updated = [...feeSetupStudent.installments];
@@ -5098,8 +5109,8 @@ function Dashboard({ user, onLogout }) {
                         </div>
                         <div style={{ flex: '1.2', minWidth: '160px' }}>
                           <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Date of Payment</label>
-                          <input 
-                            type="date" 
+                          <input
+                            type="date"
                             disabled={inst.status !== 'Paid'}
                             required={inst.status === 'Paid'}
                             value={inst.paidDate || ''}
@@ -5112,7 +5123,7 @@ function Dashboard({ user, onLogout }) {
                           />
                         </div>
                         {(feeSetupStudent.installments || []).length > 1 && (
-                          <button 
+                          <button
                             type="button"
                             onClick={() => {
                               const updated = (feeSetupStudent.installments || []).filter((_, i) => i !== index);
@@ -5131,7 +5142,7 @@ function Dashboard({ user, onLogout }) {
                   {(() => {
                     const totalCourseFee = Number(feeSetupStudent.totalFees || 0);
                     const allocatedSum = (feeSetupStudent.installments || []).reduce((sum, inst) => sum + Number(inst.amount || 0), 0);
-                    
+
                     const payments = (feeSetupStudent.feeHistory || [])
                       .filter(p => p.status === 'Verified' || p.status === 'Paid' || p.status === 'Received');
                     const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
@@ -5201,7 +5212,7 @@ function Dashboard({ user, onLogout }) {
                                   const resData = await res.json();
                                   setFeeSetupStudent(resData.user);
                                   fetchStudentsData();
-                                } catch(e) { alert('Error: ' + e.message); }
+                                } catch (e) { alert('Error: ' + e.message); }
                               }} style={{ padding: '0.3rem 0.8rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>Approve</button>
                               <button type="button" onClick={async () => {
                                 try {
@@ -5212,7 +5223,7 @@ function Dashboard({ user, onLogout }) {
                                   const resData = await res.json();
                                   setFeeSetupStudent(resData.user);
                                   fetchStudentsData();
-                                } catch(e) { alert('Error: ' + e.message); }
+                                } catch (e) { alert('Error: ' + e.message); }
                               }} style={{ padding: '0.3rem 0.8rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>Reject</button>
                             </>
                           )}
@@ -5227,7 +5238,7 @@ function Dashboard({ user, onLogout }) {
                                 const resData = await res.json();
                                 setFeeSetupStudent(resData.user);
                                 fetchStudentsData();
-                              } catch(e) { alert('Error: ' + e.message); }
+                              } catch (e) { alert('Error: ' + e.message); }
                             }} style={{ padding: '0.3rem 0.8rem', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>Revert</button>
                           )}
                         </div>
@@ -5354,32 +5365,32 @@ function Dashboard({ user, onLogout }) {
                           </button>
                           {user.role === 'admin' && (
                             <>
-                              <button onClick={() => { 
-                                 const existingInstallments = Array.isArray(student.installments) && student.installments.length > 0 
-                                   ? student.installments.map(inst => ({
-                                       amount: inst.amount || '',
-                                       dueDate: inst.dueDate ? new Date(inst.dueDate).toISOString().split('T')[0] : '',
-                                       status: inst.status || 'Unpaid',
-                                       paidDate: inst.paidDate ? new Date(inst.paidDate).toISOString().split('T')[0] : ''
-                                     }))
-                                   : [
-                                       { amount: student.totalFees ? Math.round(Number(student.totalFees) / 3) : '', dueDate: '', status: 'Unpaid' },
-                                       { amount: student.totalFees ? Math.round(Number(student.totalFees) / 3) : '', dueDate: '', status: 'Unpaid' },
-                                       { amount: student.totalFees ? (Number(student.totalFees) - 2 * Math.round(Number(student.totalFees) / 3)) : '', dueDate: '', status: 'Unpaid' }
-                                     ];
+                              <button onClick={() => {
+                                const existingInstallments = Array.isArray(student.installments) && student.installments.length > 0
+                                  ? student.installments.map(inst => ({
+                                    amount: inst.amount || '',
+                                    dueDate: inst.dueDate ? new Date(inst.dueDate).toISOString().split('T')[0] : '',
+                                    status: inst.status || 'Unpaid',
+                                    paidDate: inst.paidDate ? new Date(inst.paidDate).toISOString().split('T')[0] : ''
+                                  }))
+                                  : [
+                                    { amount: student.totalFees ? Math.round(Number(student.totalFees) / 3) : '', dueDate: '', status: 'Unpaid' },
+                                    { amount: student.totalFees ? Math.round(Number(student.totalFees) / 3) : '', dueDate: '', status: 'Unpaid' },
+                                    { amount: student.totalFees ? (Number(student.totalFees) - 2 * Math.round(Number(student.totalFees) / 3)) : '', dueDate: '', status: 'Unpaid' }
+                                  ];
 
-                                 setFeeSetupStudent({ 
-                                   userId: student.userId, 
-                                   name: student.name, 
-                                   totalFees: student.totalFees || '', 
-                                   nextPaymentDueDate: student.nextPaymentDueDate ? new Date(student.nextPaymentDueDate).toISOString().split('T')[0] : '',
-                                   installments: existingInstallments,
-                                   feeHistory: student.feeHistory || [],
-                                   feesPaid: student.feesPaid || 0
-                                 }); 
-                                 setActiveTab('feeSetup');
-                                 setOpenMenuId(null); 
-                               }} className="dropdown-item">
+                                setFeeSetupStudent({
+                                  userId: student.userId,
+                                  name: student.name,
+                                  totalFees: student.totalFees || '',
+                                  nextPaymentDueDate: student.nextPaymentDueDate ? new Date(student.nextPaymentDueDate).toISOString().split('T')[0] : '',
+                                  installments: existingInstallments,
+                                  feeHistory: student.feeHistory || [],
+                                  feesPaid: student.feesPaid || 0
+                                });
+                                setActiveTab('feeSetup');
+                                setOpenMenuId(null);
+                              }} className="dropdown-item">
                                 💰 Set Fee Structure
                               </button>
                               <button onClick={async () => {
@@ -5399,7 +5410,7 @@ function Dashboard({ user, onLogout }) {
                                   if (feeSetupStudent && feeSetupStudent.userId === student.userId) {
                                     setFeeSetupStudent(resData.user);
                                   }
-                                } catch(err) { alert('Error: ' + err.message); }
+                                } catch (err) { alert('Error: ' + err.message); }
                                 setOpenMenuId(null);
                               }} className="dropdown-item">
                                 💸 Add Payment Received
@@ -5465,10 +5476,10 @@ function Dashboard({ user, onLogout }) {
               A gentle reminder that your upcoming course fee installment is due.
             </p>
             {(() => {
-              const unpaidInst = Array.isArray(data.installments) 
-                ? data.installments.find(inst => inst.status === 'Unpaid') 
+              const unpaidInst = Array.isArray(data.installments)
+                ? data.installments.find(inst => inst.status === 'Unpaid')
                 : null;
-              
+
               const dueAmount = unpaidInst ? unpaidInst.amount : ((data.totalFees || 0) - (data.feesPaid || 0));
 
               return (
@@ -5501,13 +5512,13 @@ function Dashboard({ user, onLogout }) {
         <div className="modal-overlay">
           <div className="modal-content" style={{ maxWidth: '500px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <h2 style={{ marginBottom: '1.5rem', color: 'var(--text-main)' }}>Make a Payment</h2>
-            
+
             <div style={{ background: 'white', padding: '1rem', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', marginBottom: '1.5rem' }}>
               <QRCodeSVG value={`upi://pay?pa=${paymentConfig.upiId}&pn=${encodeURIComponent(paymentConfig.accountName)}`} size={200} />
             </div>
-            
+
             <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', textAlign: 'center' }}>Scan the QR code above using any UPI app (GPay, PhonePe, Paytm). After payment, enter the details below to update your ledger.</p>
-            
+
             <form onSubmit={async (e) => {
               e.preventDefault();
               try {
@@ -5522,7 +5533,7 @@ function Dashboard({ user, onLogout }) {
                 alert('Payment verified and updated successfully!');
                 setShowPayModal(false);
                 fetchProfileData();
-              } catch(err) { alert('Error: ' + err.message); }
+              } catch (err) { alert('Error: ' + err.message); }
             }} style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: 'var(--text-main)', textAlign: 'left' }}>Amount Paid (₹)</label>
@@ -5607,7 +5618,7 @@ function Dashboard({ user, onLogout }) {
                     setLoading(false);
                   }
                 }} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', width: '100%' }}>
-                  
+
                   {/* Personal Section Edit */}
                   <div>
                     <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.1rem', color: 'var(--primary-color)', borderBottom: '1px dashed var(--glass-border)', paddingBottom: '4px' }}>👤 Personal Details</h3>
@@ -5821,7 +5832,7 @@ function Dashboard({ user, onLogout }) {
                   {user.role === 'admin' && (
                     <div>
                       <h3 style={{ margin: '1rem 0 0.75rem 0', fontSize: '1.1rem', color: 'var(--primary-color)', borderBottom: '1px dashed var(--glass-border)', paddingBottom: '4px' }}>💳 Fees & Payments</h3>
-                      
+
                       {/* Fee Status Summary */}
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '1rem', background: '#f8fafc', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', border: '1px solid var(--glass-border)' }}>
                         <div>
@@ -5910,7 +5921,7 @@ function Dashboard({ user, onLogout }) {
                                             });
                                             if (!res.ok) throw new Error(await res.text());
                                             fetchStudentsData();
-                                          } catch(e) { alert('Error: ' + e.message); }
+                                          } catch (e) { alert('Error: ' + e.message); }
                                         }} style={{ padding: '2px 6px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Approve</button>
                                         <button onClick={async () => {
                                           try {
@@ -5919,7 +5930,7 @@ function Dashboard({ user, onLogout }) {
                                             });
                                             if (!res.ok) throw new Error(await res.text());
                                             fetchStudentsData();
-                                          } catch(e) { alert('Error: ' + e.message); }
+                                          } catch (e) { alert('Error: ' + e.message); }
                                         }} style={{ padding: '2px 6px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Reject</button>
                                       </>
                                     )}
@@ -5932,7 +5943,7 @@ function Dashboard({ user, onLogout }) {
                                           });
                                           if (!res.ok) throw new Error(await res.text());
                                           fetchStudentsData();
-                                        } catch(e) { alert('Error: ' + e.message); }
+                                        } catch (e) { alert('Error: ' + e.message); }
                                       }} style={{ padding: '2px 6px', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Revert</button>
                                     )}
                                   </div>
@@ -5952,13 +5963,13 @@ function Dashboard({ user, onLogout }) {
                     <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.1rem', color: 'var(--primary-color)', borderBottom: '1px dashed var(--glass-border)', paddingBottom: '4px' }}>📈 Attendance & Study Statistics</h3>
                     {(() => {
                       const stats = calculateStudentStatsForId(viewingProfileStudent.userId, viewingProfileStudent.joiningDate);
-                      
+
                       const expectedDays = getStudentMonthDays(viewingProfileStudent.joiningDate).length;
                       const presentDays = Math.max(0, expectedDays - stats.monthAbsentCount);
-                      const attendanceRate = expectedDays > 0 
+                      const attendanceRate = expectedDays > 0
                         ? Math.min(100, Math.round((presentDays / expectedDays) * 100))
                         : 100;
-                      
+
                       const cycleStart = getCurrentAttendanceMonthStart(viewingProfileStudent.joiningDate);
                       const cycleStartStr = cycleStart ? cycleStart.toLocaleDateString() : 'N/A';
                       const todayStr = new Date().toLocaleDateString();
@@ -5968,7 +5979,7 @@ function Dashboard({ user, onLogout }) {
                           <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                             Current Cycle: <strong>{cycleStartStr}</strong> to <strong>{todayStr}</strong> ({expectedDays} elapsed days)
                           </p>
-                          
+
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '1rem', background: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
                             <div>
                               <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>Attendance Rate</span>
@@ -6021,7 +6032,7 @@ function Dashboard({ user, onLogout }) {
                 setLoading(true);
                 const res = await fetch(`/admin/student/${editingPayment.studentId}/payment/${editingPayment.paymentId}/edit`, {
                   method: 'POST',
-                  headers: { 
+                  headers: {
                     'Authorization': `Bearer ${user.token}`,
                     'Content-Type': 'application/json'
                   },
@@ -6040,7 +6051,7 @@ function Dashboard({ user, onLogout }) {
                   setFeeSetupStudent(resData.user);
                 }
                 setEditingPayment(null);
-              } catch(err) {
+              } catch (err) {
                 alert('Error updating payment: ' + err.message);
               } finally {
                 setLoading(false);
@@ -6053,43 +6064,43 @@ function Dashboard({ user, onLogout }) {
 
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Amount (₹)</label>
-                <input 
-                  type="number" 
-                  name="amount" 
-                  defaultValue={editingPayment.amount} 
-                  required 
+                <input
+                  type="number"
+                  name="amount"
+                  defaultValue={editingPayment.amount}
+                  required
                   min="0"
-                  style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }} 
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }}
                 />
               </div>
 
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Receipt / Transaction No.</label>
-                <input 
-                  type="text" 
-                  name="receiptNo" 
-                  defaultValue={editingPayment.receiptNo} 
-                  style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }} 
+                <input
+                  type="text"
+                  name="receiptNo"
+                  defaultValue={editingPayment.receiptNo}
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }}
                 />
               </div>
 
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Date</label>
-                <input 
-                  type="date" 
-                  name="date" 
-                  defaultValue={editingPayment.date ? new Date(editingPayment.date).toISOString().split('T')[0] : ''} 
-                  required 
-                  style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }} 
+                <input
+                  type="date"
+                  name="date"
+                  defaultValue={editingPayment.date ? new Date(editingPayment.date).toISOString().split('T')[0] : ''}
+                  required
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }}
                 />
               </div>
 
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Status</label>
-                <select 
-                  name="status" 
-                  defaultValue={editingPayment.status} 
-                  required 
+                <select
+                  name="status"
+                  defaultValue={editingPayment.status}
+                  required
                   style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }}
                 >
                   <option value="Pending">Pending</option>
@@ -6135,12 +6146,12 @@ function Dashboard({ user, onLogout }) {
             <form onSubmit={handleManualCheckoutSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem', fontWeight: 'bold' }}>Check-Out Time</label>
-                <input 
-                  type="time" 
-                  value={manualCheckoutData.checkoutTime} 
+                <input
+                  type="time"
+                  value={manualCheckoutData.checkoutTime}
                   onChange={(e) => setManualCheckoutData({ ...manualCheckoutData, checkoutTime: e.target.value })}
-                  required 
-                  style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)', fontSize: '1rem' }} 
+                  required
+                  style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)', fontSize: '1rem' }}
                 />
               </div>
 
@@ -6152,6 +6163,180 @@ function Dashboard({ user, onLogout }) {
           </div>
         </div>
       )}
+      {/* Mobile Bottom Navigation Bar (app-like structure) */}
+      <nav className="mobile-bottom-nav">
+        <ul className="mobile-bottom-nav-list">
+          <li
+            className={`mobile-bottom-nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
+            onClick={() => {
+              if (user.role === 'student' && data && !data.profileCompleted) {
+                alert('Please complete your profile details first to unlock all dashboard features.');
+                return;
+              }
+              setActiveTab('dashboard');
+            }}
+          >
+            <span className="nav-icon">📊</span>
+            <span className="nav-text">Dashboard</span>
+          </li>
+
+          {(user.role === 'admin' || user.role === 'staff') ? (
+            <>
+              <li
+                className={`mobile-bottom-nav-item ${activeTab === 'profile' ? 'active' : ''}`}
+                onClick={() => setActiveTab('profile')}
+              >
+                <span className="nav-icon">👤</span>
+                <span className="nav-text">Profile</span>
+              </li>
+              <li
+                className={`mobile-bottom-nav-item ${activeTab === 'students' ? 'active' : ''}`}
+                onClick={() => setActiveTab('students')}
+              >
+                <span className="nav-icon">🎓</span>
+                <span className="nav-text">Students</span>
+              </li>
+              <li
+                className={`mobile-bottom-nav-item ${activeTab === 'attendance' ? 'active' : ''}`}
+                onClick={() => setActiveTab('attendance')}
+              >
+                <span className="nav-icon">📅</span>
+                <span className="nav-text">Attendance</span>
+              </li>
+              <li
+                className={`mobile-bottom-nav-item ${activeTab === 'papers' ? 'active' : ''}`}
+                onClick={() => setActiveTab('papers')}
+              >
+                <span className="nav-icon">📄</span>
+                <span className="nav-text">Papers</span>
+              </li>
+              <li
+                className={`mobile-bottom-nav-item ${activeTab === 'schedules' ? 'active' : ''}`}
+                onClick={() => setActiveTab('schedules')}
+              >
+                <span className="nav-icon">🗓️</span>
+                <span className="nav-text">Schedules</span>
+              </li>
+              <li
+                className={`mobile-bottom-nav-item ${activeTab === 'exam_scheduler' ? 'active' : ''}`}
+                onClick={() => setActiveTab('exam_scheduler')}
+              >
+                <span className="nav-icon">📅</span>
+                <span className="nav-text">Scheduler</span>
+              </li>
+              {user.role === 'admin' && (
+                <>
+                  <li
+                    className={`mobile-bottom-nav-item ${activeTab === 'payments' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('payments')}
+                  >
+                    <span className="nav-icon">💳</span>
+                    <span className="nav-text">Payments</span>
+                  </li>
+                  <li
+                    className={`mobile-bottom-nav-item ${activeTab === 'campus_qr' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('campus_qr')}
+                  >
+                    <span className="nav-icon">🔲</span>
+                    <span className="nav-text">Campus QR</span>
+                  </li>
+                  <li
+                    className={`mobile-bottom-nav-item ${activeTab === 'goal_settings' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('goal_settings')}
+                  >
+                    <span className="nav-icon">🎯</span>
+                    <span className="nav-text">Goal Set</span>
+                  </li>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <li
+                className={`mobile-bottom-nav-item ${activeTab === 'attendance' ? 'active' : ''}`}
+                onClick={() => {
+                  if (data && !data.profileCompleted) {
+                    alert('Please complete your profile details first to unlock all dashboard features.');
+                    return;
+                  }
+                  setActiveTab('attendance');
+                }}
+              >
+                <span className="nav-icon">📅</span>
+                <span className="nav-text">Attendance</span>
+              </li>
+              <li
+                className={`mobile-bottom-nav-item ${activeTab === 'papers' ? 'active' : ''}`}
+                onClick={() => {
+                  if (data && !data.profileCompleted) {
+                    alert('Please complete your profile details first to unlock all dashboard features.');
+                    return;
+                  }
+                  setActiveTab('papers');
+                }}
+              >
+                <span className="nav-icon">📄</span>
+                <span className="nav-text">Papers</span>
+              </li>
+              <li
+                className={`mobile-bottom-nav-item ${activeTab === 'schedules' ? 'active' : ''}`}
+                onClick={() => {
+                  if (data && !data.profileCompleted) {
+                    alert('Please complete your profile details first to unlock all dashboard features.');
+                    return;
+                  }
+                  setActiveTab('schedules');
+                }}
+              >
+                <span className="nav-icon">🗓️</span>
+                <span className="nav-text">Schedules</span>
+              </li>
+              <li
+                className={`mobile-bottom-nav-item ${activeTab === 'payments' ? 'active' : ''}`}
+                onClick={() => {
+                  if (data && !data.profileCompleted) {
+                    alert('Please complete your profile details first to unlock all dashboard features.');
+                    return;
+                  }
+                  setActiveTab('payments');
+                }}
+              >
+                <span className="nav-icon">💳</span>
+                <span className="nav-text">Payments</span>
+              </li>
+              <li
+                className={`mobile-bottom-nav-item ${activeTab === 'study_tracker' ? 'active' : ''}`}
+                onClick={() => {
+                  if (data && !data.profileCompleted) {
+                    alert('Please complete your profile details first to unlock all dashboard features.');
+                    return;
+                  }
+                  setActiveTab('study_tracker');
+                }}
+              >
+                <span className="nav-icon">⏱️</span>
+                <span className="nav-text">Goal Tracker</span>
+              </li>
+              <li
+                className={`mobile-bottom-nav-item ${activeTab === 'profile' ? 'active' : ''}`}
+                onClick={() => setActiveTab('profile')}
+              >
+                <span className="nav-icon">👤</span>
+                <span className="nav-text">Profile</span>
+              </li>
+            </>
+          )}
+
+          <li
+            className="mobile-bottom-nav-item danger"
+            onClick={onLogout}
+          >
+            <span className="nav-icon">🚪</span>
+            <span className="nav-text">Logout</span>
+          </li>
+        </ul>
+      </nav>
+
     </div>
   );
 }
