@@ -2935,7 +2935,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                         style={{
                           padding: '0.4rem 1rem',
                           border: 'none',
-                          background: todayAttendanceFilter === filterVal ? 'white' : 'transparent',
+                          background: todayAttendanceFilter === filterVal ? 'var(--surface-solid)' : 'transparent',
                           color: todayAttendanceFilter === filterVal ? 'var(--primary-color)' : 'var(--text-muted)',
                           borderRadius: '6px',
                           fontWeight: 'bold',

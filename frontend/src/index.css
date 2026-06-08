@@ -14,6 +14,8 @@
 }
 
 [data-theme="dark"] {
+  --primary-color: #818cf8; /* Lighter indigo for optimal dark mode contrast */
+  --primary-hover: #6366f1;
   --bg-color: #0f172a;
   --surface-color: rgba(30, 41, 59, 0.7);
   --surface-solid: #1e293b; /* Solid dark slate */
