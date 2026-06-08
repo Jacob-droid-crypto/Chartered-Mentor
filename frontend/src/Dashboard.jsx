@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import { Html5QrcodeScanner } from 'html5-qrcode';
@@ -65,7 +65,7 @@ const getStudentCustomMonthRange = (joiningDateStr, targetDateStr) => {
   return { startDate, endDate };
 };
 
-function StudentPaperCard({ paper, user, onRefresh }) {
+function StudentPaperCard({ paper, user, onRefresh, showConfirm }) {
   const [timeLeft, setTimeLeft] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
@@ -103,7 +103,7 @@ function StudentPaperCard({ paper, user, onRefresh }) {
   }, [paper.startTime, paper.answerUploadedAt, paper.examDuration, paper.uploadDuration]);
 
   const handleStartExam = async () => {
-    if (!window.confirm("Are you sure you want to start the exam? Your individual timer will begin immediately.")) return;
+    if (!await showConfirm("Are you sure you want to start the exam? Your individual timer will begin immediately.")) return;
     try {
       // 1. Call Start API
       const res = await fetch(`/student/paper/${paper._id}/start`, {
@@ -272,9 +272,9 @@ function StudentPaperCard({ paper, user, onRefresh }) {
                   type="file"
                   id={`re-upload-${paper._id}`}
                   accept=".pdf,.png,.jpg,.jpeg"
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     if (e.target.files && e.target.files[0]) {
-                      if (window.confirm(`Are you sure you want to overwrite your previous submission with "${e.target.files[0].name}"?`)) {
+                      if (await showConfirm(`Are you sure you want to overwrite your previous submission with "${e.target.files[0].name}"?`)) {
                         handleFileUpload(e.target.files[0]);
                       }
                     }
@@ -453,7 +453,7 @@ function StudentPaperCard({ paper, user, onRefresh }) {
                   alert("File size exceeds Vercel's 4.5MB serverless upload limit (max file size is ~3.2MB). Please compress your PDF/images or upload a smaller file.");
                   return;
                 }
-                if (!window.confirm(`Start exam and upload "${file.name}" directly?`)) return;
+                if (!await showConfirm(`Start exam and upload "${file.name}" directly?`)) return;
                 try {
                   setUploading(true);
                   // 1. Call Start API
@@ -502,6 +502,41 @@ function StudentPaperCard({ paper, user, onRefresh }) {
 
 function Dashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [toasts, setToasts] = useState([]);
+  const [confirmDialog, setConfirmDialog] = useState(null);
+
+  const showToast = useCallback((message, type = 'info', duration = 4000) => {
+    const id = Date.now() + Math.random().toString(36).substr(2, 9);
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, duration);
+  }, []);
+
+  const showConfirm = useCallback((message) => {
+    return new Promise((resolve) => {
+      setConfirmDialog({ message, resolve });
+    });
+  }, []);
+
+  useEffect(() => {
+    const originalAlert = window.alert;
+    
+    window.alert = (message) => {
+      let type = 'info';
+      const msgLower = String(message).toLowerCase();
+      if (msgLower.includes('fail') || msgLower.includes('error') || msgLower.includes('denied') || msgLower.includes('invalid') || msgLower.includes('expired')) {
+        type = 'error';
+      } else if (msgLower.includes('success') || msgLower.includes('saved') || msgLower.includes('approved') || msgLower.includes('completed') || msgLower.includes('uploaded')) {
+        type = 'success';
+      }
+      showToast(message, type);
+    };
+
+    return () => {
+      window.alert = originalAlert;
+    };
+  }, [showToast]);
   const [showNavDropdown, setShowNavDropdown] = useState(false);
   const [liveStudyHours, setLiveStudyHours] = useState(0);
   const [studyTrackerPeriod, setStudyTrackerPeriod] = useState('week');
@@ -909,7 +944,7 @@ function Dashboard({ user, onLogout }) {
   };
 
   const handleDeleteExamSchedule = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this scheduled item?")) return;
+    if (!await showConfirm("Are you sure you want to delete this scheduled item?")) return;
     try {
       setLoading(true);
       const res = await fetch(`/admin/exam-schedules/${id}`, {
@@ -2092,7 +2127,7 @@ function Dashboard({ user, onLogout }) {
   }, [scanning]);
 
   const handleDelete = async (studentId) => {
-    if (!window.confirm(`Are you sure you want to delete student ${studentId}?`)) return;
+    if (!await showConfirm(`Are you sure you want to delete student ${studentId}?`)) return;
     try {
       const response = await fetch(`/admin/student/${studentId}`, {
         method: 'DELETE',
@@ -2138,7 +2173,7 @@ function Dashboard({ user, onLogout }) {
   };
 
   const handleResetPassword = async (studentId) => {
-    if (!window.confirm(`Reset password for student ${studentId}?`)) return;
+    if (!await showConfirm(`Reset password for student ${studentId}?`)) return;
     try {
       const response = await fetch(`/admin/student/${studentId}/reset-password`, {
         method: 'POST',
@@ -3537,6 +3572,7 @@ function Dashboard({ user, onLogout }) {
                         paper={paper}
                         user={user}
                         onRefresh={fetchPapers}
+                        showConfirm={showConfirm}
                       />
                     );
                   }
@@ -3631,7 +3667,7 @@ function Dashboard({ user, onLogout }) {
                           )}
 
                           <button onClick={async () => {
-                            if (!window.confirm('Delete this question paper?')) return;
+                            if (!await showConfirm('Delete this question paper?')) return;
                             await fetch(`/admin/paper/${paper._id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${user.token}` } });
                             fetchPapers();
                           }} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '1.2rem', padding: '0 0.5rem' }}>🗑️</button>
@@ -3803,7 +3839,7 @@ function Dashboard({ user, onLogout }) {
                               </span>
                               <button
                                 onClick={async () => {
-                                  if (!window.confirm('Delete this schedule?')) return;
+                                  if (!await showConfirm('Delete this schedule?')) return;
                                   try {
                                     const res = await fetch(`/admin/schedule/${sched._id}`, {
                                       method: 'DELETE',
@@ -5184,7 +5220,7 @@ function Dashboard({ user, onLogout }) {
                           )}
                           {(fee.status === 'Verified' || fee.status === 'Paid' || fee.status === 'Received') && (
                             <button type="button" onClick={async () => {
-                              if (!window.confirm(`Are you sure you want to revert this payment of ₹${fee.amount}? This will mark it as Pending (unmarked), subtract the amount from the student's total paid fees, and update their installment statuses.`)) return;
+                              if (!await showConfirm(`Are you sure you want to revert this payment of ₹${fee.amount}? This will mark it as Pending (unmarked), subtract the amount from the student's total paid fees, and update their installment statuses.`)) return;
                               try {
                                 const res = await fetch(`/admin/student/${feeSetupStudent.userId}/payment/${fee._id}/revert`, {
                                   method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
@@ -5897,7 +5933,7 @@ function Dashboard({ user, onLogout }) {
                                     )}
                                     {(fee.status === 'Verified' || fee.status === 'Paid') && (
                                       <button onClick={async () => {
-                                        if (!window.confirm(`Revert payment of ₹${fee.amount} to Pending (unmarked)?`)) return;
+                                        if (!await showConfirm(`Revert payment of ₹${fee.amount} to Pending (unmarked)?`)) return;
                                         try {
                                           const res = await fetch(`/admin/student/${viewingProfileStudent.userId}/payment/${fee._id}/revert`, {
                                             method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
@@ -6325,6 +6361,135 @@ function Dashboard({ user, onLogout }) {
           </li>
         </ul>
       </nav>
+
+      {/* Custom Toasts Container */}
+      <div style={{
+        position: 'fixed',
+        bottom: '24px',
+        right: '24px',
+        zIndex: 99999,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px',
+        pointerEvents: 'none',
+        maxWidth: '380px',
+        width: 'calc(100% - 48px)'
+      }}>
+        {toasts.map(toast => (
+          <div
+            key={toast.id}
+            style={{
+              pointerEvents: 'auto',
+              background: 'rgba(255, 255, 255, 0.85)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              borderLeft: `5px solid ${toast.type === 'error' ? '#ef4444' : toast.type === 'success' ? '#10b981' : '#3b82f6'}`,
+              boxShadow: '0 10px 30px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(0, 0, 0, 0.02)',
+              borderRadius: '12px',
+              padding: '1rem 1.25rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '1rem',
+              border: '1px solid rgba(255, 255, 255, 0.4)',
+              animation: 'slideInToast 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <span style={{ fontSize: '1.25rem' }}>
+                {toast.type === 'error' ? '❌' : toast.type === 'success' ? '✅' : 'ℹ️'}
+              </span>
+              <span style={{ color: 'var(--text-main)', fontSize: '0.92rem', fontWeight: '500', lineHeight: '1.4', wordBreak: 'break-word' }}>
+                {toast.message}
+              </span>
+            </div>
+            <button
+              onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                padding: '0 4px',
+                display: 'flex',
+                alignItems: 'center'
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Custom Confirmation Modal */}
+      {confirmDialog && (
+        <div className="modal-overlay" style={{ zIndex: 100000 }}>
+          <div className="modal-content" style={{
+            background: 'rgba(255, 255, 255, 0.85)',
+            backdropFilter: 'blur(25px)',
+            WebkitBackdropFilter: 'blur(25px)',
+            border: '1px solid var(--glass-border)',
+            boxShadow: '0 25px 50px rgba(15, 23, 42, 0.15)',
+            borderRadius: '24px',
+            padding: '2rem',
+            textAlign: 'center',
+            maxWidth: '440px',
+            width: '90%'
+          }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>❓</div>
+            <h3 style={{ fontSize: '1.25rem', color: 'var(--text-main)', marginBottom: '1rem', fontWeight: '600', lineHeight: '1.4' }}>
+              Confirm Action
+            </h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginBottom: '2rem', lineHeight: '1.5' }}>
+              {confirmDialog.message}
+            </p>
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+              <button
+                onClick={() => {
+                  confirmDialog.resolve(false);
+                  setConfirmDialog(null);
+                }}
+                style={{
+                  flex: 1,
+                  padding: '0.75rem 1.5rem',
+                  background: 'rgba(0, 0, 0, 0.05)',
+                  color: 'var(--text-main)',
+                  border: '1px solid var(--glass-border)',
+                  borderRadius: '12px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  transition: 'background 0.2s'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  confirmDialog.resolve(true);
+                  setConfirmDialog(null);
+                }}
+                style={{
+                  flex: 1,
+                  padding: '0.75rem 1.5rem',
+                  background: 'linear-gradient(135deg, var(--primary-color), var(--primary-hover))',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  boxShadow: '0 4px 15px rgba(99, 102, 241, 0.2)',
+                  transition: 'transform 0.2s'
+                }}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
