@@ -3292,7 +3292,7 @@ function Dashboard({ user, onLogout }) {
                       <div className="activity-info">
                         <div className="activity-dot" style={{ background: attendanceView === 'daily' ? (record.status === 'Present' ? '#10b981' : '#ef4444') : '#3b82f6' }}></div>
                         <div>
-                          <strong>{record.studentName || record.studentId || 'Unknown Student'}</strong>
+                          <strong>{user.role === 'student' ? 'My Attendance Summary' : (record.studentName || record.studentId || 'Unknown Student')}</strong>
                           <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>ID: {record.studentId} • Course: {record.course || '-'}</div>
                         </div>
                       </div>
