@@ -114,7 +114,7 @@
   display: flex;
   align-items: center;
   gap: 1rem;
-  background: white;
+  background: var(--surface-solid);
   padding: 0.5rem 1.5rem;
   border-radius: 50px;
   border: 1px solid var(--glass-border);
@@ -269,7 +269,7 @@
   position: absolute;
   right: 0;
   top: 35px;
-  background: white;
+  background: var(--surface-solid);
   border: 1px solid var(--glass-border);
   border-radius: 12px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
@@ -321,7 +321,7 @@
 }
 
 .modal-content {
-  background: white;
+  background: var(--surface-solid);
   padding: 2.5rem;
   border-radius: 24px;
   width: 90%;
@@ -496,7 +496,7 @@
   align-items: center;
   width: 48px;
   height: 48px;
-  background: white;
+  background: var(--surface-solid);
   border: 1px solid var(--glass-border);
   color: var(--text-main);
   border-radius: 50%;
@@ -567,10 +567,10 @@
   bottom: 24px;
   width: 280px;
   max-height: 80vh;
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--surface-color);
   backdrop-filter: blur(25px);
   -webkit-backdrop-filter: blur(25px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  border: 1px solid var(--glass-border);
   border-radius: 20px;
   box-shadow: 0 20px 40px rgba(15, 23, 42, 0.12);
   padding: 1rem 0.5rem;

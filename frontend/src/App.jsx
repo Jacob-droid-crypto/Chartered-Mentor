@@ -6,6 +6,19 @@ import './App.css';
 
 function App() {
   const [user, setUser] = useState(null);
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem('cmTheme');
+    if (saved) return saved;
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      return 'dark';
+    }
+    return 'light';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('cmTheme', theme);
+  }, [theme]);
 
   useEffect(() => {
     // Check if user is stored in localStorage
@@ -36,7 +49,7 @@ function App() {
       {!user ? (
         <Login onLoginSuccess={handleLoginSuccess} />
       ) : (
-        <Dashboard user={user} onLogout={handleLogout} />
+        <Dashboard user={user} onLogout={handleLogout} theme={theme} setTheme={setTheme} />
       )}
     </GoogleOAuthProvider>
   );

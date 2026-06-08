@@ -348,7 +348,7 @@ function StudentPaperCard({ paper, user, onRefresh, showConfirm }) {
           </div>
         </div>
 
-        <div style={{ background: 'rgba(255, 255, 255, 0.6)', border: '1px solid var(--glass-border)', padding: '1rem', borderRadius: '8px', fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+        <div style={{ background: 'var(--surface-color)', border: '1px solid var(--glass-border)', padding: '1rem', borderRadius: '8px', fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
           📌 <strong>Exam Rules:</strong> Please write your answers on paper, scan them into a single PDF or image file, and upload it below before the timer runs out. You have <strong>{paper.examDuration} minutes</strong> to write and <strong>{paper.uploadDuration} minutes</strong> to upload.
         </div>
 
@@ -414,7 +414,7 @@ function StudentPaperCard({ paper, user, onRefresh, showConfirm }) {
 
   // Render Ready state (Midnight scheduled reached, not started)
   return (
-    <div className="activity-item" style={{ background: 'white', border: '1px solid var(--glass-border)', padding: '1.5rem', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'stretch', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
+    <div className="activity-item" style={{ background: 'var(--surface-solid)', border: '1px solid var(--glass-border)', padding: '1.5rem', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'stretch', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <strong style={{ fontSize: '1.15rem', color: 'var(--text-main)' }}>📖 {paper.title}</strong>
@@ -500,7 +500,7 @@ function StudentPaperCard({ paper, user, onRefresh, showConfirm }) {
   );
 }
 
-function Dashboard({ user, onLogout }) {
+function Dashboard({ user, onLogout, theme, setTheme }) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [toasts, setToasts] = useState([]);
   const [confirmDialog, setConfirmDialog] = useState(null);
@@ -2453,7 +2453,7 @@ function Dashboard({ user, onLogout }) {
               </p>
             </div>
           </div>
-          <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
             <div 
               className="header-logo" 
               style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
@@ -2479,6 +2479,39 @@ function Dashboard({ user, onLogout }) {
                 }}
               />
             </div>
+
+            <button
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              style={{
+                background: 'var(--surface-solid)',
+                border: '1px solid var(--glass-border)',
+                borderRadius: '50%',
+                width: '40px',
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                fontSize: '1.2rem',
+                boxShadow: '0 4px 15px var(--shadow-color)',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                userSelect: 'none',
+                outline: 'none',
+                padding: 0
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(1.1) rotate(15deg)';
+                e.currentTarget.style.boxShadow = '0 6px 18px rgba(99, 102, 241, 0.2)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1) rotate(0deg)';
+                e.currentTarget.style.boxShadow = '0 4px 15px var(--shadow-color)';
+              }}
+              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            >
+              {theme === 'dark' ? '☀️' : '🌙'}
+            </button>
+
             <div className="profile-section" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <span>{user.name}</span>
               {profileData?.profilePhoto || user.profilePhoto ? (
@@ -6380,7 +6413,7 @@ function Dashboard({ user, onLogout }) {
             key={toast.id}
             style={{
               pointerEvents: 'auto',
-              background: 'rgba(255, 255, 255, 0.85)',
+              background: 'var(--surface-color)',
               backdropFilter: 'blur(16px)',
               WebkitBackdropFilter: 'blur(16px)',
               borderLeft: `5px solid ${toast.type === 'error' ? '#ef4444' : toast.type === 'success' ? '#10b981' : '#3b82f6'}`,
@@ -6391,7 +6424,7 @@ function Dashboard({ user, onLogout }) {
               alignItems: 'center',
               justifyContent: 'space-between',
               gap: '1rem',
-              border: '1px solid rgba(255, 255, 255, 0.4)',
+              border: '1px solid var(--glass-border)',
               animation: 'slideInToast 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
             }}
           >
@@ -6426,7 +6459,7 @@ function Dashboard({ user, onLogout }) {
       {confirmDialog && (
         <div className="modal-overlay" style={{ zIndex: 100000 }}>
           <div className="modal-content" style={{
-            background: 'rgba(255, 255, 255, 0.85)',
+            background: 'var(--surface-solid)',
             backdropFilter: 'blur(25px)',
             WebkitBackdropFilter: 'blur(25px)',
             border: '1px solid var(--glass-border)',
