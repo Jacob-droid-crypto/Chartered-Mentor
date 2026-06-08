@@ -565,7 +565,12 @@ function Dashboard({ user, onLogout }) {
   // Attendance Filters
   const [attendanceView, setAttendanceView] = useState('daily'); // daily, weekly, monthly, student
   const [attendanceSearch, setAttendanceSearch] = useState('');
-  const [attendanceDate, setAttendanceDate] = useState(getLocalDateString());
+    const [attendanceDate, setAttendanceDate] = useState(getLocalDateString());
+  const [attendanceStartDate, setAttendanceStartDate] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
+  });
+  const [attendanceEndDate, setAttendanceEndDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [selectedAttendanceStudentId, setSelectedAttendanceStudentId] = useState('');
   const [studentLogs, setStudentLogs] = useState([]);
 
@@ -1651,7 +1656,7 @@ function Dashboard({ user, onLogout }) {
           const targetMonthKey = attendanceDate.substring(0, 7);
           if (monthKey === targetMonthKey) keyToMatch = true;
         }
-      } else if (attendanceView === 'weekly') {
+            } else if (attendanceView === 'weekly') {
         const targetDate = new Date(attendanceDate);
         const startOfWeek = new Date(targetDate);
         startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
@@ -1659,6 +1664,18 @@ function Dashboard({ user, onLogout }) {
         endOfWeek.setDate(startOfWeek.getDate() + 6);
 
         if (d >= startOfWeek && d <= endOfWeek) keyToMatch = true;
+      } else if (attendanceView === 'range') {
+        const start = attendanceStartDate ? new Date(attendanceStartDate) : null;
+        const end = attendanceEndDate ? new Date(attendanceEndDate) : null;
+        if (start) start.setHours(0, 0, 0, 0);
+        if (end) end.setHours(23, 59, 59, 999);
+
+        const dMidnight = new Date(d);
+        dMidnight.setHours(0, 0, 0, 0);
+
+        if ((!start || dMidnight >= start) && (!end || dMidnight <= end)) {
+          keyToMatch = true;
+        }
       }
 
       if (keyToMatch) {
@@ -1772,6 +1789,22 @@ function Dashboard({ user, onLogout }) {
         }
       }
 
+            if (attendanceView === 'range') {
+        const start = attendanceStartDate ? new Date(attendanceStartDate) : new Date();
+        const end = attendanceEndDate ? new Date(attendanceEndDate) : new Date();
+        start.setHours(0, 0, 0, 0);
+        end.setHours(0, 0, 0, 0);
+
+        const activeStart = jDate && jDate > start ? jDate : start;
+        const activeEnd = today < end ? today : end;
+
+        if (activeStart > activeEnd) {
+          expectedDays = 0;
+        } else {
+          expectedDays = Math.floor((activeEnd.getTime() - activeStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        }
+      }
+
       if (expectedDays > 0) {
         record.totalAbsent = Math.max(0, expectedDays - record.totalPresent);
       } else {
@@ -1820,7 +1853,7 @@ function Dashboard({ user, onLogout }) {
             dateList.push(dateStr);
           }
         }
-      } else if (attendanceView === 'monthly') {
+            } else if (attendanceView === 'monthly') {
         const [year, month] = attendanceDate.split('-');
         const y = parseInt(year);
         const m = parseInt(month) - 1;
@@ -1832,6 +1865,18 @@ function Dashboard({ user, onLogout }) {
           if (dateStr <= todayStr) {
             dateList.push(dateStr);
           }
+        }
+      } else if (attendanceView === 'range') {
+        const start = attendanceStartDate ? new Date(attendanceStartDate) : new Date();
+        const end = attendanceEndDate ? new Date(attendanceEndDate) : new Date();
+        
+        let curr = new Date(start);
+        while (curr <= end) {
+          const dateStr = curr.toISOString().split('T')[0];
+          if (dateStr <= todayStr) {
+            dateList.push(dateStr);
+          }
+          curr.setDate(curr.getDate() + 1);
         }
       }
 
@@ -1858,7 +1903,7 @@ function Dashboard({ user, onLogout }) {
           "Total Absent (Leaves)": record.totalAbsent,
         };
 
-        if (attendanceView === 'monthly') {
+                if (attendanceView === 'monthly' || attendanceView === 'range') {
           row["Late Logins"] = record.lateCount || 0;
         }
 
@@ -3106,31 +3151,54 @@ function Dashboard({ user, onLogout }) {
                   <option value="daily">Daily View</option>
                   <option value="weekly">Weekly Total</option>
                   <option value="monthly">Monthly Total</option>
-                  {(user.role === 'admin' || user.role === 'staff' || user.role === 'student') && (
+                                    {(user.role === 'admin' || user.role === 'staff' || user.role === 'student') && (
                     <option value="student">Student Log History</option>
                   )}
+                  {(user.role === 'admin' || user.role === 'staff' || user.role === 'student') && (
+                    <option value="range">Custom Date Range</option>
+                  )}
                 </select>
-                {attendanceView === 'student' ? (
-                  (user.role === 'admin' || user.role === 'staff') && (
-                    <select
-                      value={selectedAttendanceStudentId}
-                      onChange={(e) => setSelectedAttendanceStudentId(e.target.value)}
-                      style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)', maxWidth: '200px' }}
-                    >
-                      <option value="">Select Student...</option>
-                      {students.map(s => (
-                        <option key={s.userId} value={s.userId}>{s.name} ({s.userId})</option>
-                      ))}
-                    </select>
-                  )
-                ) : attendanceView === 'monthly' ? (
+                                {attendanceView === 'student' && (user.role === 'admin' || user.role === 'staff') && (
+                  <select
+                    value={selectedAttendanceStudentId}
+                    onChange={(e) => setSelectedAttendanceStudentId(e.target.value)}
+                    style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)', maxWidth: '200px' }}
+                  >
+                    <option value="">Select Student...</option>
+                    {students.map(s => (
+                      <option key={s.userId} value={s.userId}>{s.name} ({s.userId})</option>
+                    ))}
+                  </select>
+                )}
+                {(attendanceView === 'student' || attendanceView === 'range') && (
+                  <>
+                    <input
+                      type="date"
+                      placeholder="Start Date"
+                      title="Start Date"
+                      value={attendanceStartDate}
+                      onChange={(e) => setAttendanceStartDate(e.target.value)}
+                      style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }}
+                    />
+                    <input
+                      type="date"
+                      placeholder="End Date"
+                      title="End Date"
+                      value={attendanceEndDate}
+                      onChange={(e) => setAttendanceEndDate(e.target.value)}
+                      style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }}
+                    />
+                  </>
+                )}
+                {attendanceView === 'monthly' && (
                   <input
                     type="month"
                     value={attendanceDate.substring(0, 7)}
                     onChange={(e) => setAttendanceDate(e.target.value + '-01')}
                     style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }}
                   />
-                ) : (
+                )}
+                {(attendanceView === 'daily' || attendanceView === 'weekly') && (
                   <input
                     type="date"
                     value={attendanceDate}
@@ -3153,20 +3221,25 @@ function Dashboard({ user, onLogout }) {
                  `Showing aggregated ${attendanceView} attendance for the selected period.`}
               </p>
               <div className="activity-list">
-                {attendanceView === 'student' ? (() => {
+                                {attendanceView === 'student' ? (() => {
                   const targetId = (user.role === 'student') ? user.userId : selectedAttendanceStudentId;
                   if (!targetId) {
                     return <p style={{ color: 'var(--text-muted)' }}>Please select a student to view their history.</p>;
                   }
-                  if (studentLogs.length === 0) {
-                    return <p style={{ color: 'var(--text-muted)' }}>No logs found for this student.</p>;
+                  const filteredLogs = studentLogs.filter(log => {
+                    if (attendanceStartDate && log.date < attendanceStartDate) return false;
+                    if (attendanceEndDate && log.date > attendanceEndDate) return false;
+                    return true;
+                  });
+                  if (filteredLogs.length === 0) {
+                    return <p style={{ color: 'var(--text-muted)' }}>No logs found for this student in the selected period.</p>;
                   }
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', width: '100%' }}>
                       <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: '500', marginBottom: '0.5rem' }}>
-                        Found {studentLogs.length} activity records:
+                        Found {filteredLogs.length} activity records:
                       </p>
-                      {studentLogs.map((log, index) => {
+                      {filteredLogs.map((log, index) => {
                         const logDate = new Date(log.timestamp);
                         return (
                           <div key={index} className="activity-item" style={{ 
@@ -4712,7 +4785,7 @@ function Dashboard({ user, onLogout }) {
                     </div>
                     <div className="card">
                       <div className="card-icon" style={{ background: totalDaysCount > 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: totalDaysCount > 0 ? '#ef4444' : '#10b981' }}>🚨</div>
-                      <h3>Shortfall Days</h3>
+                      <h3>Shortfall Days (Excluding Absent days)</h3>
                       <div className="value" style={{ fontSize: '2rem', color: totalDaysCount > 0 ? '#ef4444' : '#10b981' }}>
                         {totalDaysCount} {totalDaysCount === 1 ? 'Day' : 'Days'}
                       </div>
@@ -4722,7 +4795,7 @@ function Dashboard({ user, onLogout }) {
                   {/* Details Section */}
                   <div className="card">
                     <h3 style={{ fontSize: '1.2rem', color: 'var(--text-main)', fontWeight: 'bold', marginBottom: '1rem' }}>
-                      📋 Shortfall Days Details (Excluding Holidays)
+                      📋 Shortfall Days (Excluding Absent days)
                     </h3>
                     <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
                       Showing days where you studied less than your configured target hours.
