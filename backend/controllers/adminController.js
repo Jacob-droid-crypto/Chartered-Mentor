@@ -631,60 +631,54 @@ const updateInstallmentStatus = (user) => {
       .filter(p => p.status === 'Verified' || p.status === 'Paid' || p.status === 'Received')
       .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
-    const sumInstallments = user.installments.reduce((sum, inst) => sum + inst.amount, 0);
-    const implicitInitialFee = Math.max(0, (user.totalFees || 0) - sumInstallments);
+    // Partition payments into linked and unlinked
+    const linkedPayments = payments.filter(p => p.installmentNumber && p.installmentNumber > 0);
+    const unlinkedPayments = payments.filter(p => !p.installmentNumber || p.installmentNumber <= 0);
 
-    let remainingPaid = Math.max(0, totalPaid - implicitInitialFee);
-
+    // Initialize all installments to Unpaid
     user.installments.forEach((inst) => {
+      inst.status = "Unpaid";
+      inst.paidDate = null;
       inst.adjustedAmount = inst.amount;
     });
 
-    const sumPaidInstallments = user.installments
-      .filter(inst => inst.status === "Paid")
-      .reduce((sum, inst) => sum + inst.amount, 0);
+    // Process explicit linked payments first
+    linkedPayments.forEach(p => {
+      const idx = p.installmentNumber - 1;
+      if (idx >= 0 && idx < user.installments.length) {
+        const inst = user.installments[idx];
+        inst.status = "Paid";
+        inst.paidDate = p.date || new Date();
+        inst.adjustedAmount = 0;
+      }
+    });
 
-    if (remainingPaid >= sumPaidInstallments) {
-      let surplus = remainingPaid - sumPaidInstallments;
+    // Sum unlinked payments
+    const totalUnlinkedPaid = unlinkedPayments.reduce((sum, p) => sum + p.amount, 0);
+    const sumInstallments = user.installments.reduce((sum, inst) => sum + inst.amount, 0);
+    const implicitInitialFee = Math.max(0, (user.totalFees || 0) - sumInstallments);
 
-      user.installments.forEach((inst) => {
-        if (inst.status === "Paid") {
-          inst.adjustedAmount = 0;
-          if (!inst.paidDate) {
-            inst.paidDate = payments.length > 0 ? payments[payments.length - 1].date : new Date();
-          }
-        } else {
-          if (surplus >= inst.amount) {
-            inst.status = "Paid";
-            inst.paidDate = payments.length > 0 ? payments[payments.length - 1].date : new Date();
-            inst.adjustedAmount = 0;
-            surplus -= inst.amount;
-          } else {
-            inst.status = "Unpaid";
-            inst.paidDate = null;
-            inst.adjustedAmount = inst.amount - surplus;
-            surplus = 0;
-          }
-        }
-      });
-    } else {
-      user.installments.forEach((inst) => {
-        if (remainingPaid >= inst.amount) {
-          inst.status = "Paid";
-          if (!inst.paidDate) {
-            inst.paidDate = payments.length > 0 ? payments[payments.length - 1].date : new Date();
-          }
-          inst.adjustedAmount = 0;
-          remainingPaid -= inst.amount;
-        } else {
-          inst.status = "Unpaid";
-          inst.paidDate = null;
-          inst.adjustedAmount = inst.amount - remainingPaid;
-          remainingPaid = 0;
-        }
-      });
-    }
+    // Remaining unlinked paid amount after paying initial fee
+    let remainingPaid = Math.max(0, totalUnlinkedPaid - implicitInitialFee);
+
+    // Distribute remaining unlinked payments to unpaid installments chronologically
+    user.installments.forEach((inst) => {
+      if (inst.status === "Paid") {
+        // Already paid via explicit linkage
+        return;
+      }
+      if (remainingPaid >= inst.amount) {
+        inst.status = "Paid";
+        inst.paidDate = unlinkedPayments.length > 0 ? unlinkedPayments[unlinkedPayments.length - 1].date : new Date();
+        inst.adjustedAmount = 0;
+        remainingPaid -= inst.amount;
+      } else {
+        inst.status = "Unpaid";
+        inst.paidDate = null;
+        inst.adjustedAmount = inst.amount - remainingPaid;
+        remainingPaid = 0;
+      }
+    });
 
     // Sync nextPaymentDueDate to first unpaid installment's dueDate
     const nextUnpaid = user.installments.find(inst => inst.status === "Unpaid");
@@ -799,6 +793,7 @@ const approveStudentPayment = async (req, res) => {
     if (installmentIndex !== undefined && installmentIndex !== null && user.installments[installmentIndex]) {
       user.installments[installmentIndex].status = "Paid";
       user.installments[installmentIndex].paidDate = payment.date || new Date();
+      payment.installmentNumber = Number(installmentIndex) + 1;
     }
     
     // Recalculate installments paid status
@@ -843,7 +838,7 @@ const rejectStudentPayment = async (req, res) => {
 const editStudentPayment = async (req, res) => {
   try {
     const { studentId, paymentId } = req.params;
-    const { amount, date, status, receiptNo } = req.body;
+    const { amount, date, status, receiptNo, installmentNumber } = req.body;
     
     const user = await User.findOne({ userId: studentId, role: "student" });
     if (!user) return res.status(404).json({ message: "Student not found" });
@@ -855,6 +850,9 @@ const editStudentPayment = async (req, res) => {
     if (date !== undefined) payment.date = new Date(date);
     if (status !== undefined) payment.status = status;
     if (receiptNo !== undefined) payment.receiptNo = receiptNo;
+    if (installmentNumber !== undefined) {
+      payment.installmentNumber = installmentNumber ? Number(installmentNumber) : null;
+    }
     
     // Recalculate total feesPaid from all Verified, Paid, or Received payments
     user.feesPaid = user.feeHistory

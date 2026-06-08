@@ -105,7 +105,8 @@ const userSchema = new mongoose.Schema({
     amount: Number,
     date: { type: Date, default: Date.now },
     status: { type: String, default: 'Paid' },
-    receiptNo: String
+    receiptNo: String,
+    installmentNumber: Number
   }],
   installments: [{
     amount: { type: Number, required: true },

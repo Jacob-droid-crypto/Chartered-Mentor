@@ -1975,24 +1975,6 @@ function Dashboard({ user, onLogout }) {
         row["Fees Paid"] = student.feesPaid || 0;
         row["Remaining Balance"] = (student.totalFees || 0) - (student.feesPaid || 0);
 
-        // Dynamic Payment Columns
-        let maxPayments = 0;
-        students.forEach(s => {
-          const validPayments = (s.feeHistory || []).filter(p => p.status === 'Verified' || p.status === 'Paid' || p.status === 'Received');
-          if (validPayments.length > maxPayments) {
-            maxPayments = validPayments.length;
-          }
-        });
-
-        for (let i = 0; i < maxPayments; i++) {
-          const pay = (student.feeHistory || [])
-            .filter(p => p.status === 'Verified' || p.status === 'Paid' || p.status === 'Received')
-            .sort((a, b) => new Date(a.date) - new Date(b.date))[i] || null;
-          row[`Payment ${i + 1} Amount (₹)`] = pay ? pay.amount : "-";
-          row[`Payment ${i + 1} Date`] = pay && pay.date ? safeFormatDate(pay.date) : "-";
-          row[`Payment ${i + 1} Receipt`] = pay ? (pay.receiptNo || "Self-Reported") : "-";
-        }
-
         let maxInstallments = 0;
         students.forEach(s => {
           if (Array.isArray(s.installments) && s.installments.length > maxInstallments) {
@@ -2000,16 +1982,78 @@ function Dashboard({ user, onLogout }) {
           }
         });
 
-        const sortedInstallments = Array.isArray(student.installments)
+        // Build linkage map for this student
+        const sortedInsts = Array.isArray(student.installments)
           ? [...student.installments].sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
           : [];
 
+        const validPayments = (student.feeHistory || [])
+          .filter(p => p.status === 'Verified' || p.status === 'Paid' || p.status === 'Received')
+          .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        const instPayments = {};
+
+        // 1. Explicitly linked payments
+        validPayments.forEach(p => {
+          if (p.installmentNumber && p.installmentNumber > 0) {
+            const idx = p.installmentNumber - 1;
+            if (!instPayments[idx]) {
+              instPayments[idx] = [];
+            }
+            instPayments[idx].push(p);
+          }
+        });
+
+        // 2. Unlinked payments allocation
+        const unlinkedPayments = validPayments.filter(p => !p.installmentNumber || p.installmentNumber <= 0);
+        const sumInstallments = sortedInsts.reduce((sum, inst) => sum + inst.amount, 0);
+        const implicitInitialFee = Math.max(0, (student.totalFees || 0) - sumInstallments);
+
+        let remainingPaid = Math.max(0, unlinkedPayments.reduce((sum, p) => sum + p.amount, 0) - implicitInitialFee);
+
+        sortedInsts.forEach((inst, idx) => {
+          if (instPayments[idx] && instPayments[idx].length > 0) {
+            return;
+          }
+          if (remainingPaid <= 0) {
+            return;
+          }
+
+          let cumulativeUnlinked = 0;
+          let payingPayment = null;
+          for (const p of unlinkedPayments) {
+            cumulativeUnlinked += p.amount;
+            if (cumulativeUnlinked >= implicitInitialFee) {
+              payingPayment = p;
+            }
+          }
+
+          if (remainingPaid >= inst.amount) {
+            instPayments[idx] = payingPayment ? [payingPayment] : [];
+            remainingPaid -= inst.amount;
+          } else {
+            instPayments[idx] = payingPayment ? [payingPayment] : [];
+            remainingPaid = 0;
+          }
+        });
+
         for (let i = 0; i < maxInstallments; i++) {
-          const inst = sortedInstallments[i] || null;
+          const inst = sortedInsts[i] || null;
+          const pays = instPayments[i] || [];
+
           row[`Inst ${i + 1} Amount (₹)`] = inst ? inst.amount : "-";
           row[`Inst ${i + 1} Status`] = inst ? inst.status : "-";
           row[`Inst ${i + 1} Due Date`] = inst && inst.dueDate ? safeFormatDate(inst.dueDate) : "-";
-          row[`Inst ${i + 1} Payment Date`] = inst && inst.status === 'Paid' && inst.paidDate ? safeFormatDate(inst.paidDate) : "-";
+          
+          if (pays.length > 0) {
+            row[`Inst ${i + 1} Paid Amount (₹)`] = pays.reduce((sum, p) => sum + p.amount, 0);
+            row[`Inst ${i + 1} Payment Date`] = safeFormatDate(pays[pays.length - 1].date);
+            row[`Inst ${i + 1} Receipt`] = pays.map(p => p.receiptNo || "Self-Reported").join(", ");
+          } else {
+            row[`Inst ${i + 1} Paid Amount (₹)`] = "-";
+            row[`Inst ${i + 1} Payment Date`] = inst && inst.status === 'Paid' && inst.paidDate ? safeFormatDate(inst.paidDate) : "-";
+            row[`Inst ${i + 1} Receipt`] = "-";
+          }
         }
       }
 
@@ -4366,9 +4410,14 @@ function Dashboard({ user, onLogout }) {
                         <div key={idx} className="activity-item" style={{ alignItems: 'center' }}>
                           <div>
                             <strong style={{ fontSize: '1.1rem', color: '#10b981' }}>+ ₹{fee.amount}</strong>
-                            <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.2rem' }}>
+                            <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.2rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                               <span>From: <strong>{fee.studentName}</strong> (#{fee.studentId})</span>
-                              <span style={{ marginLeft: '1rem' }}>Receipt: {fee.receiptNo || 'N/A'}</span>
+                              <span>Receipt: {fee.receiptNo || 'N/A'}</span>
+                              {fee.installmentNumber && (
+                                <span style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', padding: '2px 6px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                                  Installment {fee.installmentNumber}
+                                </span>
+                              )}
                             </div>
                           </div>
                           <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
@@ -4692,8 +4741,13 @@ function Dashboard({ user, onLogout }) {
                         <div key={idx} className="activity-item" style={{ alignItems: 'center' }}>
                           <div>
                             <strong style={{ fontSize: '1.1rem', color: '#10b981' }}>+ ₹{fee.amount}</strong>
-                            <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.2rem' }}>
+                            <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.2rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                               <span>Receipt No: {fee.receiptNo || 'N/A'}</span>
+                              {fee.installmentNumber && (
+                                <span style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', padding: '2px 6px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                                  Installment {fee.installmentNumber}
+                                </span>
+                              )}
                             </div>
                           </div>
                           <div style={{ textAlign: 'right' }}>
@@ -5184,9 +5238,14 @@ function Dashboard({ user, onLogout }) {
                     <div key={idx} className="activity-item" style={{ alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
                       <div>
                         <strong style={{ fontSize: '1.1rem', color: '#10b981' }}>+ ₹{fee.amount}</strong>
-                        <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.2rem' }}>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.2rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                           <span>Receipt: {fee.receiptNo || 'N/A'}</span>
-                          <span style={{ marginLeft: '1rem' }}>Date: {new Date(fee.date).toLocaleDateString()}</span>
+                          <span>Date: {new Date(fee.date).toLocaleDateString()}</span>
+                          {fee.installmentNumber && (
+                            <span style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', padding: '2px 6px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                              Installment {fee.installmentNumber}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
@@ -5199,7 +5258,8 @@ function Dashboard({ user, onLogout }) {
                             amount: fee.amount,
                             date: fee.date,
                             receiptNo: fee.receiptNo || '',
-                            status: fee.status
+                            status: fee.status,
+                            installmentNumber: fee.installmentNumber || ''
                           })} style={{ padding: '0.3rem 0.8rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>✏️ Edit</button>
                           {fee.status === 'Pending' && (
                             <>
@@ -5888,9 +5948,14 @@ function Dashboard({ user, onLogout }) {
                               <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
                                 <div>
                                   <strong style={{ fontSize: '0.95rem', color: '#10b981' }}>+ ₹{fee.amount}</strong>
-                                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                                     <span>Receipt: {fee.receiptNo || 'N/A'}</span>
-                                    <span style={{ marginLeft: '10px' }}>Date: {new Date(fee.date).toLocaleDateString()}</span>
+                                    <span>Date: {new Date(fee.date).toLocaleDateString()}</span>
+                                    {fee.installmentNumber && (
+                                      <span style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', padding: '1px 5px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                                        Inst {fee.installmentNumber}
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.3rem' }}>
@@ -5906,7 +5971,8 @@ function Dashboard({ user, onLogout }) {
                                         amount: fee.amount,
                                         date: fee.date,
                                         receiptNo: fee.receiptNo || '',
-                                        status: fee.status
+                                        status: fee.status,
+                                        installmentNumber: fee.installmentNumber || ''
                                       })}
                                       style={{ padding: '2px 6px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}
                                     >
@@ -6040,7 +6106,8 @@ function Dashboard({ user, onLogout }) {
                     amount: Number(e.target.amount.value),
                     receiptNo: e.target.receiptNo.value,
                     date: new Date(e.target.date.value).toISOString(),
-                    status: e.target.status.value
+                    status: e.target.status.value,
+                    installmentNumber: e.target.installmentNumber.value ? Number(e.target.installmentNumber.value) : null
                   })
                 });
                 const resData = await res.json();
@@ -6107,6 +6174,33 @@ function Dashboard({ user, onLogout }) {
                   <option value="Verified">Verified</option>
                   <option value="Paid">Paid</option>
                   <option value="Rejected">Rejected</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Installment Number</label>
+                <select
+                  name="installmentNumber"
+                  defaultValue={editingPayment.installmentNumber || ''}
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }}
+                >
+                  <option value="">None / Auto-allocated</option>
+                  {(() => {
+                    const stud = students && students.find(s => s.userId === editingPayment.studentId);
+                    if (stud && Array.isArray(stud.installments) && stud.installments.length > 0) {
+                      return stud.installments.map((inst, idx) => (
+                        <option key={idx} value={idx + 1}>
+                          Installment {idx + 1} (₹{inst.amount})
+                        </option>
+                      ));
+                    } else {
+                      return Array.from({ length: 12 }, (_, i) => (
+                        <option key={i} value={i + 1}>
+                          Installment {i + 1}
+                        </option>
+                      ));
+                    }
+                  })()}
                 </select>
               </div>
 
