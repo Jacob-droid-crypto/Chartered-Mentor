@@ -14,6 +14,57 @@ const getLocalDateString = (date = new Date()) => {
   return `${year}-${month}-${day}`;
 };
 
+const getStudentCustomMonthRange = (joiningDateStr, targetDateStr) => {
+  const jDate = new Date(joiningDateStr);
+  const targetDate = new Date(targetDateStr);
+  
+  if (isNaN(jDate.getTime()) || isNaN(targetDate.getTime())) {
+    return null;
+  }
+  
+  jDate.setHours(0, 0, 0, 0);
+  targetDate.setHours(0, 0, 0, 0);
+  
+  const targetYear = targetDate.getFullYear();
+  const targetMonth = targetDate.getMonth(); // 0-11
+  const dojDay = jDate.getDate();
+  
+  let startYear = targetYear;
+  let startMonth = targetMonth;
+  
+  const lastDayOfTargetMonth = new Date(startYear, startMonth + 1, 0).getDate();
+  const startDay = Math.min(dojDay, lastDayOfTargetMonth);
+  
+  let startDate = new Date(startYear, startMonth, startDay);
+  startDate.setHours(0, 0, 0, 0);
+  
+  if (targetDate < startDate) {
+    startMonth -= 1;
+    if (startMonth < 0) {
+      startMonth = 11;
+      startYear -= 1;
+    }
+    const lastDayOfPrevMonth = new Date(startYear, startMonth + 1, 0).getDate();
+    const prevStartDay = Math.min(dojDay, lastDayOfPrevMonth);
+    startDate = new Date(startYear, startMonth, prevStartDay);
+    startDate.setHours(0, 0, 0, 0);
+  }
+  
+  let endYear = startDate.getFullYear();
+  let endMonth = startDate.getMonth() + 1;
+  if (endMonth > 11) {
+    endMonth = 0;
+    endYear += 1;
+  }
+  const lastDayOfEndMonth = new Date(endYear, endMonth + 1, 0).getDate();
+  const endDay = Math.min(dojDay, lastDayOfEndMonth);
+  const endDate = new Date(endYear, endMonth, endDay);
+  endDate.setDate(endDate.getDate() - 1);
+  endDate.setHours(23, 59, 59, 999);
+  
+  return { startDate, endDate };
+};
+
 function StudentPaperCard({ paper, user, onRefresh }) {
   const [timeLeft, setTimeLeft] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -1566,7 +1617,8 @@ function Dashboard({ user, onLogout }) {
           totalPresent: 0,
           totalAbsent: 0,
           presentDates: [],
-          totalHours: 0
+          totalHours: 0,
+          lateCount: 0
         };
       });
     }
@@ -1585,9 +1637,20 @@ function Dashboard({ user, onLogout }) {
 
       let keyToMatch = false;
       if (attendanceView === 'monthly') {
-        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        const targetMonthKey = attendanceDate.substring(0, 7);
-        if (monthKey === targetMonthKey) keyToMatch = true;
+        if (joiningDateStr) {
+          const range = getStudentCustomMonthRange(joiningDateStr, attendanceDate);
+          if (range) {
+            const dMidnight = new Date(d);
+            dMidnight.setHours(0, 0, 0, 0);
+            if (dMidnight >= range.startDate && dMidnight <= range.endDate) {
+              keyToMatch = true;
+            }
+          }
+        } else {
+          const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          const targetMonthKey = attendanceDate.substring(0, 7);
+          if (monthKey === targetMonthKey) keyToMatch = true;
+        }
       } else if (attendanceView === 'weekly') {
         const targetDate = new Date(attendanceDate);
         const startOfWeek = new Date(targetDate);
@@ -1607,10 +1670,32 @@ function Dashboard({ user, onLogout }) {
             totalPresent: 0, 
             totalAbsent: 0, 
             presentDates: [], 
-            totalHours: 0 
+            totalHours: 0,
+            lateCount: 0
           };
         }
-        if (item.status === 'Present') aggregatedMap[item.studentId].totalPresent++;
+        if (aggregatedMap[item.studentId].lateCount === undefined) {
+          aggregatedMap[item.studentId].lateCount = 0;
+        }
+
+        let isLate = false;
+        if (item.firstIn) {
+          const firstInDate = new Date(item.firstIn);
+          if (!isNaN(firstInDate.getTime())) {
+            const hours = firstInDate.getHours();
+            const minutes = firstInDate.getMinutes();
+            if (hours > 8 || (hours === 8 && minutes > 30)) {
+              isLate = true;
+            }
+          }
+        }
+
+        if (item.status === 'Present') {
+          aggregatedMap[item.studentId].totalPresent++;
+          if (isLate) {
+            aggregatedMap[item.studentId].lateCount++;
+          }
+        }
         else aggregatedMap[item.studentId].totalAbsent++;
 
         aggregatedMap[item.studentId].totalHours += parseFloat(item.totalHours || 0);
@@ -1652,22 +1737,38 @@ function Dashboard({ user, onLogout }) {
           expectedDays = Math.floor((activeEnd.getTime() - activeStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
         }
       } else if (attendanceView === 'monthly') {
-        const [year, month] = attendanceDate.split('-');
-        const y = parseInt(year);
-        const m = parseInt(month) - 1;
+        if (joiningDateStr) {
+          const range = getStudentCustomMonthRange(joiningDateStr, attendanceDate);
+          if (range) {
+            const activeStart = jDate && jDate > range.startDate ? jDate : range.startDate;
+            const activeEnd = today < range.endDate ? today : range.endDate;
 
-        const startOfMonth = new Date(y, m, 1);
-        startOfMonth.setHours(0, 0, 0, 0);
-        const endOfMonth = new Date(y, m + 1, 0);
-        endOfMonth.setHours(0, 0, 0, 0);
-
-        const activeStart = jDate && jDate > startOfMonth ? jDate : startOfMonth;
-        const activeEnd = today < endOfMonth ? today : endOfMonth;
-
-        if (activeStart > activeEnd) {
-          expectedDays = 0;
+            if (activeStart > activeEnd) {
+              expectedDays = 0;
+            } else {
+              expectedDays = Math.floor((activeEnd.getTime() - activeStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+            }
+          } else {
+            expectedDays = 0;
+          }
         } else {
-          expectedDays = Math.floor((activeEnd.getTime() - activeStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+          const [year, month] = attendanceDate.split('-');
+          const y = parseInt(year);
+          const m = parseInt(month) - 1;
+
+          const startOfMonth = new Date(y, m, 1);
+          startOfMonth.setHours(0, 0, 0, 0);
+          const endOfMonth = new Date(y, m + 1, 0);
+          endOfMonth.setHours(0, 0, 0, 0);
+
+          const activeStart = jDate && jDate > startOfMonth ? jDate : startOfMonth;
+          const activeEnd = today < endOfMonth ? today : endOfMonth;
+
+          if (activeStart > activeEnd) {
+            expectedDays = 0;
+          } else {
+            expectedDays = Math.floor((activeEnd.getTime() - activeStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+          }
         }
       }
 
@@ -1687,16 +1788,23 @@ function Dashboard({ user, onLogout }) {
       return;
     }
 
+    const todayStr = getLocalDateString();
+
     let exportData = [];
     if (attendanceView === 'daily') {
-      exportData = aggregatedData.map(record => ({
-        "Student Name": record.studentName || record.studentId || "-",
-        "Course": record.course || "-",
-        "Status": record.status,
-        "First Log In Time": record.firstIn ? new Date(record.firstIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-",
-        "Total Hours": formatStudyTime(record.totalHours),
-        "Date": record.date
-      }));
+      exportData = aggregatedData.map(record => {
+        const studentInfo = Array.isArray(students) ? students.find(s => s.userId === record.studentId) : null;
+        const joiningDateStr = studentInfo?.joiningDate || (record.studentId === user.userId ? data?.joiningDate : null);
+        return {
+          "Student Name": record.studentName || record.studentId || "-",
+          "Course": record.course || "-",
+          "DOJ": joiningDateStr ? new Date(joiningDateStr).toLocaleDateString() : "-",
+          "Status": record.status,
+          "First Log In Time": record.firstIn ? new Date(record.firstIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-",
+          "Total Hours": formatStudyTime(record.totalHours),
+          "Date": record.date
+        };
+      });
     } else {
       // 1. Generate date list dynamically
       const dateList = [];
@@ -1707,7 +1815,10 @@ function Dashboard({ user, onLogout }) {
         for (let i = 0; i < 7; i++) {
           const d = new Date(startOfWeek);
           d.setDate(startOfWeek.getDate() + i);
-          dateList.push(d.toISOString().split('T')[0]);
+          const dateStr = d.toISOString().split('T')[0];
+          if (dateStr <= todayStr) {
+            dateList.push(dateStr);
+          }
         }
       } else if (attendanceView === 'monthly') {
         const [year, month] = attendanceDate.split('-');
@@ -1717,7 +1828,10 @@ function Dashboard({ user, onLogout }) {
         for (let i = 1; i <= numDays; i++) {
           const dayStr = String(i).padStart(2, '0');
           const monthStr = String(m + 1).padStart(2, '0');
-          dateList.push(`${y}-${monthStr}-${dayStr}`);
+          const dateStr = `${y}-${monthStr}-${dayStr}`;
+          if (dateStr <= todayStr) {
+            dateList.push(dateStr);
+          }
         }
       }
 
@@ -1733,20 +1847,42 @@ function Dashboard({ user, onLogout }) {
 
       // 3. Construct rows
       exportData = aggregatedData.map(record => {
+        const studentInfo = Array.isArray(students) ? students.find(s => s.userId === record.studentId) : null;
+        const joiningDateStr = studentInfo?.joiningDate || (record.studentId === user.userId ? data?.joiningDate : null);
+
         const row = {
           "Student Name": record.studentName || record.studentId || "-",
           "Course": record.course || "-",
+          "DOJ": joiningDateStr ? new Date(joiningDateStr).toLocaleDateString() : "-",
           "Total Present": record.totalPresent,
-          "Total Absent": record.totalAbsent,
-          "Total Study Hours": formatStudyTime(record.totalHours)
+          "Total Absent (Leaves)": record.totalAbsent,
         };
+
+        if (attendanceView === 'monthly') {
+          row["Late Logins"] = record.lateCount || 0;
+        }
+
+        row["Total Study Hours"] = formatStudyTime(record.totalHours);
 
         // Add dynamically generated date columns chronologically
         dateList.forEach(dateStr => {
+          let isBeforeJoining = false;
+          if (joiningDateStr) {
+            const d = new Date(dateStr);
+            d.setHours(0, 0, 0, 0);
+            const jDate = new Date(joiningDateStr);
+            jDate.setHours(0, 0, 0, 0);
+            if (d < jDate) {
+              isBeforeJoining = true;
+            }
+          }
+
           const logsForDate = studentDateLogs[record.studentId] || {};
           const log = logsForDate[dateStr];
           
-          if (log && log.status === 'Present') {
+          if (isBeforeJoining) {
+            row[dateStr] = ""; // Keep as blank
+          } else if (log && log.status === 'Present') {
             row[dateStr] = formatStudyTime(log.totalHours);
           } else {
             row[dateStr] = "Leave";
@@ -1771,6 +1907,12 @@ function Dashboard({ user, onLogout }) {
 
     const isStaff = user.role === 'staff';
 
+    const safeFormatDate = (dateVal) => {
+      if (!dateVal) return "-";
+      const d = new Date(dateVal);
+      return isNaN(d.getTime()) ? "-" : d.toLocaleDateString();
+    };
+
     const exportData = students.map(student => {
       const row = {
         "Student Name": student.name || "-",
@@ -1780,7 +1922,7 @@ function Dashboard({ user, onLogout }) {
         "Course": student.course || "-",
         "Mode": student.mode || "-",
         "Batch": student.batch || "-",
-        "Joining Date": student.joiningDate ? new Date(student.joiningDate).toLocaleDateString() : "-",
+        "Joining Date": safeFormatDate(student.joiningDate),
       };
 
       if (!isStaff) {
@@ -1803,8 +1945,8 @@ function Dashboard({ user, onLogout }) {
           const inst = sortedInstallments[i] || null;
           row[`Inst ${i + 1} Amount (₹)`] = inst ? inst.amount : "-";
           row[`Inst ${i + 1} Status`] = inst ? inst.status : "-";
-          row[`Inst ${i + 1} Due Date`] = inst && inst.dueDate ? new Date(inst.dueDate).toLocaleDateString() : "-";
-          row[`Inst ${i + 1} Payment Date`] = inst && inst.status === 'Paid' && inst.paidDate ? new Date(inst.paidDate).toLocaleDateString() : "-";
+          row[`Inst ${i + 1} Due Date`] = inst && inst.dueDate ? safeFormatDate(inst.dueDate) : "-";
+          row[`Inst ${i + 1} Payment Date`] = inst && inst.status === 'Paid' && inst.paidDate ? safeFormatDate(inst.paidDate) : "-";
         }
       }
 
@@ -1929,41 +2071,6 @@ function Dashboard({ user, onLogout }) {
       <main className="main-content">
         <header className="top-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '2rem', flexWrap: 'wrap' }}>
           <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
-            <div className="header-logo" style={{ display: 'flex', alignItems: 'center' }}>
-              <img src="/logo.png" alt="Chartered Mentor Logo" style={{ height: '45px', width: 'auto' }} />
-            </div>
-            <div className="welcome-text">
-              <h1 style={{ fontSize: '1.8rem', margin: 0, fontWeight: '600', color: 'var(--text-main)' }}>
-                {activeTab === 'dashboard' ? `Welcome back, ${user.name} 👋`
-                  : activeTab === 'students' ? 'Manage Students'
-                  : activeTab === 'attendance' ? 'Attendance Records'
-                  : activeTab === 'profile' ? 'My Profile'
-                  : activeTab === 'papers' ? 'Question Papers'
-                  : activeTab === 'schedules' ? ((user.role === 'admin' || user.role === 'staff') ? 'Student Schedules' : 'My Study Schedule')
-                  : activeTab === 'payments' ? (user.role === 'admin' ? 'Fee Ledger' : 'My Payments')
-                  : activeTab === 'feeSetup' && feeSetupStudent ? `Fee Structure: ${feeSetupStudent.name}`
-                  : activeTab === 'study_tracker' ? 'Study Goal Tracker'
-                  : activeTab === 'goal_settings' ? 'Study Goal Settings'
-                  : activeTab === 'exam_scheduler' ? 'Exam Scheduler'
-                  : 'Campus QR'}
-              </h1>
-              <p style={{ margin: '4px 0 0 0', fontSize: '0.95rem', color: 'var(--text-muted)' }}>
-                {activeTab === 'dashboard' ? `Role: ${user.role === 'admin' ? 'Administrator' : user.role === 'staff' ? 'Staff' : 'Student (ID: ' + user.userId + ')'}`
-                  : activeTab === 'students' ? 'Add new students or remove existing ones from the system.'
-                  : activeTab === 'attendance' ? 'View and track your attendance logs.'
-                  : activeTab === 'profile' ? 'Update your personal details and photo.'
-                  : activeTab === 'papers' ? 'Manage and download scheduled question papers.'
-                  : activeTab === 'schedules' ? ((user.role === 'admin' || user.role === 'staff') ? 'Create and manage study plans, classes, and tests for students.' : 'Track your study checklist, scheduled classes, and exams.')
-                  : activeTab === 'payments' ? 'View fee payment history and balances.'
-                  : activeTab === 'feeSetup' ? 'Configure total fees and next due date.'
-                  : activeTab === 'study_tracker' ? 'Track days where you studied less than your configured daily target hours.'
-                  : activeTab === 'goal_settings' ? 'Configure the mandatory study hours for each day of the week.'
-                  : activeTab === 'exam_scheduler' ? 'Manually schedule exam dates and study schedule ending dates for students.'
-                  : 'Display the active QR code for students to scan.'}
-              </p>
-            </div>
-          </div>
-          <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             {/* Three Dots Navigation Menu */}
             <div className="header-nav-menu-container" style={{ position: 'relative' }}>
               <button 
@@ -2182,6 +2289,41 @@ function Dashboard({ user, onLogout }) {
               )}
             </div>
 
+            <div className="header-logo" style={{ display: 'flex', alignItems: 'center' }}>
+              <img src="/logo.png" alt="Chartered Mentor Logo" style={{ height: '70px', width: 'auto' }} />
+            </div>
+            <div className="welcome-text">
+              <h1 style={{ fontSize: '1.8rem', margin: 0, fontWeight: '600', color: 'var(--text-main)' }}>
+                {activeTab === 'dashboard' ? `Welcome back, ${user.name} 👋`
+                  : activeTab === 'students' ? 'Manage Students'
+                  : activeTab === 'attendance' ? 'Attendance Records'
+                  : activeTab === 'profile' ? 'My Profile'
+                  : activeTab === 'papers' ? 'Question Papers'
+                  : activeTab === 'schedules' ? ((user.role === 'admin' || user.role === 'staff') ? 'Student Schedules' : 'My Study Schedule')
+                  : activeTab === 'payments' ? (user.role === 'admin' ? 'Fee Ledger' : 'My Payments')
+                  : activeTab === 'feeSetup' && feeSetupStudent ? `Fee Structure: ${feeSetupStudent.name}`
+                  : activeTab === 'study_tracker' ? 'Study Goal Tracker'
+                  : activeTab === 'goal_settings' ? 'Study Goal Settings'
+                  : activeTab === 'exam_scheduler' ? 'Exam Scheduler'
+                  : 'Campus QR'}
+              </h1>
+              <p style={{ margin: '4px 0 0 0', fontSize: '0.95rem', color: 'var(--text-muted)' }}>
+                {activeTab === 'dashboard' ? `Role: ${user.role === 'admin' ? 'Administrator' : user.role === 'staff' ? 'Staff' : 'Student (ID: ' + user.userId + ')'}`
+                  : activeTab === 'students' ? 'Add new students or remove existing ones from the system.'
+                  : activeTab === 'attendance' ? 'View and track your attendance logs.'
+                  : activeTab === 'profile' ? 'Update your personal details and photo.'
+                  : activeTab === 'papers' ? 'Manage and download scheduled question papers.'
+                  : activeTab === 'schedules' ? ((user.role === 'admin' || user.role === 'staff') ? 'Create and manage study plans, classes, and tests for students.' : 'Track your study checklist, scheduled classes, and exams.')
+                  : activeTab === 'payments' ? 'View fee payment history and balances.'
+                  : activeTab === 'feeSetup' ? 'Configure total fees and next due date.'
+                  : activeTab === 'study_tracker' ? 'Track days where you studied less than your configured daily target hours.'
+                  : activeTab === 'goal_settings' ? 'Configure the mandatory study hours for each day of the week.'
+                  : activeTab === 'exam_scheduler' ? 'Manually schedule exam dates and study schedule ending dates for students.'
+                  : 'Display the active QR code for students to scan.'}
+              </p>
+            </div>
+          </div>
+          <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <div className="profile-section" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <span>{user.name}</span>
               {profileData?.profilePhoto || user.profilePhoto ? (
@@ -3093,7 +3235,12 @@ function Dashboard({ user, onLogout }) {
                       })() : (
                         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
                           <span style={{ color: '#10b981', fontWeight: 'bold' }}>Present: {record.totalPresent}</span>
-                          <span style={{ color: '#ef4444', fontWeight: 'bold' }}>Absent: {record.totalAbsent}</span>
+                          <span style={{ color: '#ef4444', fontWeight: 'bold' }}>
+                            {attendanceView === 'monthly' ? `Absent (Leaves): ${record.totalAbsent}` : `Absent: ${record.totalAbsent}`}
+                          </span>
+                          {attendanceView === 'monthly' && (
+                            <span style={{ color: '#f59e0b', fontWeight: 'bold' }}>Late Logins: {record.lateCount || 0}</span>
+                          )}
                           <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>Study: {formatStudyTime(record.totalHours)}</span>
                         </div>
                       )}
@@ -4691,7 +4838,7 @@ function Dashboard({ user, onLogout }) {
 
                 // Calculate verified non-installment payments (initial payments)
                 const payments = (feeSetupStudent.feeHistory || [])
-                  .filter(p => p.status === 'Verified' || p.status === 'Paid');
+                  .filter(p => p.status === 'Verified' || p.status === 'Paid' || p.status === 'Received');
                 const nonInstTotal = payments
                   .filter(p => !/Inst\s*\d+/i.test(p.receiptNo || ''))
                   .reduce((sum, p) => sum + p.amount, 0);
@@ -4818,7 +4965,7 @@ function Dashboard({ user, onLogout }) {
                     const allocatedSum = (feeSetupStudent.installments || []).reduce((sum, inst) => sum + Number(inst.amount || 0), 0);
                     
                     const payments = (feeSetupStudent.feeHistory || [])
-                      .filter(p => p.status === 'Verified' || p.status === 'Paid');
+                      .filter(p => p.status === 'Verified' || p.status === 'Paid' || p.status === 'Received');
                     const nonInstTotal = payments
                       .filter(p => !/Inst\s*\d+/i.test(p.receiptNo || ''))
                       .reduce((sum, p) => sum + p.amount, 0);

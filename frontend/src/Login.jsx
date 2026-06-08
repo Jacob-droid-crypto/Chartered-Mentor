@@ -180,7 +180,7 @@ function Login({ onLoginSuccess }) {
       
       <div className="login-card">
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <img src="/logo.png" alt="Chartered Mentor Logo" style={{ width: '180px', height: 'auto', margin: '0 auto 1rem auto', display: 'block' }} />
+          <img src="/logo.png" alt="Chartered Mentor Logo" style={{ width: '280px', height: 'auto', margin: '0 auto 1.5rem auto', display: 'block' }} />
           <h2>
             {view === 'login' ? 'Welcome Back ✨' 
               : view === 'google_verify' ? 'Verify Identity' 

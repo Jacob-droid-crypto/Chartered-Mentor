@@ -132,13 +132,20 @@ const getDashboard = async (req, res) => {
         }
       }
 
+      let firstIn = null;
+      const firstInLog = dayLogs.find(log => log.type === "IN");
+      if (firstInLog) {
+        firstIn = firstInLog.timestamp ? new Date(firstInLog.timestamp).getTime() : (firstInLog.createdAt ? new Date(firstInLog.createdAt).getTime() : 0);
+      }
+
       summary[key] = {
         studentId: dayLogs[0].studentId,
         course: dayLogs[0].course,
         date: key,
         hasIN,
         hasOUT,
-        totalMs
+        totalMs,
+        firstIn
       };
     }
 
@@ -148,6 +155,7 @@ const getDashboard = async (req, res) => {
       date: s.date,
       totalHours: s.totalMs / (1000 * 60 * 60),
       status: s.hasIN ? "Present" : "Absent",
+      firstIn: s.firstIn ? new Date(s.firstIn).toISOString() : null,
       hasOUT: s.hasOUT,
     }));
 
@@ -388,36 +396,40 @@ const updateProfile = async (req, res) => {
     if (course !== undefined) user.course = course;
     if (profilePhoto !== undefined) user.profilePhoto = profilePhoto;
 
-    if (address !== undefined) user.address = address;
-    if (group !== undefined) user.group = group;
-    if (aadharNumber !== undefined) user.aadharNumber = aadharNumber;
-    if (dob !== undefined) user.dob = dob;
-    if (joiningDate !== undefined) user.joiningDate = joiningDate;
-    if (fatherName !== undefined) user.fatherName = fatherName;
-    if (fatherPhone !== undefined) user.fatherPhone = fatherPhone;
-    if (fatherOccupation !== undefined) user.fatherOccupation = fatherOccupation;
-    if (motherName !== undefined) user.motherName = motherName;
-    if (motherPhone !== undefined) user.motherPhone = motherPhone;
-    if (motherOccupation !== undefined) user.motherOccupation = motherOccupation;
+    if (user.role === 'student') {
+      if (address !== undefined) user.address = address;
+      if (group !== undefined) user.group = group || undefined;
+      if (aadharNumber !== undefined) user.aadharNumber = aadharNumber;
+      if (dob !== undefined) user.dob = dob ? new Date(dob) : null;
+      if (joiningDate !== undefined) user.joiningDate = joiningDate ? new Date(joiningDate) : null;
+      if (fatherName !== undefined) user.fatherName = fatherName;
+      if (fatherPhone !== undefined) user.fatherPhone = fatherPhone;
+      if (fatherOccupation !== undefined) user.fatherOccupation = fatherOccupation;
+      if (motherName !== undefined) user.motherName = motherName;
+      if (motherPhone !== undefined) user.motherPhone = motherPhone;
+      if (motherOccupation !== undefined) user.motherOccupation = motherOccupation;
 
-    // Check if profile is complete (all required fields filled)
-    if (
-      user.name && 
-      user.email && 
-      user.phone && 
-      user.address && 
-      user.group && 
-      user.aadharNumber && 
-      user.dob &&
-      user.joiningDate &&
-      user.fatherName && 
-      user.fatherPhone && 
-      user.fatherOccupation && 
-      user.motherName && 
-      user.motherPhone && 
-      user.motherOccupation
-    ) {
-      user.profileCompleted = true;
+      // Check if profile is complete (all required fields filled)
+      if (
+        user.name && 
+        user.email && 
+        user.phone && 
+        user.address && 
+        user.group && 
+        user.aadharNumber && 
+        user.dob &&
+        user.joiningDate &&
+        user.fatherName && 
+        user.fatherPhone && 
+        user.fatherOccupation && 
+        user.motherName && 
+        user.motherPhone && 
+        user.motherOccupation
+      ) {
+        user.profileCompleted = true;
+      } else {
+        user.profileCompleted = false;
+      }
     } else {
       user.profileCompleted = false;
     }

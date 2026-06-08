@@ -626,9 +626,9 @@ const updateInstallmentStatus = (user) => {
     // Sort chronologically by due date
     user.installments.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
 
-    // Get all verified/paid payments sorted by date
+    // Get all verified/paid/received payments sorted by date
     const payments = (user.feeHistory || [])
-      .filter(p => p.status === 'Verified' || p.status === 'Paid')
+      .filter(p => p.status === 'Verified' || p.status === 'Paid' || p.status === 'Received')
       .sort((a, b) => new Date(a.date) - new Date(b.date));
 
     // Separate non-installment payments (initial payments) from installment-specific payments
@@ -794,7 +794,7 @@ const rejectStudentPayment = async (req, res) => {
     if (!payment) return res.status(404).json({ message: "Payment record not found" });
     
     // Revert balance if payment was already approved or recorded as paid
-    if (payment.status === "Verified" || payment.status === "Paid") {
+    if (payment.status === "Verified" || payment.status === "Paid" || payment.status === "Received") {
       user.feesPaid = Math.max(0, (user.feesPaid || 0) - Number(payment.amount));
     }
     
@@ -827,9 +827,9 @@ const editStudentPayment = async (req, res) => {
     if (status !== undefined) payment.status = status;
     if (receiptNo !== undefined) payment.receiptNo = receiptNo;
     
-    // Recalculate total feesPaid from all Verified or Paid payments
+    // Recalculate total feesPaid from all Verified, Paid, or Received payments
     user.feesPaid = user.feeHistory
-      .filter(p => p.status === "Verified" || p.status === "Paid")
+      .filter(p => p.status === "Verified" || p.status === "Paid" || p.status === "Received")
       .reduce((sum, p) => sum + Number(p.amount), 0);
       
     // Recalculate installments paid status
@@ -855,9 +855,9 @@ const revertStudentPayment = async (req, res) => {
     
     payment.status = "Pending";
     
-    // Recalculate total feesPaid from all Verified or Paid payments
+    // Recalculate total feesPaid from all Verified, Paid, or Received payments
     user.feesPaid = user.feeHistory
-      .filter(p => p.status === "Verified" || p.status === "Paid")
+      .filter(p => p.status === "Verified" || p.status === "Paid" || p.status === "Received")
       .reduce((sum, p) => sum + Number(p.amount), 0);
       
     // Recalculate installments paid status
