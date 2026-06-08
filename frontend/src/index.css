@@ -15,12 +15,12 @@
 
 [data-theme="dark"] {
   --bg-color: #0f172a;
-  --surface-color: rgba(30, 41, 59, 0.75); /* Dark slate glass surface */
+  --surface-color: rgba(30, 41, 59, 0.7);
   --surface-solid: #1e293b; /* Solid dark slate */
   --text-main: #f8fafc;
   --text-muted: #94a3b8;
   --glass-border: rgba(255, 255, 255, 0.08);
-  --shadow-color: rgba(0, 0, 0, 0.35);
+  --shadow-color: rgba(0, 0, 0, 0.3);
 }
 
 [data-theme="dark"] body {
