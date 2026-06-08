@@ -631,66 +631,50 @@ const updateInstallmentStatus = (user) => {
       .filter(p => p.status === 'Verified' || p.status === 'Paid' || p.status === 'Received')
       .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    // Separate non-installment payments (initial payments) from installment-specific payments
-    const nonInstallmentPayments = payments.filter(p => !/Inst\s*\d+/i.test(p.receiptNo || ''));
-    const instPayments = payments.filter(p => /Inst\s*\d+/i.test(p.receiptNo || ''));
-    const nonInstTotal = nonInstallmentPayments.reduce((sum, p) => sum + p.amount, 0);
+    const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+    const sumInstallments = user.installments.reduce((sum, inst) => sum + inst.amount, 0);
+    const implicitInitialFee = Math.max(0, (user.totalFees || 0) - sumInstallments);
 
-    // Initialize/Reset adjustedAmount to the original configured amount
+    let remainingPaid = Math.max(0, totalPaid - implicitInitialFee);
+
     user.installments.forEach((inst) => {
       inst.adjustedAmount = inst.amount;
     });
 
-    // Subtract non-installment total from the last installment backwards
-    const totalConfiguredInstallmentSum = user.installments.reduce((sum, inst) => sum + inst.amount, 0);
-    const targetRemaining = user.totalFees - nonInstTotal;
-    let initialDiscountRemaining = Math.max(0, totalConfiguredInstallmentSum - targetRemaining);
-    for (let i = user.installments.length - 1; i >= 0; i--) {
-      if (initialDiscountRemaining <= 0) break;
-      const inst = user.installments[i];
-      if (initialDiscountRemaining >= inst.amount) {
-        initialDiscountRemaining -= inst.amount;
-        inst.adjustedAmount = 0;
-      } else {
-        inst.adjustedAmount = inst.amount - initialDiscountRemaining;
-        initialDiscountRemaining = 0;
-      }
-    }
-
-    // Now, allocate the installment-specific payments chronologically to the installments with remaining adjustedAmount > 0
-    let paymentIdx = 0;
-    let paymentRemaining = instPayments[paymentIdx] ? instPayments[paymentIdx].amount : 0;
-
     user.installments.forEach((inst) => {
-      // If adjusted target amount is 0, it means it was fully covered by the initial non-installment payments
-      if (inst.adjustedAmount === 0) {
+      if (remainingPaid >= inst.amount) {
         inst.status = "Paid";
-        // Default to the first payment's date or current date
-        inst.paidDate = payments[0] ? payments[0].date : new Date();
-        return;
-      }
+        // Find the payment date that completed this installment
+        let acc = 0;
+        let paidDate = null;
+        let coveredInitial = 0;
+        for (const p of payments) {
+          if (coveredInitial < implicitInitialFee) {
+            const neededForInitial = implicitInitialFee - coveredInitial;
+            if (p.amount >= neededForInitial) {
+              const extra = p.amount - neededForInitial;
+              coveredInitial = implicitInitialFee;
+              acc += extra;
+            } else {
+              coveredInitial += p.amount;
+            }
+          } else {
+            acc += p.amount;
+          }
 
-      let instNeeded = inst.adjustedAmount;
-      let lastPaymentDate = null;
-
-      while (instNeeded > 0 && paymentIdx < instPayments.length) {
-        if (paymentRemaining >= instNeeded) {
-          paymentRemaining -= instNeeded;
-          instNeeded = 0;
-          lastPaymentDate = instPayments[paymentIdx].date;
-        } else {
-          instNeeded -= paymentRemaining;
-          paymentIdx++;
-          paymentRemaining = instPayments[paymentIdx] ? instPayments[paymentIdx].amount : 0;
+          if (acc >= inst.amount) {
+            paidDate = p.date;
+            break;
+          }
         }
-      }
-
-      if (instNeeded === 0) {
-        inst.status = "Paid";
-        inst.paidDate = lastPaymentDate || new Date();
+        inst.paidDate = paidDate || new Date();
+        inst.adjustedAmount = 0;
+        remainingPaid -= inst.amount;
       } else {
         inst.status = "Unpaid";
         inst.paidDate = null;
+        inst.adjustedAmount = inst.amount - remainingPaid;
+        remainingPaid = 0;
       }
     });
 

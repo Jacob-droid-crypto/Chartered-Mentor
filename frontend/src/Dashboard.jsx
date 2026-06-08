@@ -1930,6 +1930,24 @@ function Dashboard({ user, onLogout }) {
         row["Fees Paid"] = student.feesPaid || 0;
         row["Remaining Balance"] = (student.totalFees || 0) - (student.feesPaid || 0);
 
+        // Dynamic Payment Columns
+        let maxPayments = 0;
+        students.forEach(s => {
+          const validPayments = (s.feeHistory || []).filter(p => p.status === 'Verified' || p.status === 'Paid' || p.status === 'Received');
+          if (validPayments.length > maxPayments) {
+            maxPayments = validPayments.length;
+          }
+        });
+
+        for (let i = 0; i < maxPayments; i++) {
+          const pay = (student.feeHistory || [])
+            .filter(p => p.status === 'Verified' || p.status === 'Paid' || p.status === 'Received')
+            .sort((a, b) => new Date(a.date) - new Date(b.date))[i] || null;
+          row[`Payment ${i + 1} Amount (₹)`] = pay ? pay.amount : "-";
+          row[`Payment ${i + 1} Date`] = pay && pay.date ? safeFormatDate(pay.date) : "-";
+          row[`Payment ${i + 1} Receipt`] = pay ? (pay.receiptNo || "Self-Reported") : "-";
+        }
+
         let maxInstallments = 0;
         students.forEach(s => {
           if (Array.isArray(s.installments) && s.installments.length > maxInstallments) {
@@ -4268,51 +4286,7 @@ function Dashboard({ user, onLogout }) {
                         <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
                           <div style={{ fontWeight: 'bold', color: fee.status === 'Pending' ? '#f59e0b' : (fee.status === 'Rejected' ? '#ef4444' : '#10b981') }}>{fee.status}</div>
                           <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{new Date(fee.date).toLocaleDateString()}</div>
-                          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                            <button onClick={() => setEditingPayment({
-                              studentId: fee.studentId,
-                              studentName: fee.studentName,
-                              paymentId: fee._id,
-                              amount: fee.amount,
-                              date: fee.date,
-                              receiptNo: fee.receiptNo || '',
-                              status: fee.status
-                            })} style={{ padding: '0.3rem 0.8rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>✏️ Edit</button>
-                            {fee.status === 'Pending' && (
-                              <>
-                                <button onClick={async () => {
-                                  try {
-                                    const res = await fetch(`/admin/student/${fee.studentId}/payment/${fee._id}/approve`, {
-                                      method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
-                                    });
-                                    if (!res.ok) throw new Error(await res.text());
-                                    fetchStudentsData();
-                                  } catch(e) { alert('Error: ' + e.message); }
-                                }} style={{ padding: '0.3rem 0.8rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>Approve</button>
-                                <button onClick={async () => {
-                                  try {
-                                    const res = await fetch(`/admin/student/${fee.studentId}/payment/${fee._id}/reject`, {
-                                      method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
-                                    });
-                                    if (!res.ok) throw new Error(await res.text());
-                                    fetchStudentsData();
-                                  } catch(e) { alert('Error: ' + e.message); }
-                                }} style={{ padding: '0.3rem 0.8rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>Reject</button>
-                              </>
-                            )}
-                            {(fee.status === 'Verified' || fee.status === 'Paid') && (
-                              <button onClick={async () => {
-                                if (!window.confirm(`Are you sure you want to revert this payment of ₹${fee.amount}? This will mark it as Pending (unmarked), subtract the amount from the student's total paid fees, and update their installment statuses.`)) return;
-                                try {
-                                  const res = await fetch(`/admin/student/${fee.studentId}/payment/${fee._id}/revert`, {
-                                    method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
-                                  });
-                                  if (!res.ok) throw new Error(await res.text());
-                                  fetchStudentsData();
-                                } catch(e) { alert('Error: ' + e.message); }
-                              }} style={{ padding: '0.3rem 0.8rem', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>Revert</button>
-                            )}
-                          </div>
+                          {/* Payment verification actions removed globally and moved exclusively to student Set Fee Structure view */}
                         </div>
                       </div>
                     ))}
@@ -4847,17 +4821,14 @@ function Dashboard({ user, onLogout }) {
                 const totalCourseFee = Number(feeSetupStudent.totalFees);
                 const sumInstallments = insts.reduce((sum, inst) => sum + Number(inst.amount || 0), 0);
 
-                // Calculate verified non-installment payments (initial payments)
                 const payments = (feeSetupStudent.feeHistory || [])
                   .filter(p => p.status === 'Verified' || p.status === 'Paid' || p.status === 'Received');
-                const nonInstTotal = payments
-                  .filter(p => !/Inst\s*\d+/i.test(p.receiptNo || ''))
-                  .reduce((sum, p) => sum + p.amount, 0);
+                const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
 
-                const allowedMin = totalCourseFee - nonInstTotal;
+                const allowedMin = totalCourseFee - totalPaid;
 
                 if (sumInstallments < allowedMin || sumInstallments > totalCourseFee) {
-                  alert(`The sum of installment amounts (₹${sumInstallments}) must be between ₹${allowedMin} (accounting for initial payment of ₹${nonInstTotal}) and ₹${totalCourseFee}. Please adjust installment values.`);
+                  alert(`The sum of installment amounts (₹${sumInstallments}) must be between ₹${allowedMin} (accounting for paid fees of ₹${totalPaid}) and ₹${totalCourseFee}. Please adjust installment values.`);
                   return;
                 }
 
@@ -4970,19 +4941,15 @@ function Dashboard({ user, onLogout }) {
                     ))}
                   </div>
 
-                  {/* Summary Metrics */}
                   {(() => {
                     const totalCourseFee = Number(feeSetupStudent.totalFees || 0);
                     const allocatedSum = (feeSetupStudent.installments || []).reduce((sum, inst) => sum + Number(inst.amount || 0), 0);
                     
                     const payments = (feeSetupStudent.feeHistory || [])
                       .filter(p => p.status === 'Verified' || p.status === 'Paid' || p.status === 'Received');
-                    const nonInstTotal = payments
-                      .filter(p => !/Inst\s*\d+/i.test(p.receiptNo || ''))
-                      .reduce((sum, p) => sum + p.amount, 0);
+                    const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
 
-                    const targetRemaining = totalCourseFee - nonInstTotal;
-                    const remainingVal = targetRemaining - allocatedSum;
+                    const remainingVal = totalCourseFee - totalPaid - allocatedSum;
                     const isFullyAllocated = remainingVal === 0;
 
                     return (
@@ -4993,10 +4960,10 @@ function Dashboard({ user, onLogout }) {
                             {isFullyAllocated ? '✓ Fees Fully Allocated' : `Remaining: ₹${remainingVal}`}
                           </span>
                         </div>
-                        {nonInstTotal > 0 && (
+                        {totalPaid > 0 && (
                           <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 'normal', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--glass-border)', paddingTop: '0.4rem' }}>
-                            <span>Initial Payment: ₹{nonInstTotal}</span>
-                            <span>Adjusted Target: ₹{targetRemaining}</span>
+                            <span>Fees Paid So Far: ₹{totalPaid}</span>
+                            <span>Unpaid Balance: ₹{totalCourseFee - totalPaid}</span>
                           </div>
                         )}
                       </div>
@@ -5009,6 +4976,81 @@ function Dashboard({ user, onLogout }) {
                   <button type="submit" style={{ flex: 1, padding: '1rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1.1rem' }}>Save Fee Structure</button>
                 </div>
               </form>
+            </div>
+
+            <div className="card" style={{ maxWidth: '700px', marginTop: '2rem' }}>
+              <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-main)' }}>💰 Payment History & Verification</h3>
+              {feeSetupStudent.feeHistory && feeSetupStudent.feeHistory.length > 0 ? (
+                <div className="activity-list">
+                  {feeSetupStudent.feeHistory.map((fee, idx) => (
+                    <div key={idx} className="activity-item" style={{ alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+                      <div>
+                        <strong style={{ fontSize: '1.1rem', color: '#10b981' }}>+ ₹{fee.amount}</strong>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.2rem' }}>
+                          <span>Receipt: {fee.receiptNo || 'N/A'}</span>
+                          <span style={{ marginLeft: '1rem' }}>Date: {new Date(fee.date).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
+                        <div style={{ fontWeight: 'bold', color: fee.status === 'Pending' ? '#f59e0b' : (fee.status === 'Rejected' ? '#ef4444' : '#10b981') }}>{fee.status}</div>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                          <button type="button" onClick={() => setEditingPayment({
+                            studentId: feeSetupStudent.userId,
+                            studentName: feeSetupStudent.name,
+                            paymentId: fee._id,
+                            amount: fee.amount,
+                            date: fee.date,
+                            receiptNo: fee.receiptNo || '',
+                            status: fee.status
+                          })} style={{ padding: '0.3rem 0.8rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>✏️ Edit</button>
+                          {fee.status === 'Pending' && (
+                            <>
+                              <button type="button" onClick={async () => {
+                                try {
+                                  const res = await fetch(`/admin/student/${feeSetupStudent.userId}/payment/${fee._id}/approve`, {
+                                    method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
+                                  });
+                                  if (!res.ok) throw new Error(await res.text());
+                                  const resData = await res.json();
+                                  setFeeSetupStudent(resData.user);
+                                  fetchStudentsData();
+                                } catch(e) { alert('Error: ' + e.message); }
+                              }} style={{ padding: '0.3rem 0.8rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>Approve</button>
+                              <button type="button" onClick={async () => {
+                                try {
+                                  const res = await fetch(`/admin/student/${feeSetupStudent.userId}/payment/${fee._id}/reject`, {
+                                    method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
+                                  });
+                                  if (!res.ok) throw new Error(await res.text());
+                                  const resData = await res.json();
+                                  setFeeSetupStudent(resData.user);
+                                  fetchStudentsData();
+                                } catch(e) { alert('Error: ' + e.message); }
+                              }} style={{ padding: '0.3rem 0.8rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>Reject</button>
+                            </>
+                          )}
+                          {(fee.status === 'Verified' || fee.status === 'Paid' || fee.status === 'Received') && (
+                            <button type="button" onClick={async () => {
+                              if (!window.confirm(`Are you sure you want to revert this payment of ₹${fee.amount}? This will mark it as Pending (unmarked), subtract the amount from the student's total paid fees, and update their installment statuses.`)) return;
+                              try {
+                                const res = await fetch(`/admin/student/${feeSetupStudent.userId}/payment/${fee._id}/revert`, {
+                                  method: 'POST', headers: { 'Authorization': `Bearer ${user.token}` }
+                                });
+                                if (!res.ok) throw new Error(await res.text());
+                                const resData = await res.json();
+                                setFeeSetupStudent(resData.user);
+                                fetchStudentsData();
+                              } catch(e) { alert('Error: ' + e.message); }
+                            }} style={{ padding: '0.3rem 0.8rem', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>Revert</button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p style={{ color: 'var(--text-muted)' }}>No payment history available for this student.</p>
+              )}
             </div>
           </>
         ) : (
@@ -5163,8 +5205,12 @@ function Dashboard({ user, onLogout }) {
                                     body: JSON.stringify({ amount: Number(amount), receiptNo: receipt, date: new Date().toISOString() })
                                   });
                                   if (!res.ok) throw new Error(await res.text());
+                                  const resData = await res.json();
                                   alert('Payment recorded!');
                                   fetchStudentsData();
+                                  if (feeSetupStudent && feeSetupStudent.userId === student.userId) {
+                                    setFeeSetupStudent(resData.user);
+                                  }
                                 } catch(err) { alert('Error: ' + err.message); }
                                 setOpenMenuId(null);
                               }} className="dropdown-item">
@@ -5802,6 +5848,9 @@ function Dashboard({ user, onLogout }) {
                 if (!res.ok) throw new Error(resData.message || 'Failed to update payment');
                 alert('Payment updated successfully!');
                 fetchStudentsData();
+                if (feeSetupStudent && feeSetupStudent.userId === editingPayment.studentId) {
+                  setFeeSetupStudent(resData.user);
+                }
                 setEditingPayment(null);
               } catch(err) {
                 alert('Error updating payment: ' + err.message);
