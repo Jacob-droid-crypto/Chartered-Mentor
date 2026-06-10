@@ -309,6 +309,7 @@ const getDailySummary = async (req, res) => {
         studentId,
         studentName: studentMap[studentId] || "Unknown Student",
         course,
+        date,
         hasIN: !!firstInLog,
         hasOUT: dayLogs[dayLogs.length - 1].type === "OUT",
         totalMs,
