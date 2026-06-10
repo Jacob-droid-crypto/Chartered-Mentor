@@ -106,7 +106,7 @@ const getDashboard = async (req, res) => {
       let totalMs = 0;
       let lastInTime = null;
       const hasIN = dayLogs.some(log => log.type === "IN");
-      const hasOUT = dayLogs.some(log => log.type === "OUT");
+      const hasOUT = dayLogs[dayLogs.length - 1].type === "OUT";
       
       dayLogs.forEach(log => {
         const logTime = log.timestamp ? new Date(log.timestamp).getTime() : (log.createdAt ? new Date(log.createdAt).getTime() : 0);

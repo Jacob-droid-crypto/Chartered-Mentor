@@ -309,9 +309,8 @@ const getDailySummary = async (req, res) => {
         studentId,
         studentName: studentMap[studentId] || "Unknown Student",
         course,
-        date,
         hasIN: !!firstInLog,
-        hasOUT: dayLogs.some(log => log.type === "OUT"),
+        hasOUT: dayLogs[dayLogs.length - 1].type === "OUT",
         totalMs,
         firstIn
       };
@@ -350,8 +349,8 @@ const manualCheckout = async (req, res) => {
     }
 
     // Check if the student has an "IN" record on this date
-    const inRecord = await Attendance.findOne({ studentId, date, type: "IN" });
-    if (!inRecord) {
+    const lastInRecord = await Attendance.findOne({ studentId, date, type: "IN" }).sort({ createdAt: -1 });
+    if (!lastInRecord) {
       return res.status(400).json({ message: "Student must have a Check-In record (IN) on this date to mark Check-OUT manually." });
     }
 
@@ -362,16 +361,15 @@ const manualCheckout = async (req, res) => {
     }
 
     // Ensure checkout timestamp is after check-in timestamp
-    if (timestamp <= new Date(inRecord.timestamp)) {
+    if (timestamp <= new Date(lastInRecord.timestamp)) {
       return res.status(400).json({ message: "Check-out time must be after check-in time." });
     }
 
-    // Look for an existing "OUT" record
-    let outRecord = await Attendance.findOne({ studentId, date, type: "OUT" });
-    if (outRecord) {
-      outRecord.timestamp = timestamp;
-      await outRecord.save();
-    } else {
+    // Look for the latest overall record for this student today
+    const lastRecord = await Attendance.findOne({ studentId, date }).sort({ createdAt: -1 });
+
+    if (lastRecord && lastRecord.type === "IN") {
+      // Create a new OUT record
       await Attendance.create({
         studentId,
         course: student.course,
@@ -379,6 +377,10 @@ const manualCheckout = async (req, res) => {
         date,
         timestamp
       });
+    } else if (lastRecord && lastRecord.type === "OUT") {
+      // Update the latest OUT record's timestamp
+      lastRecord.timestamp = timestamp;
+      await lastRecord.save();
     }
 
     res.json({ message: "Check-out time recorded successfully" });
