@@ -41,24 +41,48 @@
         throw new Error("QR missing");
       }
 
-      fetch("http://192.168.1.36:5000/student/scan-qr", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          studentId,
-          qrValue,
-        }),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          document.getElementById("status").innerText = data.message;
+      if (!navigator.geolocation) {
+        document.getElementById("status").innerText = "Geolocation is not supported by your browser";
+        throw new Error("Geolocation not supported");
+      }
+
+      let deviceId = localStorage.getItem("device_id");
+      if (!deviceId) {
+        deviceId = 'dev_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        localStorage.setItem("device_id", deviceId);
+      }
+
+      navigator.geolocation.getCurrentPosition((position) => {
+        const { latitude, longitude } = position.coords;
+
+        fetch("/student/scan-qr", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            studentId,
+            qrValue,
+            deviceId,
+            lat: latitude,
+            lng: longitude
+          }),
         })
-        .catch(() => {
-          document.getElementById("status").innerText =
-            "Server error while marking attendance";
-        });
+          .then((res) => res.json())
+          .then((data) => {
+            document.getElementById("status").innerText = data.message;
+          })
+          .catch(() => {
+            document.getElementById("status").innerText =
+              "Server error while marking attendance";
+          });
+      }, (error) => {
+        document.getElementById("status").innerText = "Please allow location access to mark attendance.";
+      }, {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      });
     </script>
   </body>
 </html>
