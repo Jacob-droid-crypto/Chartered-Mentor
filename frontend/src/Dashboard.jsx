@@ -5165,7 +5165,11 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                       .filter(p => p.status === 'Verified' || p.status === 'Paid' || p.status === 'Received');
                     const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
 
-                    const remainingVal = totalCourseFee - totalPaid - allocatedSum;
+                    const unpaidInstallmentsSum = (feeSetupStudent.installments || [])
+                      .filter(inst => inst.status !== 'Paid')
+                      .reduce((sum, inst) => sum + Number(inst.amount || 0), 0);
+
+                    const remainingVal = totalCourseFee - totalPaid - unpaidInstallmentsSum;
                     const isFullyAllocated = remainingVal === 0;
 
                     return (
