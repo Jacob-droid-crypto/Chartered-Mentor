@@ -8,7 +8,7 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
-const { loginAdmin, addStudent, getAttendance, getDailySummary, getStudents, deleteStudent, resetPassword, getProfile, uploadQuestionPaper, getAdminPapers, deletePaper, downloadAnswerPaper, getPaymentConfig, updatePaymentConfig, updateStudentFees, addStudentPayment, approveStudentPayment, rejectStudentPayment, editStudentPayment, revertStudentPayment, updateStudentProfileByAdmin, getGoalConfig, updateGoalConfig, manualCheckout, createSchedule, getAdminSchedules, deleteSchedule, downloadScheduleFileAdmin, getExamSchedules, createExamSchedule, updateExamSchedule, deleteExamSchedule, getCampusQR, refreshCampusQR, resetStudentDevice } = require("../controllers/adminController");
+const { loginAdmin, addStudent, getAttendance, getDailySummary, getStudents, deleteStudent, resetPassword, getProfile, uploadQuestionPaper, getAdminPapers, deletePaper, downloadAnswerPaper, getPaymentConfig, updatePaymentConfig, updateStudentFees, addStudentPayment, approveStudentPayment, rejectStudentPayment, editStudentPayment, revertStudentPayment, updateStudentProfileByAdmin, getGoalConfig, updateGoalConfig, manualCheckout, createSchedule, getAdminSchedules, deleteSchedule, downloadScheduleFileAdmin, getExamSchedules, createExamSchedule, updateExamSchedule, deleteExamSchedule, getCampusQR, refreshCampusQR } = require("../controllers/adminController");
 const { updateProfile } = require("../controllers/studentController");
 const { protect, adminOnly, adminRoleRequired } = require("../middleware/authMiddleware");
 
@@ -20,7 +20,6 @@ router.get("/students", protect, adminOnly, getStudents);
 router.post("/add-student", protect, adminOnly, addStudent);
 router.delete("/student/:id", protect, adminOnly, deleteStudent);
 router.post("/student/:id/reset-password", protect, adminOnly, resetPassword);
-router.post("/student/:id/reset-device", protect, adminOnly, resetStudentDevice);
 router.get("/attendance", protect, adminOnly, getAttendance);
 router.post("/attendance/manual-checkout", protect, adminOnly, manualCheckout);
 router.get("/daily-summary", protect, adminOnly, getDailySummary);

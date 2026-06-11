@@ -74,9 +74,6 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
-  deviceFingerprint: {
-    type: String,
-  },
   batch: {
     type: String,
     enum: ["September 2026", "November 2026"],

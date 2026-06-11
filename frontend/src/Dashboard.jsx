@@ -645,13 +645,6 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
       return;
     }
 
-    // Retrieve or generate persistent device ID
-    let deviceId = localStorage.getItem("device_id");
-    if (!deviceId) {
-      deviceId = 'dev_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-      localStorage.setItem("device_id", deviceId);
-    }
-
     navigator.geolocation.getCurrentPosition(async (position) => {
       const { latitude, longitude } = position.coords;
       try {
@@ -662,8 +655,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
             studentId: user.userId,
             qrValue: qrData,
             lat: latitude,
-            lng: longitude,
-            deviceId: deviceId
+            lng: longitude
           })
         });
         const d = await response.json();
@@ -2196,25 +2188,6 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
     }
   };
 
-  const handleResetDevice = async (studentId) => {
-    if (!await showConfirm(`Reset device lock for student ${studentId}?`)) return;
-    try {
-      const response = await fetch(`/admin/student/${studentId}/reset-device`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${user.token}` }
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.message);
-
-      alert(result.message);
-      fetchStudentsData();
-      if (viewingProfileStudent && viewingProfileStudent.userId === studentId) {
-        setViewingProfileStudent({ ...viewingProfileStudent, deviceFingerprint: null });
-      }
-    } catch (err) {
-      alert("Error resetting device lock: " + err.message);
-    }
-  };
 
   return (
     <div className="app-container">
@@ -5421,9 +5394,6 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                           </button>
                           {user.role === 'admin' && (
                             <>
-                              <button onClick={() => { handleResetDevice(student.userId); setOpenMenuId(null); }} className="dropdown-item">
-                                📱 Reset Device Lock {student.deviceFingerprint ? "🔐" : "🔓"}
-                              </button>
                               <button onClick={() => {
                                 const existingInstallments = Array.isArray(student.installments) && student.installments.length > 0
                                   ? student.installments.map(inst => ({
@@ -5882,22 +5852,9 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                     </div>
                   </div>
 
-                  {/* Profile Status & Device Lock */}
-                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                    <div style={{ flex: '1', minWidth: '200px', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem', borderRadius: '8px', background: viewingProfileStudent.profileCompleted ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)', color: viewingProfileStudent.profileCompleted ? '#10b981' : '#ef4444', fontWeight: 'bold', fontSize: '0.9rem' }}>
-                      <span>{viewingProfileStudent.profileCompleted ? '✅ Profile Completed' : '⚠️ Profile Incomplete'}</span>
-                    </div>
-                    <div style={{ flex: '1', minWidth: '200px', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem', borderRadius: '8px', background: viewingProfileStudent.deviceFingerprint ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)', color: viewingProfileStudent.deviceFingerprint ? '#ef4444' : '#10b981', fontWeight: 'bold', fontSize: '0.9rem' }}>
-                      <span>{viewingProfileStudent.deviceFingerprint ? '🔐 Device Locked' : '🔓 Device Unlocked'}</span>
-                      {viewingProfileStudent.deviceFingerprint && user.role === 'admin' && (
-                        <button 
-                          onClick={() => { handleResetDevice(viewingProfileStudent.userId); }} 
-                          style={{ marginLeft: 'auto', background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '2px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
-                        >
-                          Reset
-                        </button>
-                      )}
-                    </div>
+                  {/* Profile Status */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem', borderRadius: '8px', background: viewingProfileStudent.profileCompleted ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)', color: viewingProfileStudent.profileCompleted ? '#10b981' : '#ef4444', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                    <span>{viewingProfileStudent.profileCompleted ? '✅ Profile Completed' : '⚠️ Profile Incomplete'}</span>
                   </div>
 
                   {/* Fees & Payments Section */}
