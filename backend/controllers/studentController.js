@@ -26,8 +26,16 @@ const getISTDateString = (date = new Date()) => {
 const loginStudent = async (req, res) => {
   try {
     const { userId, password } = req.body;
+    if (!userId) return res.status(400).json({ message: "User ID is required" });
+    const cleanId = userId.trim();
 
-    const student = await User.findOne({ userId, role: "student" });
+    const student = await User.findOne({
+      $or: [
+        { userId: cleanId.toUpperCase() },
+        { email: { $regex: new RegExp(`^${cleanId}$`, "i") } }
+      ],
+      role: "student"
+    });
     if (!student) return res.status(404).json({ message: "Student not found" });
 
     const isMatch = await bcrypt.compare(password, student.password);
@@ -54,11 +62,12 @@ const changePassword = async (req, res) => {
     if (!userId || !newPassword) {
       return res.status(400).json({ message: "Missing data" });
     }
+    const cleanId = userId.trim().toUpperCase();
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     await User.updateOne(
-      { userId, role: "student" },
+      { userId: cleanId, role: "student" },
       { password: hashedPassword, firstLogin: false },
     );
 
@@ -72,9 +81,11 @@ const changePassword = async (req, res) => {
 const getDashboard = async (req, res) => {
   try {
     const { studentId } = req.params;
+    if (!studentId) return res.status(400).json({ message: "Student ID is required" });
+    const cleanId = studentId.trim().toUpperCase();
 
     const student = await User.findOne(
-      { userId: studentId, role: "student" },
+      { userId: cleanId, role: "student" },
       { password: 0 },
     );
 
@@ -202,9 +213,10 @@ const scanQr = async (req, res) => {
     if (!studentId || !qrValue) {
       return res.status(400).json({ message: "Missing data" });
     }
+    const cleanId = studentId.trim().toUpperCase();
 
     const student = await User.findOne({
-      userId: studentId,
+      userId: cleanId,
       role: "student",
     });
 
@@ -364,8 +376,10 @@ const scanQr = async (req, res) => {
 const getDailyHours = async (req, res) => {
   try {
     const { studentId, date } = req.params;
+    if (!studentId) return res.status(400).json({ message: "Student ID is required" });
+    const cleanId = studentId.trim().toUpperCase();
 
-    const logs = await Attendance.find({ studentId, date }).sort({ timestamp: 1 });
+    const logs = await Attendance.find({ studentId: cleanId, date }).sort({ timestamp: 1 });
     let totalMs = 0;
     let lastInTime = null;
     
@@ -478,9 +492,17 @@ const forgotPassword = async (req, res) => {
   try {
     const { userId, role } = req.body;
     const targetRole = role || "student";
+    if (!userId) return res.status(400).json({ message: "User ID is required" });
+    const cleanId = userId.trim();
     
-    const user = await User.findOne({ userId, role: targetRole });
-    if (!user) return res.status(404).json({ message: `No ${targetRole} found with that User ID` });
+    const user = await User.findOne({
+      $or: [
+        { userId: cleanId.toUpperCase() },
+        { email: { $regex: new RegExp(`^${cleanId}$`, "i") } }
+      ],
+      role: targetRole
+    });
+    if (!user) return res.status(404).json({ message: `No ${targetRole} found with that User ID/Email` });
     if (!user.email) return res.status(400).json({ message: "No email associated with this account. Contact Admin." });
 
     // Generate a secure 6-digit OTP
@@ -572,9 +594,13 @@ const resetPassword = async (req, res) => {
     if (!userId || !otp || !newPassword) {
       return res.status(400).json({ message: "Missing required fields" });
     }
+    const cleanId = userId.trim();
 
     const user = await User.findOne({
-      userId,
+      $or: [
+        { userId: cleanId.toUpperCase() },
+        { email: { $regex: new RegExp(`^${cleanId}$`, "i") } }
+      ],
       role: targetRole,
       resetPasswordExpire: { $gt: Date.now() },
     });
@@ -725,9 +751,10 @@ const manualAttendance = async (req, res) => {
     if (!studentId || !action || !["IN", "OUT"].includes(action)) {
       return res.status(400).json({ message: "Invalid action or missing data" });
     }
+    const cleanId = studentId.trim().toUpperCase();
 
     const student = await User.findOne({
-      userId: studentId,
+      userId: cleanId,
       role: "student",
     });
 

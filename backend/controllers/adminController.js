@@ -24,8 +24,16 @@ const getISTDateString = (date = new Date()) => {
 const loginAdmin = async (req, res) => {
   try {
     const { userId, password } = req.body;
+    if (!userId) return res.status(400).json({ message: "User ID is required" });
+    const cleanId = userId.trim();
 
-    const admin = await User.findOne({ userId, role: { $in: ["admin", "staff"] } });
+    const admin = await User.findOne({
+      $or: [
+        { userId: cleanId.toUpperCase() },
+        { email: { $regex: new RegExp(`^${cleanId}$`, "i") } }
+      ],
+      role: { $in: ["admin", "staff"] }
+    });
     if (!admin) return res.status(404).json({ message: "Admin/Staff not found" });
 
     const isMatch = await bcrypt.compare(password, admin.password);
@@ -343,8 +351,9 @@ const manualCheckout = async (req, res) => {
     if (!studentId || !date || !checkoutTime) {
       return res.status(400).json({ message: "All fields (studentId, date, checkoutTime) are required" });
     }
+    const cleanId = studentId.trim().toUpperCase();
 
-    const student = await User.findOne({ userId: studentId, role: "student" });
+    const student = await User.findOne({ userId: cleanId, role: "student" });
     if (!student) {
       return res.status(404).json({ message: "Student not found" });
     }
@@ -437,7 +446,9 @@ const getStudents = async (req, res) => {
 const deleteStudent = async (req, res) => {
   try {
     const { id } = req.params;
-    const deleted = await User.findOneAndDelete({ userId: id, role: "student" });
+    if (!id) return res.status(400).json({ message: "Student ID is required" });
+    const cleanId = id.trim().toUpperCase();
+    const deleted = await User.findOneAndDelete({ userId: cleanId, role: "student" });
     if (!deleted) {
       return res.status(404).json({ message: "Student not found" });
     }
@@ -465,13 +476,15 @@ const deleteStudent = async (req, res) => {
 const resetPassword = async (req, res) => {
   try {
     const { id } = req.params;
+    if (!id) return res.status(400).json({ message: "Student ID is required" });
+    const cleanId = id.trim().toUpperCase();
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%";
     let plainPassword = "";
     for (let i = 0; i < 10; i++) plainPassword += chars[Math.floor(Math.random() * chars.length)];
     const hashedPassword = await bcrypt.hash(plainPassword, 10);
     
     const updated = await User.findOneAndUpdate(
-      { userId: id, role: "student" }, 
+      { userId: cleanId, role: "student" }, 
       { password: hashedPassword, firstLogin: true },
       { new: true }
     );
@@ -694,8 +707,10 @@ const updateStudentFees = async (req, res) => {
   try {
     const { studentId } = req.params;
     const { totalFees, installments } = req.body;
+    if (!studentId) return res.status(400).json({ message: "Student ID is required" });
+    const cleanId = studentId.trim().toUpperCase();
     
-    const user = await User.findOne({ userId: studentId, role: "student" });
+    const user = await User.findOne({ userId: cleanId, role: "student" });
     if (!user) return res.status(404).json({ message: "Student not found" });
     
     user.totalFees = totalFees;
@@ -753,8 +768,10 @@ const addStudentPayment = async (req, res) => {
   try {
     const { studentId } = req.params;
     const { amount, date, receiptNo } = req.body;
+    if (!studentId) return res.status(400).json({ message: "Student ID is required" });
+    const cleanId = studentId.trim().toUpperCase();
     
-    const user = await User.findOne({ userId: studentId, role: "student" });
+    const user = await User.findOne({ userId: cleanId, role: "student" });
     if (!user) return res.status(404).json({ message: "Student not found" });
     
     user.feesPaid = (user.feesPaid || 0) + Number(amount);
@@ -906,7 +923,9 @@ const revertStudentPayment = async (req, res) => {
 const updateStudentProfileByAdmin = async (req, res) => {
   try {
     const { studentId } = req.params;
-    const student = await User.findOne({ userId: studentId, role: "student" });
+    if (!studentId) return res.status(400).json({ message: "Student ID is required" });
+    const cleanId = studentId.trim().toUpperCase();
+    const student = await User.findOne({ userId: cleanId, role: "student" });
     if (!student) return res.status(404).json({ message: "Student not found" });
 
     const {
@@ -1117,8 +1136,9 @@ const createExamSchedule = async (req, res) => {
     if (!studentId || !type || !date) {
       return res.status(400).json({ message: "Student Name, Type, and Date are required" });
     }
+    const cleanId = studentId.trim().toUpperCase();
 
-    const student = await User.findOne({ userId: studentId, role: "student" });
+    const student = await User.findOne({ userId: cleanId, role: "student" });
     if (!student) {
       return res.status(404).json({ message: "Student not found" });
     }
@@ -1255,8 +1275,10 @@ const refreshCampusQR = async (req, res) => {
 const resetStudentDevice = async (req, res) => {
   try {
     const { id } = req.params;
+    if (!id) return res.status(400).json({ message: "Student ID is required" });
+    const cleanId = id.trim().toUpperCase();
     const updated = await User.findOneAndUpdate(
-      { userId: id, role: "student" },
+      { userId: cleanId, role: "student" },
       { deviceFingerprint: null },
       { new: true }
     );
