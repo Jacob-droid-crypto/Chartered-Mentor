@@ -1252,26 +1252,6 @@ const refreshCampusQR = async (req, res) => {
   }
 };
 
-const resetStudentDevice = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updated = await User.findOneAndUpdate(
-      { userId: id, role: "student" },
-      { deviceFingerprint: null },
-      { new: true }
-    );
-
-    if (!updated) {
-      return res.status(404).json({ message: "Student not found" });
-    }
-
-    res.json({ message: "Student device lock reset successfully" });
-  } catch (err) {
-    console.error("Reset device error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
 module.exports = {
   loginAdmin,
   addStudent,
@@ -1306,6 +1286,5 @@ module.exports = {
   updateExamSchedule,
   deleteExamSchedule,
   getCampusQR,
-  refreshCampusQR,
-  resetStudentDevice
+  refreshCampusQR
 };

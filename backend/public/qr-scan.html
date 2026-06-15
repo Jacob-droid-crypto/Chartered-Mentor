@@ -46,12 +46,6 @@
         throw new Error("Geolocation not supported");
       }
 
-      let deviceId = localStorage.getItem("device_id");
-      if (!deviceId) {
-        deviceId = 'dev_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-        localStorage.setItem("device_id", deviceId);
-      }
-
       navigator.geolocation.getCurrentPosition((position) => {
         const { latitude, longitude } = position.coords;
 
@@ -63,7 +57,6 @@
           body: JSON.stringify({
             studentId,
             qrValue,
-            deviceId,
             lat: latitude,
             lng: longitude
           }),

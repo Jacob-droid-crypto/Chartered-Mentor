@@ -197,7 +197,7 @@ const getDashboard = async (req, res) => {
 /* ================= MARK ATTENDANCE ================= */
 const scanQr = async (req, res) => {
   try {
-    const { studentId, qrValue, lat, lng, deviceId } = req.body;
+    const { studentId, qrValue, lat, lng } = req.body;
 
     if (!studentId || !qrValue) {
       return res.status(400).json({ message: "Missing data" });
@@ -212,36 +212,6 @@ const scanQr = async (req, res) => {
       return res.status(401).json({
         message: "Invalid student session. Please login again.",
       });
-    }
-
-    // --- DEVICE LOCK CHECK ---
-    if (!deviceId) {
-      return res.status(400).json({ message: "Device ID is required to verify device security." });
-    }
-
-    if (student.deviceFingerprint) {
-      if (student.deviceFingerprint !== deviceId) {
-        return res.status(403).json({
-          message: "Your account is locked to another device. Please contact the Admin to reset your device lock."
-        });
-      }
-    } else {
-      // Check if this device is already registered to another student
-      const otherStudent = await User.findOne({
-        deviceFingerprint: deviceId,
-        userId: { $ne: student.userId },
-        role: "student"
-      });
-
-      if (otherStudent) {
-        return res.status(403).json({
-          message: `This device is registered to another student (${otherStudent.name}). Dual device attendance is not allowed.`
-        });
-      }
-
-      // Lock this device to this student
-      student.deviceFingerprint = deviceId;
-      await student.save();
     }
 
     // --- 1. IP RESTRICTION ---
