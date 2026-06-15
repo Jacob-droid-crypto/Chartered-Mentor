@@ -214,36 +214,34 @@ const scanQr = async (req, res) => {
       });
     }
 
-    // --- DEVICE LOCK CHECK (INT26102 Only) ---
-    if (student.userId === "INT26102") {
-      if (!deviceId) {
-        return res.status(400).json({ message: "Device ID is required to verify device security for this student." });
-      }
+    // --- DEVICE LOCK CHECK ---
+    if (!deviceId) {
+      return res.status(400).json({ message: "Device ID is required to verify device security." });
+    }
 
-      if (student.deviceFingerprint) {
-        if (student.deviceFingerprint !== deviceId) {
-          return res.status(403).json({
-            message: "Your account is locked to another device. Please contact the Admin to reset your device lock."
-          });
-        }
-      } else {
-        // Check if this device is already registered to another student
-        const otherStudent = await User.findOne({
-          deviceFingerprint: deviceId,
-          userId: { $ne: student.userId },
-          role: "student"
+    if (student.deviceFingerprint) {
+      if (student.deviceFingerprint !== deviceId) {
+        return res.status(403).json({
+          message: "Your account is locked to another device. Please contact the Admin to reset your device lock."
         });
-
-        if (otherStudent) {
-          return res.status(403).json({
-            message: `This device is registered to another student (${otherStudent.name}). Dual device attendance is not allowed.`
-          });
-        }
-
-        // Lock this device to this student
-        student.deviceFingerprint = deviceId;
-        await student.save();
       }
+    } else {
+      // Check if this device is already registered to another student
+      const otherStudent = await User.findOne({
+        deviceFingerprint: deviceId,
+        userId: { $ne: student.userId },
+        role: "student"
+      });
+
+      if (otherStudent) {
+        return res.status(403).json({
+          message: `This device is registered to another student (${otherStudent.name}). Dual device attendance is not allowed.`
+        });
+      }
+
+      // Lock this device to this student
+      student.deviceFingerprint = deviceId;
+      await student.save();
     }
 
     // --- 1. IP RESTRICTION ---

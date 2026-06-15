@@ -5420,7 +5420,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                           <button onClick={() => { handleResetPassword(student.userId); setOpenMenuId(null); }} className="dropdown-item">
                             🔄 Reset Password
                           </button>
-                          {user.role === 'admin' && student.userId === 'INT26102' && (
+                          {user.role === 'admin' && (
                             <button onClick={() => { handleResetDevice(student.userId); setOpenMenuId(null); }} className="dropdown-item">
                               📱 Reset Device Lock {student.deviceFingerprint ? "🔐" : "🔓"}
                             </button>
@@ -5885,24 +5885,22 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                     </div>
                   </div>
 
-                  {/* Profile Status & Device Lock for INT26102 */}
+                  {/* Profile Status & Device Lock */}
                   <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                     <div style={{ flex: '1', minWidth: '200px', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem', borderRadius: '8px', background: viewingProfileStudent.profileCompleted ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)', color: viewingProfileStudent.profileCompleted ? '#10b981' : '#ef4444', fontWeight: 'bold', fontSize: '0.9rem' }}>
                       <span>{viewingProfileStudent.profileCompleted ? '✅ Profile Completed' : '⚠️ Profile Incomplete'}</span>
                     </div>
-                    {viewingProfileStudent.userId === 'INT26102' && (
-                      <div style={{ flex: '1', minWidth: '200px', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem', borderRadius: '8px', background: viewingProfileStudent.deviceFingerprint ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)', color: viewingProfileStudent.deviceFingerprint ? '#ef4444' : '#10b981', fontWeight: 'bold', fontSize: '0.9rem' }}>
-                        <span>{viewingProfileStudent.deviceFingerprint ? '🔐 Device Locked' : '🔓 Device Unlocked'}</span>
-                        {viewingProfileStudent.deviceFingerprint && user.role === 'admin' && (
-                          <button 
-                            onClick={() => { handleResetDevice(viewingProfileStudent.userId); }} 
-                            style={{ marginLeft: 'auto', background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '2px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
-                          >
-                            Reset
-                          </button>
-                        )}
-                      </div>
-                    )}
+                    <div style={{ flex: '1', minWidth: '200px', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem', borderRadius: '8px', background: viewingProfileStudent.deviceFingerprint ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)', color: viewingProfileStudent.deviceFingerprint ? '#ef4444' : '#10b981', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                      <span>{viewingProfileStudent.deviceFingerprint ? '🔐 Device Locked' : '🔓 Device Unlocked'}</span>
+                      {viewingProfileStudent.deviceFingerprint && user.role === 'admin' && (
+                        <button 
+                          onClick={() => { handleResetDevice(viewingProfileStudent.userId); }} 
+                          style={{ marginLeft: 'auto', background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '2px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
+                        >
+                          Reset
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Fees & Payments Section */}
