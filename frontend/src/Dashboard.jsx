@@ -5174,7 +5174,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                           {c.studentId && <span style={{ marginLeft: '0.5rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>(ID: {c.studentId})</span>}
                           
                           <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', marginTop: '0.2rem' }}>
-                            Effective From: <strong>{c.effectiveFrom}</strong>
+                            Effective From: <strong>{c.effectiveFrom === '1970-01-01' ? 'Initial Setup (Always Active)' : c.effectiveFrom}</strong>
                           </div>
                         </div>
                         
