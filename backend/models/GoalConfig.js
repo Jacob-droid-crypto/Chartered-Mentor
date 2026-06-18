@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
 
 const goalConfigSchema = new mongoose.Schema({
+  studentId: { type: String, default: null },
+  effectiveFrom: { type: String, default: "1970-01-01" },
   monday: { type: Number, default: 12 },
   tuesday: { type: Number, default: 12 },
   wednesday: { type: Number, default: 12 },

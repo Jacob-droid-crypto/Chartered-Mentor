@@ -994,35 +994,129 @@ const updateStudentProfileByAdmin = async (req, res) => {
 /* ================= GOAL TARGET CONFIGURATION ================= */
 const getGoalConfig = async (req, res) => {
   try {
-    let config = await GoalConfig.findOne();
-    if (!config) {
-      config = await GoalConfig.create({
+    let configs = await GoalConfig.find({});
+    if (configs.length === 0) {
+      const initial = await GoalConfig.create({
+        studentId: null,
+        effectiveFrom: "1970-01-01",
         monday: 12,
         tuesday: 12,
         wednesday: 12,
         thursday: 12,
         friday: 12,
         saturday: 12,
-        sunday: 0
+        sunday: 0,
+        autoLogoutTime: "22:00",
+        autoLogoutEnabled: true
       });
+      configs = [initial];
     }
-    res.json(config);
+
+    const todayStr = getISTDateString();
+
+    // If request is from a student, resolve their active goal config
+    let activeConfig = null;
+    if (req.user && req.user.role === 'student') {
+      const studentId = req.user.userId;
+      const studentConfigs = configs.filter(c => c.studentId === studentId);
+      studentConfigs.sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom));
+      activeConfig = studentConfigs.find(c => c.effectiveFrom <= todayStr);
+    }
+
+    // Fallback/Default lookup if student check is false or doesn't match
+    if (!activeConfig) {
+      const defaultConfigs = configs.filter(c => !c.studentId);
+      defaultConfigs.sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom));
+      activeConfig = defaultConfigs.find(c => c.effectiveFrom <= todayStr) || defaultConfigs[defaultConfigs.length - 1];
+    }
+
+    let filteredConfigs = configs;
+    if (req.user && req.user.role === 'student') {
+      filteredConfigs = configs.filter(c => !c.studentId || c.studentId === req.user.userId);
+    }
+
+    res.json({
+      active: activeConfig,
+      configs: filteredConfigs
+    });
   } catch (err) {
+    console.error("Get goal config error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
 const updateGoalConfig = async (req, res) => {
   try {
-    let config = await GoalConfig.findOne();
+    const {
+      studentId,
+      monday,
+      tuesday,
+      wednesday,
+      thursday,
+      friday,
+      saturday,
+      sunday,
+      autoLogoutEnabled,
+      autoLogoutTime
+    } = req.body;
+
+    const todayStr = getISTDateString();
+    const cleanStudentId = studentId ? studentId.trim().toUpperCase() : null;
+
+    // Find if a config exists for this student/default on the same effective date (today)
+    let config = await GoalConfig.findOne({ studentId: cleanStudentId, effectiveFrom: todayStr });
+
+    const updateData = {
+      monday: monday !== undefined ? Number(monday) : 12,
+      tuesday: tuesday !== undefined ? Number(tuesday) : 12,
+      wednesday: wednesday !== undefined ? Number(wednesday) : 12,
+      thursday: thursday !== undefined ? Number(thursday) : 12,
+      friday: friday !== undefined ? Number(friday) : 12,
+      saturday: saturday !== undefined ? Number(saturday) : 12,
+      sunday: sunday !== undefined ? Number(sunday) : 0
+    };
+
+    // Auto-logout is global and set only on global configs (where studentId is null)
+    if (!cleanStudentId) {
+      if (autoLogoutEnabled !== undefined) updateData.autoLogoutEnabled = autoLogoutEnabled;
+      if (autoLogoutTime !== undefined) updateData.autoLogoutTime = autoLogoutTime;
+    }
+
     if (config) {
-      Object.assign(config, req.body);
+      Object.assign(config, updateData);
       await config.save();
     } else {
-      config = await GoalConfig.create(req.body);
+      config = await GoalConfig.create({
+        studentId: cleanStudentId,
+        effectiveFrom: todayStr,
+        ...updateData
+      });
     }
-    res.json({ message: "Goal configuration updated", config });
+
+    res.json({ message: "Goal configuration saved successfully", config });
   } catch (err) {
+    console.error("Update goal config error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const deleteGoalConfig = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const config = await GoalConfig.findById(id);
+    if (!config) {
+      return res.status(404).json({ message: "Goal configuration not found" });
+    }
+
+    // Protect the fallback config
+    if (!config.studentId && config.effectiveFrom === "1970-01-01") {
+      return res.status(400).json({ message: "Cannot delete the initial default goal configuration" });
+    }
+
+    await GoalConfig.findByIdAndDelete(id);
+    res.json({ message: "Goal configuration deleted successfully" });
+  } catch (err) {
+    console.error("Delete goal config error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -1318,6 +1412,7 @@ module.exports = {
   updateStudentProfileByAdmin,
   getGoalConfig,
   updateGoalConfig,
+  deleteGoalConfig,
   createSchedule,
   getAdminSchedules,
   deleteSchedule,

@@ -112,7 +112,7 @@ const initCronJobs = () => {
   // Auto Logout Cron Job - Runs every minute to checkout students who forgot
   cron.schedule('* * * * *', async () => {
     try {
-      const config = await GoalConfig.findOne();
+      const config = await GoalConfig.findOne({ studentId: null }).sort({ effectiveFrom: -1 });
       if (!config || !config.autoLogoutEnabled || !config.autoLogoutTime) {
         return;
       }
