@@ -5575,7 +5575,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                   {user.role === 'staff' ? '📥 Export Students' : '📥 Export Fee Ledger'}
                 </button>
                 <button
-                  onClick={() => { setShowAddForm(!showAddForm); setAddMsg(''); }}
+                  onClick={() => setShowAddForm(!showAddForm)}
                   style={{ padding: '0.5rem 1rem', background: 'var(--primary-color)', color: 'white', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
                   {showAddForm ? 'Close Form' : '+ Add Student'}
                 </button>
