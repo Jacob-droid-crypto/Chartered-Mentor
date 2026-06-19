@@ -25,34 +25,7 @@ function Login({ onLoginSuccess }) {
        if (params.get('userId')) setUserId(params.get('userId'));
        setMsg('Welcome! Please verify your identity with Google to set up your account.');
     }
-
-    // Auto Demo Mode Setup
-    const demoParam = params.get('demo');
-    if (demoParam) {
-      const demoRole = (demoParam === 'student' || demoParam === 'student_demo') ? 'student' : 'admin';
-      localStorage.setItem('cmDemoMode', 'true');
-      const demoUser = {
-        token: "demo-jwt-token-123456789-secret",
-        role: demoRole,
-        userId: demoRole === 'admin' ? 'CM.ADMIN' : 'CM.STUD001',
-        name: demoRole === 'admin' ? 'Demo Administrator' : 'Arjun Mehta'
-      };
-      localStorage.setItem('cmUser', JSON.stringify(demoUser));
-      onLoginSuccess(demoUser);
-    }
-  }, [onLoginSuccess]);
-
-  const handleDemoLogin = (demoRole) => {
-    localStorage.setItem('cmDemoMode', 'true');
-    const demoUser = {
-      token: "demo-jwt-token-123456789-secret",
-      role: demoRole,
-      userId: demoRole === 'admin' ? 'CM.ADMIN' : 'CM.STUD001',
-      name: demoRole === 'admin' ? 'Demo Administrator' : 'Arjun Mehta'
-    };
-    localStorage.setItem('cmUser', JSON.stringify(demoUser));
-    onLoginSuccess(demoUser);
-  };
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -292,31 +265,6 @@ function Login({ onLoginSuccess }) {
             <button type="submit" className="submit-btn" disabled={loading}>
               {loading ? 'Signing In...' : 'Sign In'}
             </button>
-
-            <div style={{ display: 'flex', alignItems: 'center', margin: '1.25rem 0 0.75rem 0', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-              <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--glass-border)', margin: '0 8px' }} />
-              <span>OR EXPLORE PORTAL</span>
-              <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--glass-border)', margin: '0 8px' }} />
-            </div>
-
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button 
-                type="button" 
-                onClick={() => handleDemoLogin('admin')}
-                className="submit-btn"
-                style={{ background: 'rgba(59, 130, 246, 0.08)', color: 'var(--primary-color)', border: '1px solid rgba(59, 130, 246, 0.25)', flex: 1, margin: 0, padding: '0.65rem 0', fontSize: '0.85rem' }}
-              >
-                🔑 Admin Demo
-              </button>
-              <button 
-                type="button" 
-                onClick={() => handleDemoLogin('student')}
-                className="submit-btn"
-                style={{ background: 'rgba(16, 185, 129, 0.08)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.25)', flex: 1, margin: 0, padding: '0.65rem 0', fontSize: '0.85rem' }}
-              >
-                🎓 Student Demo
-              </button>
-            </div>
           </form>
         )}
 

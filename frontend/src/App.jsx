@@ -41,7 +41,6 @@ function App() {
   const handleLogout = () => {
     setUser(null);
     localStorage.removeItem('cmUser');
-    localStorage.removeItem('cmDemoMode');
     sessionStorage.removeItem('feePopupShown');
   };
 
