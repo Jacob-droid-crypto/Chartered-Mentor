@@ -1142,6 +1142,32 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
       });
     }
 
+    // Check for student birthdays today
+    if (Array.isArray(students)) {
+      const today = new Date();
+      const localMonth = today.getMonth();
+      const localDay = today.getDate();
+
+      students.forEach(student => {
+        if (student.dob) {
+          const dobDate = new Date(student.dob);
+          if (!isNaN(dobDate.getTime())) {
+            // Using getUTCMonth and getUTCDate to match the exact calendar date saved in the database
+            if (dobDate.getUTCMonth() === localMonth && dobDate.getUTCDate() === localDay) {
+              notifications.push({
+                id: `birthday-${student.userId}`,
+                type: 'birthday',
+                icon: '🎂',
+                message: `🎂 Birthday Today: Student ${student.name} (${student.userId}) has their birthday today!`,
+                severity: 'info',
+                rawTime: Date.now() // Sort at the top of the alerts list
+              });
+            }
+          }
+        }
+      });
+    }
+
     // Only Exams / Answer Sheet Uploads (within last 48 hours)
     if (Array.isArray(papers)) {
       const fortyEightHoursAgo = Date.now() - 48 * 60 * 60 * 1000;
