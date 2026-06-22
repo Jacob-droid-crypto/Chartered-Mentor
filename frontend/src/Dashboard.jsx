@@ -5782,28 +5782,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                               }} className="dropdown-item">
                                 💰 Set Fee Structure
                               </button>
-                              <button onClick={async () => {
-                                const amount = prompt('Enter Payment Amount Received', '0');
-                                if (!amount || isNaN(amount)) return;
-                                const receipt = prompt('Enter Receipt/Transaction No.', '');
-                                try {
-                                  const res = await fetch(`/admin/student/${student.userId}/payment`, {
-                                    method: 'POST',
-                                    headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ amount: Number(amount), receiptNo: receipt, date: new Date().toISOString() })
-                                  });
-                                  if (!res.ok) throw new Error(await res.text());
-                                  const resData = await res.json();
-                                  alert('Payment recorded!');
-                                  fetchStudentsData();
-                                  if (feeSetupStudent && feeSetupStudent.userId === student.userId) {
-                                    setFeeSetupStudent(resData.user);
-                                  }
-                                } catch (err) { alert('Error: ' + err.message); }
-                                setOpenMenuId(null);
-                              }} className="dropdown-item">
-                                💸 Add Payment Received
-                              </button>
+
                             </>
                           )}
                           <div style={{ height: '1px', background: 'var(--glass-border)', margin: '4px 0' }}></div>
