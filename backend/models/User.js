@@ -29,6 +29,10 @@ const userSchema = new mongoose.Schema({
     enum: ["residential", "online"],
     default: "residential"
   },
+  seatNumber: {
+    type: String,
+    default: null
+  },
   password: {
     type: String,
     required: true,

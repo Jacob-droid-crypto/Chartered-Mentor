@@ -930,7 +930,8 @@ const updateStudentProfileByAdmin = async (req, res) => {
 
     const {
       name, email, phone, course, mode, batch, group, aadharNumber, dob, joiningDate,
-      address, fatherName, fatherPhone, fatherOccupation, motherName, motherPhone, motherOccupation
+      address, fatherName, fatherPhone, fatherOccupation, motherName, motherPhone, motherOccupation,
+      seatNumber
     } = req.body;
 
     if (name !== undefined) student.name = name;
@@ -950,6 +951,7 @@ const updateStudentProfileByAdmin = async (req, res) => {
     if (motherName !== undefined) student.motherName = motherName;
     if (motherPhone !== undefined) student.motherPhone = motherPhone;
     if (motherOccupation !== undefined) student.motherOccupation = motherOccupation;
+    if (seatNumber !== undefined) student.seatNumber = seatNumber || null;
 
     // Check if profile is complete (all required fields filled)
     if (

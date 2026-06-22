@@ -177,6 +177,7 @@ const getDashboard = async (req, res) => {
       phone: student.phone,
       course: student.course,
       mode: student.mode || "residential",
+      seatNumber: student.seatNumber || null,
       profilePhoto: student.profilePhoto,
       totalFees: student.totalFees,
       feesPaid: student.feesPaid,
