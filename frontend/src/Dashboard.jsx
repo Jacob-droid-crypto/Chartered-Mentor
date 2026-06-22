@@ -3780,12 +3780,15 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                     statusBg = "rgba(59, 130, 246, 0.1)";
                   }
 
+                  const targetStudent = students.find(s => s.userId === paper.target);
+                  const studentDisplayName = targetStudent ? `${targetStudent.name} (${paper.target})` : paper.target;
+
                   return (
                     <div key={paper._id} className="activity-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.2rem', padding: '1.2rem', background: 'white', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: '0 2px 8px rgba(0,0,0,0.01)' }}>
                       <div>
                         <strong style={{ fontSize: '1.1rem', color: 'var(--text-main)' }}>{paper.title}</strong>
                         <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.4rem', display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-                          <span>Target: <strong>{paper.target}</strong></span>
+                          <span>Target: <strong>{studentDisplayName}</strong></span>
                           <span>Scheduled Date: <strong>{new Date(paper.scheduledTime).toLocaleDateString()}</strong></span>
                           <span>Exam: <strong>{paper.examDuration || 180}m</strong> | Upload: <strong>{paper.uploadDuration || 15}m</strong></span>
                         </div>
