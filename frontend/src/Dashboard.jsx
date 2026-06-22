@@ -547,6 +547,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
   const [selectedGoalStudent, setSelectedGoalStudent] = useState('');
   const [data, setData] = useState(null);
   const [students, setStudents] = useState([]);
+  const [studentSearch, setStudentSearch] = useState('');
 
   const quotesList = [
     "Focus on your goal. Don't look in any direction but ahead.",
@@ -2276,6 +2277,19 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
     }
   };
 
+  const filteredStudents = Array.isArray(students)
+    ? students.filter(student => {
+        const query = studentSearch.toLowerCase().trim();
+        if (!query) return true;
+        return (
+          (student.name && student.name.toLowerCase().includes(query)) ||
+          (student.userId && student.userId.toLowerCase().includes(query)) ||
+          (student.email && student.email.toLowerCase().includes(query)) ||
+          (student.course && student.course.toLowerCase().includes(query)) ||
+          (student.batch && student.batch.toLowerCase().includes(query))
+        );
+      })
+    : [];
 
   return (
     <div className="app-container">
@@ -5582,6 +5596,65 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
               </div>
             </div>
 
+            {/* Search Box */}
+            <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+              <div style={{ position: 'relative', flex: 1, maxWidth: '400px', minWidth: '280px' }}>
+                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '1.1rem', pointerEvents: 'none' }}>🔍</span>
+                <input
+                  type="text"
+                  placeholder="Search students by name, ID, email, course, batch..."
+                  value={studentSearch}
+                  onChange={(e) => setStudentSearch(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 2.5rem 0.65rem 2.5rem',
+                    borderRadius: '10px',
+                    border: '1px solid var(--glass-border)',
+                    background: 'var(--surface-color)',
+                    backdropFilter: 'blur(8px)',
+                    color: 'var(--text-main)',
+                    fontSize: '0.95rem',
+                    outline: 'none',
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 4px 12px var(--shadow-color)'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = 'var(--primary-color)';
+                    e.target.style.boxShadow = '0 0 0 3px rgba(79, 70, 229, 0.15)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = 'var(--glass-border)';
+                    e.target.style.boxShadow = '0 4px 12px var(--shadow-color)';
+                  }}
+                />
+                {studentSearch && (
+                  <button
+                    onClick={() => setStudentSearch('')}
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      fontSize: '1rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: 0
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: '500' }}>
+                Found {filteredStudents.length} of {students.length} students
+              </span>
+            </div>
+
             {showAddForm && (
               <div className="card" style={{ marginBottom: '2rem', overflow: 'visible' }}>
                 <h3>Add New Student</h3>
@@ -5625,7 +5698,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
 
             <section className="recent-activity" onClick={() => setOpenMenuId(null)}>
               <div className="activity-list">
-                {Array.isArray(students) && students.map((student) => (
+                {Array.isArray(filteredStudents) && filteredStudents.map((student) => (
                   <div key={student.userId || Math.random()} className="activity-item" style={{ position: 'relative', zIndex: openMenuId === student.userId ? 50 : 1 }}>
                     <div className="activity-info">
                       <div className="avatar" style={{ width: '35px', height: '35px', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
@@ -5742,7 +5815,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                     </div>
                   </div>
                 ))}
-                {(!Array.isArray(students) || students.length === 0) && <p style={{ color: 'var(--text-muted)' }}>No students found.</p>}
+                {(!Array.isArray(filteredStudents) || filteredStudents.length === 0) && <p style={{ color: 'var(--text-muted)' }}>No students found.</p>}
               </div>
             </section>
           </>
