@@ -4907,6 +4907,33 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                           {profileData?.nextPaymentDueDate ? new Date(profileData.nextPaymentDueDate).toLocaleDateString() : 'N/A'}
                         </div>
                       </div>
+
+                      {profileData?.installments && profileData.installments.length > 0 && (
+                        <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px dashed rgba(0, 0, 0, 0.1)' }}>
+                          <span style={{ color: 'var(--text-main)', fontSize: '1rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>📅 Installment Schedule</span>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            {profileData.installments.map((inst, idx) => (
+                              <div key={idx} style={{ background: 'white', padding: '0.8rem 1rem', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '0.4rem', border: '1px solid rgba(0,0,0,0.01)', boxShadow: '0 2px 4px rgba(0,0,0,0.01)' }}>
+                                <strong style={{ color: 'var(--text-main)', fontSize: '0.95rem', display: 'block' }}>
+                                  Installment {idx + 1}: ₹{inst.adjustedAmount !== undefined ? inst.adjustedAmount : inst.amount}
+                                </strong>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                  <span>Due: {new Date(inst.dueDate).toLocaleDateString()}</span>
+                                  {inst.status === 'Paid' ? (
+                                    <span style={{ color: '#10b981', fontWeight: 'bold', padding: '2px 8px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '6px' }}>
+                                      Paid
+                                    </span>
+                                  ) : (
+                                    <span style={{ color: '#ef4444', fontWeight: 'bold', padding: '2px 8px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '6px' }}>
+                                      Pending
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -5087,44 +5114,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                 </div>
 
                 {/* Standalone Installment Schedule Card */}
-                <div className="card" style={{ marginBottom: '2rem' }}>
-                  <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    📅 Installment Schedule & Details
-                  </h3>
-                  {profileData?.installments && profileData.installments.length > 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                      {profileData.installments.map((inst, idx) => (
-                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.4)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--glass-border)', flexWrap: 'wrap', gap: '1rem' }}>
-                          <div>
-                            <span style={{ fontWeight: 'bold', fontSize: '1.05rem', color: 'var(--text-main)' }}>Installment {idx + 1}</span>
-                            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                              Due Date: <strong>{new Date(inst.dueDate).toLocaleDateString()}</strong>
-                            </div>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
-                            <div style={{ textAlign: 'right' }}>
-                              <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', display: 'block' }}>Amount Required</span>
-                              <strong style={{ fontSize: '1.1rem', color: 'var(--text-main)' }}>₹{inst.adjustedAmount !== undefined ? inst.adjustedAmount : inst.amount}</strong>
-                            </div>
-                            <div>
-                              {inst.status === 'Paid' ? (
-                                <span style={{ color: '#10b981', fontWeight: 'bold', padding: '0.4rem 0.8rem', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '6px', fontSize: '0.9rem', display: 'inline-block' }}>
-                                  ✓ Paid {inst.paidDate ? `on ${new Date(inst.paidDate).toLocaleDateString()}` : ''}
-                                </span>
-                              ) : (
-                                <span style={{ color: '#ef4444', fontWeight: 'bold', padding: '0.4rem 0.8rem', background: 'rgba(239, 68, 68, 0.08)', borderRadius: '6px', fontSize: '0.9rem', display: 'inline-block' }}>
-                                  Unpaid
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p style={{ color: 'var(--text-muted)' }}>No installments configured yet.</p>
-                  )}
-                </div>
+
 
                 <div className="card">
                   <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-main)' }}>Payment History</h3>
