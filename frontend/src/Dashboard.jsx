@@ -3827,6 +3827,28 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
 
             <div className="card">
               <h3 style={{ marginBottom: '1.5rem' }}>{(user.role === 'admin' || user.role === 'staff') ? 'Scheduled Question Papers' : 'Available Question Papers'}</h3>
+              
+              {user.role !== 'admin' && user.role !== 'staff' && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  padding: '1rem',
+                  background: 'rgba(245, 158, 11, 0.08)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(245, 158, 11, 0.25)',
+                  color: '#d97706',
+                  fontSize: '0.9rem',
+                  fontWeight: '500',
+                  marginBottom: '1.5rem',
+                  boxShadow: '0 4px 12px rgba(245, 158, 11, 0.05)',
+                  animation: 'fadeIn 0.5s ease-out'
+                }}>
+                  <span style={{ fontSize: '1.25rem' }}>⚠️</span>
+                  <span>Question papers are automatically deleted from the system <strong>3 days</strong> after you start (open) them.</span>
+                </div>
+              )}
+
               <div className="activity-list">
                 {papers.map((paper) => {
                   if (user.role === 'student') {
@@ -4141,6 +4163,26 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                   <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
                     Below are your scheduled study guides/plans. Click download to access the files.
                   </p>
+
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    padding: '1rem',
+                    background: 'rgba(245, 158, 11, 0.08)',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(245, 158, 11, 0.25)',
+                    color: '#d97706',
+                    fontSize: '0.9rem',
+                    fontWeight: '500',
+                    marginBottom: '1.5rem',
+                    boxShadow: '0 4px 12px rgba(245, 158, 11, 0.05)',
+                    animation: 'fadeIn 0.5s ease-out'
+                  }}>
+                    <span style={{ fontSize: '1.25rem' }}>⚠️</span>
+                    <span>Schedules are automatically deleted from the system <strong>10 days</strong> after you open them.</span>
+                  </div>
+
                   <div className="activity-list">
                     {schedules.map((sched) => {
                       return (

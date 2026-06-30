@@ -557,6 +557,10 @@ const uploadQuestionPaper = async (req, res) => {
 /* ================= GET ADMIN PAPERS ================= */
 const getAdminPapers = async (req, res) => {
   try {
+    // Auto-delete question papers 3 days after student started/opened them
+    const paperThreshold = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+    await QuestionPaper.deleteMany({ startTime: { $ne: null, $lte: paperThreshold } });
+
     const papers = await QuestionPaper.find({}, { fileData: 0, answerFileData: 0 }).sort({ scheduledTime: -1 });
     res.json(papers);
   } catch (err) {
@@ -1168,7 +1172,8 @@ const createSchedule = async (req, res) => {
 
 const getAdminSchedules = async (req, res) => {
   try {
-    const threshold = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+    // Auto-delete schedules 10 days after they were opened
+    const threshold = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
     await Schedule.deleteMany({ openedAt: { $ne: null, $lte: threshold } });
 
     const schedules = await Schedule.find({}, { fileData: 0 }).sort({ date: 1 });

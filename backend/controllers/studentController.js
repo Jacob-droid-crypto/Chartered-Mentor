@@ -681,6 +681,10 @@ const getStudentPapers = async (req, res) => {
     const user = req.user;
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    // Auto-delete question papers 3 days after student started/opened them
+    const paperThreshold = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+    await QuestionPaper.deleteMany({ startTime: { $ne: null, $lte: paperThreshold } });
+
     const query = { target: user.userId };
 
     const papers = await QuestionPaper.find(query, { fileData: 0, answerFileData: 0 }).sort({ scheduledTime: 1 });
@@ -925,7 +929,8 @@ const getStudentSchedules = async (req, res) => {
     const user = req.user;
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    const threshold = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+    // Auto-delete schedules 10 days after they were opened
+    const threshold = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
     await Schedule.deleteMany({ openedAt: { $ne: null, $lte: threshold } });
 
     const schedules = await Schedule.find({ target: user.userId }, { fileData: 0 }).sort({ date: 1 });

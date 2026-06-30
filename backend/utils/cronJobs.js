@@ -2,6 +2,8 @@ const cron = require('node-cron');
 const User = require('../models/User');
 const Attendance = require('../models/Attendance');
 const GoalConfig = require('../models/GoalConfig');
+const Schedule = require('../models/Schedule');
+const QuestionPaper = require('../models/QuestionPaper');
 
 const getISTDateString = (date = new Date()) => {
   const shifted = new Date(date.getTime() + 5.5 * 60 * 60 * 1000);
@@ -166,6 +168,28 @@ const initCronJobs = () => {
       }
     } catch (error) {
       console.error("Error in auto logout cron job:", error);
+    }
+  });
+
+  // Cleanup Cron Job - Runs daily at midnight to purge old schedules and question papers from MongoDB
+  cron.schedule('0 0 * * *', async () => {
+    console.log("Running scheduled auto-delete cleanup for old schedules and question papers...");
+    try {
+      // 1. Delete schedules opened more than 10 days ago
+      const scheduleThreshold = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+      const scheduleRes = await Schedule.deleteMany({ openedAt: { $ne: null, $lte: scheduleThreshold } });
+      if (scheduleRes.deletedCount > 0) {
+        console.log(`🧹 [Cron Cleanup] Auto-deleted ${scheduleRes.deletedCount} schedules.`);
+      }
+
+      // 2. Delete question papers started more than 3 days ago
+      const paperThreshold = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+      const paperRes = await QuestionPaper.deleteMany({ startTime: { $ne: null, $lte: paperThreshold } });
+      if (paperRes.deletedCount > 0) {
+        console.log(`🧹 [Cron Cleanup] Auto-deleted ${paperRes.deletedCount} question papers.`);
+      }
+    } catch (error) {
+      console.error("Error in auto-delete cleanup cron job:", error);
     }
   });
   
