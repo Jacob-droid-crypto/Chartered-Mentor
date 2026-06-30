@@ -198,7 +198,8 @@ const getDashboard = async (req, res) => {
       batch: student.batch || "",
       dob: student.dob || null,
       joiningDate: student.joiningDate || null,
-      installments: student.installments || []
+      installments: student.installments || [],
+      serverTime: new Date()
     });
   } catch (err) {
     console.error(err);

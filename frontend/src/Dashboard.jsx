@@ -70,21 +70,75 @@ const ALL_SEATS = [
   'B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B9', 'B10', 'B11', 'B12',
   'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9'
 ];
+const compressImage = (file) => {
+  return new Promise((resolve) => {
+    if (!file.type.startsWith('image/')) {
+      resolve(file);
+      return;
+    }
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        const MAX_DIM = 1600;
+        if (width > MAX_DIM || height > MAX_DIM) {
+          if (width > height) {
+            height = Math.round((height * MAX_DIM) / width);
+            width = MAX_DIM;
+          } else {
+            width = Math.round((width * MAX_DIM) / height);
+            height = MAX_DIM;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            resolve(file);
+            return;
+          }
+          const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", {
+            type: "image/jpeg",
+            lastModified: Date.now()
+          });
+          resolve(compressedFile);
+        }, 'image/jpeg', 0.7);
+      };
+      img.onerror = () => resolve(file);
+    };
+    reader.onerror = () => resolve(file);
+  });
+};
 
 function StudentPaperCard({ paper, user, onRefresh, showConfirm }) {
   const [timeLeft, setTimeLeft] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
 
+  const getSyncedNow = () => {
+    const offset = window.serverTimeOffset || 0;
+    return new Date(Date.now() - offset);
+  };
+
   // Parse time
   const scheduledDate = new Date(paper.scheduledTime);
-  const todayStr = getLocalDateString();
+  const todayStr = getLocalDateString(getSyncedNow());
   const scheduledStr = scheduledDate.toISOString().split("T")[0];
   const isLocked = todayStr < scheduledStr;
 
   const totalDurationMins = paper.examDuration + paper.uploadDuration;
   const totalDurationMs = totalDurationMins * 60 * 1000;
-  const isTimeExpired = paper.startTime && (new Date(paper.startTime).getTime() + totalDurationMs < new Date().getTime());
+  const isTimeExpired = paper.startTime && (new Date(paper.startTime).getTime() + totalDurationMs < getSyncedNow().getTime());
 
   useEffect(() => {
     if (!paper.startTime || paper.answerUploadedAt) return;
@@ -94,7 +148,7 @@ function StudentPaperCard({ paper, user, onRefresh, showConfirm }) {
     const endMs = new Date(paper.startTime).getTime() + totalDurationMs;
 
     const updateTimer = () => {
-      const remainingMs = endMs - new Date().getTime();
+      const remainingMs = endMs - getSyncedNow().getTime();
       if (remainingMs <= 0) {
         setTimeLeft(0);
       } else {
@@ -143,14 +197,26 @@ function StudentPaperCard({ paper, user, onRefresh, showConfirm }) {
 
   const handleFileUpload = async (file) => {
     if (!file) return;
-    if (file.size > 3.2 * 1024 * 1024) {
-      alert("File size exceeds Vercel's 4.5MB serverless upload limit (max file size is ~3.2MB). Please compress your PDF/images or upload a smaller file.");
+
+    let fileToUpload = file;
+    if (file.type.startsWith('image/')) {
+      try {
+        setUploading(true);
+        fileToUpload = await compressImage(file);
+      } catch (err) {
+        console.error("Compression failed, uploading original", err);
+      }
+    }
+
+    if (fileToUpload.size > 3.2 * 1024 * 1024) {
+      alert(`File size (${(fileToUpload.size / (1024 * 1024)).toFixed(2)}MB) exceeds Vercel's 4.5MB serverless upload limit (max file size is ~3.2MB). Please compress your PDF/images or upload a smaller file.`);
+      setUploading(false);
       return;
     }
 
     setUploading(true);
     const reader = new FileReader();
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(fileToUpload);
     reader.onloadend = async () => {
       try {
         const base64Data = reader.result.split(',')[1];
@@ -272,6 +338,26 @@ function StudentPaperCard({ paper, user, onRefresh, showConfirm }) {
             }} style={{ padding: '0.55rem 1.2rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
               View Submission
             </button>
+            <button onClick={async () => {
+              try {
+                const res = await fetch(`/student/paper/${paper._id}/download`, {
+                  headers: { 'Authorization': `Bearer ${user.token}` }
+                });
+                if (!res.ok) throw new Error();
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = paper.fileName || 'question-paper.pdf';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+              } catch (err) {
+                alert("Error downloading question paper");
+              }
+            }} style={{ padding: '0.55rem 1.2rem', background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--glass-border)', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
+              View Question Paper
+            </button>
             {!isTimeExpired && (
               <>
                 <input
@@ -356,6 +442,49 @@ function StudentPaperCard({ paper, user, onRefresh, showConfirm }) {
 
         <div style={{ background: 'var(--surface-color)', border: '1px solid var(--glass-border)', padding: '1rem', borderRadius: '8px', fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
           📌 <strong>Exam Rules:</strong> Please write your answers on paper, scan them into a single PDF or image file, and upload it below before the timer runs out. You have <strong>{paper.examDuration} minutes</strong> to write and <strong>{paper.uploadDuration} minutes</strong> to upload.
+        </div>
+
+        {/* Download Question Paper Button */}
+        <div style={{ display: 'flex', justifyContent: 'center', margin: '0.5rem 0' }}>
+          <button
+            onClick={async () => {
+              try {
+                const downloadRes = await fetch(`/student/paper/${paper._id}/download`, {
+                  headers: { 'Authorization': `Bearer ${user.token}` }
+                });
+                if (!downloadRes.ok) throw new Error("Failed to download question paper");
+                const blob = await downloadRes.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = paper.fileName || 'question-paper.pdf';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+              } catch (err) {
+                alert("Error downloading question paper: " + err.message);
+              }
+            }}
+            style={{
+              width: '100%',
+              padding: '0.75rem',
+              background: 'var(--primary-color)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              fontSize: '0.95rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              boxShadow: '0 4px 12px rgba(79, 70, 229, 0.25)',
+              transition: 'all 0.2s'
+            }}
+          >
+            📥 Download Question Paper
+          </button>
         </div>
 
         {/* Upload Answer Form */}
@@ -455,10 +584,6 @@ function StudentPaperCard({ paper, user, onRefresh, showConfirm }) {
             onChange={async (e) => {
               if (e.target.files && e.target.files[0]) {
                 const file = e.target.files[0];
-                if (file.size > 3.2 * 1024 * 1024) {
-                  alert("File size exceeds Vercel's 4.5MB serverless upload limit (max file size is ~3.2MB). Please compress your PDF/images or upload a smaller file.");
-                  return;
-                }
                 if (!await showConfirm(`Start exam and upload "${file.name}" directly?`)) return;
                 try {
                   setUploading(true);
@@ -806,6 +931,13 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
       if (!response.ok) throw new Error(result.message || 'Failed to fetch dashboard data');
       setData(result);
 
+      // Synced Server Time
+      const serverDateHeader = response.headers.get('Date');
+      const serverTimeVal = result.serverTime || serverDateHeader;
+      if (serverTimeVal) {
+        window.serverTimeOffset = Date.now() - new Date(serverTimeVal).getTime();
+      }
+
       if (user.role === 'student' && !result.profileCompleted) {
         setActiveTab('profile');
       }
@@ -896,6 +1028,12 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
       const result = await response.json();
+
+      const serverDateHeader = response.headers.get('Date');
+      if (serverDateHeader) {
+        window.serverTimeOffset = Date.now() - new Date(serverDateHeader).getTime();
+      }
+
       if (response.ok) setPapers(result);
     } catch (err) {
       console.error(err);
@@ -4769,31 +4907,6 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                           {profileData?.nextPaymentDueDate ? new Date(profileData.nextPaymentDueDate).toLocaleDateString() : 'N/A'}
                         </div>
                       </div>
-
-                      {profileData?.installments && profileData.installments.length > 0 && (
-                        <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px dashed rgba(0, 0, 0, 0.1)' }}>
-                          <span style={{ color: 'var(--text-main)', fontSize: '0.95rem', fontWeight: 'bold', display: 'block', marginBottom: '0.75rem' }}>📅 Installment Schedule</span>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                            {profileData.installments.map((inst, idx) => (
-                              <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', background: 'white', padding: '0.6rem 0.8rem', borderRadius: '6px', border: '1px solid var(--glass-border)' }}>
-                                <div style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.85rem' }}>Installment {idx + 1}: ₹{inst.adjustedAmount !== undefined ? inst.adjustedAmount : inst.amount}</div>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
-                                  <span>Due: {new Date(inst.dueDate).toLocaleDateString()}</span>
-                                  {inst.status === 'Paid' ? (
-                                    <span style={{ color: '#10b981', fontWeight: 'bold', padding: '0.1rem 0.4rem', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '4px' }}>
-                                      ✓ Paid {inst.paidDate ? `on ${new Date(inst.paidDate).toLocaleDateString()}` : ''}
-                                    </span>
-                                  ) : (
-                                    <span style={{ color: '#ef4444', fontWeight: 'bold', padding: '0.1rem 0.4rem', background: 'rgba(239, 68, 68, 0.08)', borderRadius: '4px' }}>
-                                      Pending
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </div>
 
@@ -4971,6 +5084,46 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                       </div>
                     )}
                   </div>
+                </div>
+
+                {/* Standalone Installment Schedule Card */}
+                <div className="card" style={{ marginBottom: '2rem' }}>
+                  <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    📅 Installment Schedule & Details
+                  </h3>
+                  {profileData?.installments && profileData.installments.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      {profileData.installments.map((inst, idx) => (
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.4)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--glass-border)', flexWrap: 'wrap', gap: '1rem' }}>
+                          <div>
+                            <span style={{ fontWeight: 'bold', fontSize: '1.05rem', color: 'var(--text-main)' }}>Installment {idx + 1}</span>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                              Due Date: <strong>{new Date(inst.dueDate).toLocaleDateString()}</strong>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+                            <div style={{ textAlign: 'right' }}>
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', display: 'block' }}>Amount Required</span>
+                              <strong style={{ fontSize: '1.1rem', color: 'var(--text-main)' }}>₹{inst.adjustedAmount !== undefined ? inst.adjustedAmount : inst.amount}</strong>
+                            </div>
+                            <div>
+                              {inst.status === 'Paid' ? (
+                                <span style={{ color: '#10b981', fontWeight: 'bold', padding: '0.4rem 0.8rem', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '6px', fontSize: '0.9rem', display: 'inline-block' }}>
+                                  ✓ Paid {inst.paidDate ? `on ${new Date(inst.paidDate).toLocaleDateString()}` : ''}
+                                </span>
+                              ) : (
+                                <span style={{ color: '#ef4444', fontWeight: 'bold', padding: '0.4rem 0.8rem', background: 'rgba(239, 68, 68, 0.08)', borderRadius: '6px', fontSize: '0.9rem', display: 'inline-block' }}>
+                                  Unpaid
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p style={{ color: 'var(--text-muted)' }}>No installments configured yet.</p>
+                  )}
                 </div>
 
                 <div className="card">
