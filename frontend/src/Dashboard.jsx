@@ -1878,20 +1878,9 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
 
       let keyToMatch = false;
       if (attendanceView === 'monthly') {
-        if (joiningDateStr) {
-          const range = getStudentCustomMonthRange(joiningDateStr, attendanceDate);
-          if (range) {
-            const dMidnight = new Date(d);
-            dMidnight.setHours(0, 0, 0, 0);
-            if (dMidnight >= range.startDate && dMidnight <= range.endDate) {
-              keyToMatch = true;
-            }
-          }
-        } else {
-          const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-          const targetMonthKey = attendanceDate.substring(0, 7);
-          if (monthKey === targetMonthKey) keyToMatch = true;
-        }
+        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const targetMonthKey = attendanceDate.substring(0, 7);
+        if (monthKey === targetMonthKey) keyToMatch = true;
       } else if (attendanceView === 'weekly') {
         const targetDate = new Date(attendanceDate);
         const startOfWeek = new Date(targetDate);
@@ -1990,38 +1979,22 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
           expectedDays = Math.floor((activeEnd.getTime() - activeStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
         }
       } else if (attendanceView === 'monthly') {
-        if (joiningDateStr) {
-          const range = getStudentCustomMonthRange(joiningDateStr, attendanceDate);
-          if (range) {
-            const activeStart = jDate && jDate > range.startDate ? jDate : range.startDate;
-            const activeEnd = today < range.endDate ? today : range.endDate;
+        const [year, month] = attendanceDate.split('-');
+        const y = parseInt(year);
+        const m = parseInt(month) - 1;
 
-            if (activeStart > activeEnd) {
-              expectedDays = 0;
-            } else {
-              expectedDays = Math.floor((activeEnd.getTime() - activeStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-            }
-          } else {
-            expectedDays = 0;
-          }
+        const startOfMonth = new Date(y, m, 1);
+        startOfMonth.setHours(0, 0, 0, 0);
+        const endOfMonth = new Date(y, m + 1, 0);
+        endOfMonth.setHours(0, 0, 0, 0);
+
+        const activeStart = jDate && jDate > startOfMonth ? jDate : startOfMonth;
+        const activeEnd = today < endOfMonth ? today : endOfMonth;
+
+        if (activeStart > activeEnd) {
+          expectedDays = 0;
         } else {
-          const [year, month] = attendanceDate.split('-');
-          const y = parseInt(year);
-          const m = parseInt(month) - 1;
-
-          const startOfMonth = new Date(y, m, 1);
-          startOfMonth.setHours(0, 0, 0, 0);
-          const endOfMonth = new Date(y, m + 1, 0);
-          endOfMonth.setHours(0, 0, 0, 0);
-
-          const activeStart = jDate && jDate > startOfMonth ? jDate : startOfMonth;
-          const activeEnd = today < endOfMonth ? today : endOfMonth;
-
-          if (activeStart > activeEnd) {
-            expectedDays = 0;
-          } else {
-            expectedDays = Math.floor((activeEnd.getTime() - activeStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-          }
+          expectedDays = Math.floor((activeEnd.getTime() - activeStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
         }
       }
 
