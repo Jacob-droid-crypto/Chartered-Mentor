@@ -1961,7 +1961,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
 
     return Object.values(aggregatedMap).map(record => {
       let expectedDays = 0;
-      const today = new Date();
+      const today = getSyncedNow();
       today.setHours(0, 0, 0, 0);
 
       const studentInfo = Array.isArray(students) ? students.find(s => s.userId === record.studentId) : null;
@@ -2057,7 +2057,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
       return;
     }
 
-    const todayStr = getLocalDateString();
+    const todayStr = getLocalDateString(getSyncedNow());
 
     let exportData = [];
     if (attendanceView === 'daily') {
@@ -2103,8 +2103,8 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
           }
         }
       } else if (attendanceView === 'range') {
-        const start = attendanceStartDate ? new Date(attendanceStartDate) : new Date();
-        const end = attendanceEndDate ? new Date(attendanceEndDate) : new Date();
+        const start = attendanceStartDate ? new Date(attendanceStartDate) : getSyncedNow();
+        const end = attendanceEndDate ? new Date(attendanceEndDate) : getSyncedNow();
 
         let curr = new Date(start);
         while (curr <= end) {
@@ -2164,9 +2164,9 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
           if (isBeforeJoining) {
             row[dateStr] = ""; // Keep as blank
           } else if (log && log.status === 'Present') {
-            row[dateStr] = formatStudyTime(log.totalHours);
+            row[dateStr] = `Present (${formatStudyTime(log.totalHours)})`;
           } else {
-            row[dateStr] = "Leave";
+            row[dateStr] = "Absent";
           }
         });
 
