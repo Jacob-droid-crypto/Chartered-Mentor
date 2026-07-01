@@ -120,15 +120,15 @@ const compressImage = (file) => {
   });
 };
 
+const getSyncedNow = () => {
+  const offset = window.serverTimeOffset || 0;
+  return new Date(Date.now() - offset);
+};
+
 function StudentPaperCard({ paper, user, onRefresh, showConfirm }) {
   const [timeLeft, setTimeLeft] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
-
-  const getSyncedNow = () => {
-    const offset = window.serverTimeOffset || 0;
-    return new Date(Date.now() - offset);
-  };
 
   // Parse time
   const scheduledDate = new Date(paper.scheduledTime);
