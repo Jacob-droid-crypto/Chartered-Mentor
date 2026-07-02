@@ -2301,10 +2301,8 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
     XLSX.writeFile(workbook, fileName);
   };
 
-  const handleExportStudentProfiles = () => {
-    const targetStudents = studentSearch.trim() ? filteredStudents : students;
-
-    if (!Array.isArray(targetStudents) || targetStudents.length === 0) {
+  const handleExportStudentInfo = () => {
+    if (!Array.isArray(students) || students.length === 0) {
       alert("No students data available to export.");
       return;
     }
@@ -2315,7 +2313,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
       return isNaN(d.getTime()) ? "-" : d.toLocaleDateString();
     };
 
-    const exportData = targetStudents.map(student => ({
+    const exportData = students.map(student => ({
       "Student ID": student.userId || "-",
       "Student Name": student.name || "-",
       "Email": student.email || "-",
@@ -2329,7 +2327,6 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
       "Batch": student.batch || "-",
       "Group": student.group || "-",
       "Joining Date": student.joiningDate ? safeFormatDate(student.joiningDate) : "-",
-      "Address": student.address || "-",
       "Father's Name": student.fatherName || "-",
       "Father's Phone": student.fatherPhone || "-",
       "Father's Occupation": student.fatherOccupation || "-",
@@ -2341,8 +2338,8 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Student Profiles");
-    XLSX.writeFile(workbook, `Student_Profiles_${getLocalDateString()}.xlsx`);
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Student Info");
+    XLSX.writeFile(workbook, `Student_Info_${getLocalDateString()}.xlsx`);
   };
 
   const handleExportDueStudents = (itemsToExport) => {
@@ -6568,12 +6565,14 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                   style={{ padding: '0.5rem 1rem', background: '#10b981', color: 'white', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
                   {user.role === 'staff' ? '📥 Export Students' : '📥 Export Fee Ledger'}
                 </button>
-                <button
-                  type="button"
-                  onClick={handleExportStudentProfiles}
-                  style={{ padding: '0.5rem 1rem', background: '#3b82f6', color: 'white', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
-                  📥 Export Profiles
-                </button>
+                {user.role === 'admin' && (
+                  <button
+                    type="button"
+                    onClick={handleExportStudentInfo}
+                    style={{ padding: '0.5rem 1rem', background: '#3b82f6', color: 'white', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
+                    📥 Export Student Info
+                  </button>
+                )}
                 <button
                   onClick={() => setShowAddForm(!showAddForm)}
                   style={{ padding: '0.5rem 1rem', background: 'var(--primary-color)', color: 'white', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
