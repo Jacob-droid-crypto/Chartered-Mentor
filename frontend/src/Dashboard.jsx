@@ -2176,7 +2176,9 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
   };
 
   const handleExportStudentsLedger = () => {
-    if (!Array.isArray(students) || students.length === 0) {
+    const targetStudents = studentSearch.trim() ? filteredStudents : students;
+
+    if (!Array.isArray(targetStudents) || targetStudents.length === 0) {
       alert("No students data available to export.");
       return;
     }
@@ -2189,7 +2191,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
       return isNaN(d.getTime()) ? "-" : d.toLocaleDateString();
     };
 
-    const exportData = students.map(student => {
+    const exportData = targetStudents.map(student => {
       const row = {
         "Student Name": student.name || "-",
         "Student ID": student.userId || "-",
@@ -2297,6 +2299,50 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
     const fileName = isStaff ? `Students_List_${getLocalDateString()}.xlsx` : `Student_Fee_Ledger_${getLocalDateString()}.xlsx`;
     XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
     XLSX.writeFile(workbook, fileName);
+  };
+
+  const handleExportStudentProfiles = () => {
+    const targetStudents = studentSearch.trim() ? filteredStudents : students;
+
+    if (!Array.isArray(targetStudents) || targetStudents.length === 0) {
+      alert("No students data available to export.");
+      return;
+    }
+
+    const safeFormatDate = (dateVal) => {
+      if (!dateVal) return "-";
+      const d = new Date(dateVal);
+      return isNaN(d.getTime()) ? "-" : d.toLocaleDateString();
+    };
+
+    const exportData = targetStudents.map(student => ({
+      "Student ID": student.userId || "-",
+      "Student Name": student.name || "-",
+      "Email": student.email || "-",
+      "Phone": student.phone || "-",
+      "Date of Birth": student.dob ? safeFormatDate(student.dob) : "-",
+      "Age": student.age || "-",
+      "Aadhar Number": student.aadharNumber || "-",
+      "Course": student.course || "-",
+      "Mode": student.mode || "-",
+      "Seat Number": student.seatNumber || "-",
+      "Batch": student.batch || "-",
+      "Group": student.group || "-",
+      "Joining Date": student.joiningDate ? safeFormatDate(student.joiningDate) : "-",
+      "Address": student.address || "-",
+      "Father's Name": student.fatherName || "-",
+      "Father's Phone": student.fatherPhone || "-",
+      "Father's Occupation": student.fatherOccupation || "-",
+      "Mother's Name": student.motherName || "-",
+      "Mother's Phone": student.motherPhone || "-",
+      "Mother's Occupation": student.motherOccupation || "-",
+      "Profile Completed": student.profileCompleted ? "Yes" : "No"
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Student Profiles");
+    XLSX.writeFile(workbook, `Student_Profiles_${getLocalDateString()}.xlsx`);
   };
 
   const handleExportDueStudents = (itemsToExport) => {
@@ -6515,12 +6561,18 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
               <h2>All Students</h2>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <button
                   type="button"
                   onClick={handleExportStudentsLedger}
                   style={{ padding: '0.5rem 1rem', background: '#10b981', color: 'white', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
                   {user.role === 'staff' ? '📥 Export Students' : '📥 Export Fee Ledger'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportStudentProfiles}
+                  style={{ padding: '0.5rem 1rem', background: '#3b82f6', color: 'white', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
+                  📥 Export Profiles
                 </button>
                 <button
                   onClick={() => setShowAddForm(!showAddForm)}
