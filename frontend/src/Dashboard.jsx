@@ -762,6 +762,10 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
   const [showFeeDuePopup, setShowFeeDuePopup] = useState(false);
   const [editingPayment, setEditingPayment] = useState(null);
 
+  // Due Students Tab States
+  const [dueSearchQuery, setDueSearchQuery] = useState('');
+  const [dueFilterType, setDueFilterType] = useState('all'); // all, overdue, due_today, upcoming
+
   // Campus QR Rotation States
   const [campusQRConfig, setCampusQRConfig] = useState({
     activeInToken: "CM-ATTENDANCE-IN",
@@ -1185,7 +1189,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
       fetchExamSchedules();
       fetchStudentsData();
     }
-    if (activeTab === 'payments') {
+    if (activeTab === 'payments' || activeTab === 'due_students') {
       fetchPaymentConfig();
       if (isAdminOrStaff) fetchStudentsData();
       if (user.role === 'student') fetchProfileData();
@@ -2277,6 +2281,84 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
     XLSX.writeFile(workbook, fileName);
   };
 
+  const handleExportDueStudents = () => {
+    if (!Array.isArray(students) || students.length === 0) {
+      alert("No student data available to export.");
+      return;
+    }
+
+    const todayStr = getLocalDateString();
+    const exportData = [];
+
+    students.forEach(student => {
+      if (student.role !== 'student') return;
+
+      const remainingBalance = (student.totalFees || 0) - (student.feesPaid || 0);
+      const insts = student.installments || [];
+      const unpaidInsts = insts.filter(inst => inst.status !== 'Paid');
+      
+      const addRow = (instIndex, instAmt, originalAmt, dueDate, isFallback = false) => {
+        const dueDateStr = dueDate ? getLocalDateString(new Date(dueDate)) : '';
+        let dueStatusLabel = 'Upcoming';
+        let daysDiff = 0;
+        
+        if (dueDateStr) {
+          const dueDateTime = new Date(dueDateStr).getTime();
+          const todayTime = new Date(todayStr).getTime();
+          const diffTime = dueDateTime - todayTime;
+          daysDiff = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          
+          if (dueDateStr === todayStr) {
+            dueStatusLabel = 'Due Today';
+          } else if (dueDateStr < todayStr) {
+            dueStatusLabel = 'Overdue';
+          }
+        }
+
+        const daysText = dueStatusLabel === 'Due Today'
+          ? 'Today'
+          : dueStatusLabel === 'Overdue'
+            ? `${Math.abs(daysDiff)} days overdue`
+            : `${daysDiff} days remaining`;
+
+        exportData.push({
+          "Student ID": student.userId || "-",
+          "Student Name": student.name || "-",
+          "Email": student.email || "-",
+          "Phone": student.phone || "-",
+          "Course": student.course || "-",
+          "Batch": student.batch || "-",
+          "Installment": isFallback ? "Pending Balance" : `Installment ${instIndex + 1}`,
+          "Original Amount (₹)": originalAmt || 0,
+          "Adjusted Amount Due (₹)": instAmt || 0,
+          "Due Date": dueDateStr || "-",
+          "Due Status": dueStatusLabel,
+          "Timeline": daysText,
+          "Remaining Student Balance (₹)": remainingBalance
+        });
+      };
+
+      if (unpaidInsts.length > 0) {
+        unpaidInsts.forEach((inst) => {
+          const idx = insts.indexOf(inst);
+          addRow(idx, inst.adjustedAmount !== undefined ? inst.adjustedAmount : inst.amount, inst.amount, inst.dueDate);
+        });
+      } else if (remainingBalance > 0 && student.nextPaymentDueDate) {
+        addRow(-1, remainingBalance, remainingBalance, student.nextPaymentDueDate, true);
+      }
+    });
+
+    if (exportData.length === 0) {
+      alert("No students with pending or overdue fees found to export.");
+      return;
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Due Students");
+    XLSX.writeFile(workbook, `Due_Students_List_${getLocalDateString()}.xlsx`);
+  };
+
   useEffect(() => {
     let html5QrCode;
 
@@ -2626,6 +2708,15 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                                 <span>💳</span> Payments
                               </li>
                               <li
+                                className={`nav-dropdown-item ${activeTab === 'due_students' ? 'active' : ''}`}
+                                onClick={() => {
+                                  setShowNavDropdown(false);
+                                  setActiveTab('due_students');
+                                }}
+                              >
+                                <span>⏳</span> Due Students
+                              </li>
+                              <li
                                 className={`nav-dropdown-item ${activeTab === 'campus_qr' ? 'active' : ''}`}
                                 onClick={() => {
                                   setShowNavDropdown(false);
@@ -2753,6 +2844,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                   : activeTab === 'papers' ? 'Question Papers'
                   : activeTab === 'schedules' ? ((user.role === 'admin' || user.role === 'staff') ? 'Student Schedules' : 'My Study Schedule')
                   : activeTab === 'payments' ? (user.role === 'admin' ? 'Fee Ledger' : 'My Payments')
+                  : activeTab === 'due_students' ? 'Due Students'
                   : activeTab === 'feeSetup' && feeSetupStudent ? `Fee Structure: ${feeSetupStudent.name}`
                   : activeTab === 'study_tracker' ? 'Study Goal Tracker'
                   : activeTab === 'goal_settings' ? 'Study Goal Settings'
@@ -2768,6 +2860,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                   : activeTab === 'papers' ? 'Manage and download scheduled question papers.'
                   : activeTab === 'schedules' ? ((user.role === 'admin' || user.role === 'staff') ? 'Create and manage study plans, classes, and tests for students.' : 'Track your study checklist, scheduled classes, and exams.')
                   : activeTab === 'payments' ? 'View fee payment history and balances.'
+                  : activeTab === 'due_students' ? 'View students whose fees are due today, overdue, or upcoming.'
                   : activeTab === 'feeSetup' ? 'Configure total fees and next due date.'
                   : activeTab === 'study_tracker' ? 'Track days where you studied less than your configured daily target hours.'
                   : activeTab === 'goal_settings' ? 'Configure the mandatory study hours for each day of the week.'
@@ -5121,6 +5214,379 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
               </>
             )}
           </>
+        ) : activeTab === 'due_students' ? (
+          <>
+            {(() => {
+              const todayStr = getLocalDateString();
+              const dueItems = [];
+
+              if (Array.isArray(students)) {
+                students.forEach(student => {
+                  if (student.role !== 'student') return;
+                  const remainingBalance = (student.totalFees || 0) - (student.feesPaid || 0);
+                  const insts = student.installments || [];
+                  const unpaidInsts = insts.filter(inst => inst.status !== 'Paid');
+                  
+                  const addRow = (instIndex, instAmt, originalAmt, dueDate, isFallback = false) => {
+                    const dueDateStr = dueDate ? getLocalDateString(new Date(dueDate)) : '';
+                    let dueStatus = 'upcoming';
+                    let dueStatusLabel = 'Upcoming';
+                    let daysDiff = 0;
+                    
+                    if (dueDateStr) {
+                      const dueDateTime = new Date(dueDateStr).getTime();
+                      const todayTime = new Date(todayStr).getTime();
+                      const diffTime = dueDateTime - todayTime;
+                      daysDiff = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                      
+                      if (dueDateStr === todayStr) {
+                        dueStatus = 'due_today';
+                        dueStatusLabel = 'Due Today';
+                      } else if (dueDateStr < todayStr) {
+                        dueStatus = 'overdue';
+                        dueStatusLabel = 'Overdue';
+                      }
+                    }
+
+                    dueItems.push({
+                      studentId: student.userId,
+                      studentName: student.name,
+                      email: student.email,
+                      phone: student.phone,
+                      course: student.course,
+                      batch: student.batch,
+                      installmentIndex: instIndex,
+                      installmentAmount: instAmt,
+                      originalAmount: originalAmt,
+                      dueDate,
+                      dueDateStr,
+                      dueStatus,
+                      dueStatusLabel,
+                      daysDiff,
+                      remainingBalance,
+                      studentObj: student
+                    });
+                  };
+
+                  if (unpaidInsts.length > 0) {
+                    unpaidInsts.forEach((inst) => {
+                      const idx = insts.indexOf(inst);
+                      addRow(idx, inst.adjustedAmount !== undefined ? inst.adjustedAmount : inst.amount, inst.amount, inst.dueDate);
+                    });
+                  } else if (remainingBalance > 0 && student.nextPaymentDueDate) {
+                    addRow(-1, remainingBalance, remainingBalance, student.nextPaymentDueDate, true);
+                  }
+                });
+              }
+
+              // Compute counts for filter sub-tabs
+              const totalCount = dueItems.length;
+              const overdueCount = dueItems.filter(item => item.dueStatus === 'overdue').length;
+              const dueTodayCount = dueItems.filter(item => item.dueStatus === 'due_today').length;
+              const upcomingCount = dueItems.filter(item => item.dueStatus === 'upcoming').length;
+
+              // Filter list based on search and filter selections
+              const filteredDueItems = dueItems.filter(item => {
+                if (dueFilterType === 'overdue' && item.dueStatus !== 'overdue') return false;
+                if (dueFilterType === 'due_today' && item.dueStatus !== 'due_today') return false;
+                if (dueFilterType === 'upcoming' && item.dueStatus !== 'upcoming') return false;
+
+                const q = dueSearchQuery.toLowerCase().trim();
+                if (q) {
+                  return (
+                    (item.studentName && item.studentName.toLowerCase().includes(q)) ||
+                    (item.studentId && item.studentId.toLowerCase().includes(q)) ||
+                    (item.course && item.course.toLowerCase().includes(q)) ||
+                    (item.batch && item.batch.toLowerCase().includes(q))
+                  );
+                }
+                return true;
+              });
+
+              return (
+                <>
+                  {/* Top Summary Cards */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+                    <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem', borderLeft: '5px solid #ef4444' }}>
+                      <div style={{ fontSize: '2rem' }}>🚨</div>
+                      <div>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Overdue Accounts</div>
+                        <h3 style={{ margin: '4px 0 0 0', fontSize: '1.5rem', color: '#ef4444' }}>{overdueCount}</h3>
+                      </div>
+                    </div>
+                    <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem', borderLeft: '5px solid #f59e0b' }}>
+                      <div style={{ fontSize: '2rem' }}>📅</div>
+                      <div>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Due Today</div>
+                        <h3 style={{ margin: '4px 0 0 0', fontSize: '1.5rem', color: '#f59e0b' }}>{dueTodayCount}</h3>
+                      </div>
+                    </div>
+                    <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem', borderLeft: '5px solid #3b82f6' }}>
+                      <div style={{ fontSize: '2rem' }}>⌛</div>
+                      <div>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Upcoming Dues</div>
+                        <h3 style={{ margin: '4px 0 0 0', fontSize: '1.5rem', color: '#3b82f6' }}>{upcomingCount}</h3>
+                      </div>
+                    </div>
+                    <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem', borderLeft: '5px solid #10b981' }}>
+                      <div style={{ fontSize: '2rem' }}>💳</div>
+                      <div>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Total Pending</div>
+                        <h3 style={{ margin: '4px 0 0 0', fontSize: '1.5rem', color: '#10b981' }}>{totalCount}</h3>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Filter and Search Bar */}
+                  <div className="card" style={{ marginBottom: '2rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                      
+                      {/* Sub-tabs */}
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <button
+                          onClick={() => setDueFilterType('all')}
+                          style={{
+                            padding: '0.5rem 1rem',
+                            borderRadius: '8px',
+                            border: '1px solid var(--glass-border)',
+                            background: dueFilterType === 'all' ? 'var(--primary-color)' : 'rgba(255,255,255,0.4)',
+                            color: dueFilterType === 'all' ? 'white' : 'var(--text-main)',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          All ({totalCount})
+                        </button>
+                        <button
+                          onClick={() => setDueFilterType('overdue')}
+                          style={{
+                            padding: '0.5rem 1rem',
+                            borderRadius: '8px',
+                            border: '1px solid var(--glass-border)',
+                            background: dueFilterType === 'overdue' ? '#ef4444' : 'rgba(255,255,255,0.4)',
+                            color: dueFilterType === 'overdue' ? 'white' : 'var(--text-main)',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          Overdue ({overdueCount})
+                        </button>
+                        <button
+                          onClick={() => setDueFilterType('due_today')}
+                          style={{
+                            padding: '0.5rem 1rem',
+                            borderRadius: '8px',
+                            border: '1px solid var(--glass-border)',
+                            background: dueFilterType === 'due_today' ? '#f59e0b' : 'rgba(255,255,255,0.4)',
+                            color: dueFilterType === 'due_today' ? 'white' : 'var(--text-main)',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          Due Today ({dueTodayCount})
+                        </button>
+                        <button
+                          onClick={() => setDueFilterType('upcoming')}
+                          style={{
+                            padding: '0.5rem 1rem',
+                            borderRadius: '8px',
+                            border: '1px solid var(--glass-border)',
+                            background: dueFilterType === 'upcoming' ? '#3b82f6' : 'rgba(255,255,255,0.4)',
+                            color: dueFilterType === 'upcoming' ? 'white' : 'var(--text-main)',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          Upcoming ({upcomingCount})
+                        </button>
+                      </div>
+
+                      {/* Export button */}
+                      <button
+                        onClick={handleExportDueStudents}
+                        style={{
+                          padding: '0.6rem 1.2rem',
+                          background: '#10b981',
+                          color: 'white',
+                          borderRadius: '8px',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontWeight: 'bold',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          boxShadow: '0 4px 10px rgba(16, 185, 129, 0.2)',
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                        onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                      >
+                        📥 Export Dues List
+                      </button>
+                    </div>
+
+                    <div style={{ marginTop: '1.5rem', position: 'relative', width: '100%', maxWidth: '500px' }}>
+                      <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '1.1rem', pointerEvents: 'none' }}>🔍</span>
+                      <input
+                        type="text"
+                        placeholder="Search by student name, ID, course, batch..."
+                        value={dueSearchQuery}
+                        onChange={(e) => setDueSearchQuery(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '0.65rem 2.5rem 0.65rem 2.5rem',
+                          borderRadius: '10px',
+                          border: '1px solid var(--glass-border)',
+                          background: 'white',
+                          color: 'var(--text-main)',
+                          fontSize: '0.95rem',
+                          outline: 'none',
+                          transition: 'all 0.2s'
+                        }}
+                      />
+                      {dueSearchQuery && (
+                        <button
+                          onClick={() => setDueSearchQuery('')}
+                          style={{
+                            position: 'absolute',
+                            right: '12px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'var(--text-muted)',
+                            cursor: 'pointer',
+                            fontSize: '1.1rem'
+                          }}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Dues List Table */}
+                  <div className="card">
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '2px solid var(--glass-border)' }}>
+                            <th style={{ padding: '1rem 0.75rem', color: 'var(--text-muted)' }}>Student</th>
+                            <th style={{ padding: '1rem 0.75rem', color: 'var(--text-muted)' }}>Course/Batch</th>
+                            <th style={{ padding: '1rem 0.75rem', color: 'var(--text-muted)' }}>Contact Info</th>
+                            <th style={{ padding: '1rem 0.75rem', color: 'var(--text-muted)' }}>Due Item</th>
+                            <th style={{ padding: '1rem 0.75rem', color: 'var(--text-muted)' }}>Amount Due</th>
+                            <th style={{ padding: '1rem 0.75rem', color: 'var(--text-muted)' }}>Due Date</th>
+                            <th style={{ padding: '1rem 0.75rem', color: 'var(--text-muted)' }}>Status</th>
+                            <th style={{ padding: '1rem 0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredDueItems.length > 0 ? (
+                            filteredDueItems.map((item, idx) => (
+                              <tr key={idx} style={{ borderBottom: '1px solid var(--glass-border)', transition: 'background 0.2s' }}>
+                                <td style={{ padding: '1rem 0.75rem' }}>
+                                  <div style={{ fontWeight: '600', color: 'var(--text-main)' }}>{item.studentName}</div>
+                                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>ID: {item.studentId}</div>
+                                </td>
+                                <td style={{ padding: '1rem 0.75rem' }}>
+                                  <div style={{ fontWeight: '500' }}>{item.course}</div>
+                                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{item.batch}</div>
+                                </td>
+                                <td style={{ padding: '1rem 0.75rem' }}>
+                                  <div style={{ fontSize: '0.9rem' }}>
+                                    <div>📞 <a href={`tel:${item.phone}`} style={{ color: 'var(--primary-color)', textDecoration: 'none' }}>{item.phone || 'N/A'}</a></div>
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                      ✉️ <a href={`mailto:${item.email}`} style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>{item.email || 'N/A'}</a>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td style={{ padding: '1rem 0.75rem' }}>
+                                  <div>{item.installmentIndex === -1 ? 'Pending Balance' : `Installment ${item.installmentIndex + 1}`}</div>
+                                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>Total Bal: ₹{item.remainingBalance}</div>
+                                </td>
+                                <td style={{ padding: '1rem 0.75rem' }}>
+                                  <strong style={{ color: 'var(--text-main)', fontSize: '1.05rem' }}>₹{item.installmentAmount}</strong>
+                                </td>
+                                <td style={{ padding: '1rem 0.75rem' }}>
+                                  <div style={{ fontWeight: '500' }}>
+                                    {item.dueDate ? new Date(item.dueDate).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A'}
+                                  </div>
+                                  <div style={{
+                                    fontSize: '0.8rem',
+                                    fontWeight: 'bold',
+                                    color: item.dueStatus === 'overdue' ? '#ef4444' : item.dueStatus === 'due_today' ? '#f59e0b' : '#3b82f6',
+                                    marginTop: '2px'
+                                  }}>
+                                    {item.dueStatus === 'due_today' ? 'Due today' : 
+                                     item.dueStatus === 'overdue' ? `${Math.abs(item.daysDiff)} days overdue` : 
+                                     `Due in ${item.daysDiff} days`}
+                                  </div>
+                                </td>
+                                <td style={{ padding: '1rem 0.75rem' }}>
+                                  <span style={{
+                                    padding: '4px 10px',
+                                    borderRadius: '12px',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 'bold',
+                                    background: item.dueStatus === 'overdue' ? 'rgba(239, 68, 68, 0.1)' : 
+                                                item.dueStatus === 'due_today' ? 'rgba(245, 158, 11, 0.1)' : 
+                                                'rgba(59, 130, 246, 0.1)',
+                                    color: item.dueStatus === 'overdue' ? '#ef4444' : 
+                                           item.dueStatus === 'due_today' ? '#f59e0b' : 
+                                           '#3b82f6'
+                                  }}>
+                                    {item.dueStatusLabel}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '1rem 0.75rem', textAlign: 'center' }}>
+                                  <button
+                                    onClick={() => setViewingProfileStudent(item.studentObj)}
+                                    style={{
+                                      padding: '0.4rem 0.8rem',
+                                      background: 'rgba(99, 102, 241, 0.1)',
+                                      color: 'var(--primary-color)',
+                                      border: 'none',
+                                      borderRadius: '6px',
+                                      cursor: 'pointer',
+                                      fontSize: '0.85rem',
+                                      fontWeight: 'bold',
+                                      transition: 'all 0.2s'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.background = 'var(--primary-color)';
+                                      e.currentTarget.style.color = 'white';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.background = 'rgba(99, 102, 241, 0.1)';
+                                      e.currentTarget.style.color = 'var(--primary-color)';
+                                    }}
+                                  >
+                                    🔍 View Ledger
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan="8" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                                <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🍃</div>
+                                <div>No students with due fees match the current search or filters.</div>
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+          </>
         ) : activeTab === 'study_tracker' ? (
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
@@ -7098,6 +7564,13 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                   >
                     <span className="nav-icon">💳</span>
                     <span className="nav-text">Payments</span>
+                  </li>
+                  <li
+                    className={`mobile-bottom-nav-item ${activeTab === 'due_students' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('due_students')}
+                  >
+                    <span className="nav-icon">⏳</span>
+                    <span className="nav-text">Dues</span>
                   </li>
                   <li
                     className={`mobile-bottom-nav-item ${activeTab === 'campus_qr' ? 'active' : ''}`}
