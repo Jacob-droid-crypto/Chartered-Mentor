@@ -209,7 +209,7 @@ function StudentPaperCard({ paper, user, onRefresh, showConfirm }) {
     }
 
     if (fileToUpload.size > 3.2 * 1024 * 1024) {
-      alert(`File size (${(fileToUpload.size / (1024 * 1024)).toFixed(2)}MB) exceeds Vercel's 4.5MB serverless upload limit (max file size is ~3.2MB). Please compress your PDF/images or upload a smaller file.`);
+      alert(`Only files below 3.2 MB are allowed. Selected file size is ${(fileToUpload.size / (1024 * 1024)).toFixed(2)}MB. Please compress your file or upload a smaller file.`);
       setUploading(false);
       return;
     }
@@ -366,8 +366,13 @@ function StudentPaperCard({ paper, user, onRefresh, showConfirm }) {
                   accept=".pdf,.png,.jpg,.jpeg"
                   onChange={async (e) => {
                     if (e.target.files && e.target.files[0]) {
-                      if (await showConfirm(`Are you sure you want to overwrite your previous submission with "${e.target.files[0].name}"?`)) {
-                        handleFileUpload(e.target.files[0]);
+                      const file = e.target.files[0];
+                      if (file.size > 3.2 * 1024 * 1024) {
+                        alert("Only files below 3.2 MB are allowed.");
+                        return;
+                      }
+                      if (await showConfirm(`Are you sure you want to overwrite your previous submission with "${file.name}"?`)) {
+                        handleFileUpload(file);
                       }
                     }
                   }}
@@ -512,8 +517,11 @@ function StudentPaperCard({ paper, user, onRefresh, showConfirm }) {
                 Drag & Drop your scanned Answer Sheets here
               </p>
               <p style={{ margin: '0 0 1rem 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                or click below to choose a file (PDF or Images, Max 10MB)
+                or click below to choose a file (PDF or Images, Max 3.2 MB)
               </p>
+              <div style={{ margin: '0.5rem 0', color: '#ef4444', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                ⚠️ Notice: Only files below 3.2 MB are allowed.
+              </div>
               <input
                 type="file"
                 id={`ans-upload-${paper._id}`}
@@ -584,6 +592,10 @@ function StudentPaperCard({ paper, user, onRefresh, showConfirm }) {
             onChange={async (e) => {
               if (e.target.files && e.target.files[0]) {
                 const file = e.target.files[0];
+                if (file.size > 3.2 * 1024 * 1024) {
+                  alert("Only files below 3.2 MB are allowed.");
+                  return;
+                }
                 if (!await showConfirm(`Start exam and upload "${file.name}" directly?`)) return;
                 try {
                   setUploading(true);
