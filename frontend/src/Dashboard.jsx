@@ -3670,7 +3670,6 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                 >
                   <option value="daily">Daily View</option>
                   <option value="weekly">Weekly Total</option>
-                  <option value="monthly">Monthly Total</option>
                   {(user.role === 'admin' || user.role === 'staff' || user.role === 'student') && (
                     <option value="student">Student Log History</option>
                   )}
@@ -3710,14 +3709,6 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                     />
                   </>
                 )}
-                {attendanceView === 'monthly' && (
-                  <input
-                    type="month"
-                    value={attendanceDate.substring(0, 7)}
-                    onChange={(e) => setAttendanceDate(e.target.value + '-01')}
-                    style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }}
-                  />
-                )}
                 {(attendanceView === 'daily' || attendanceView === 'weekly') && (
                   <input
                     type="date"
@@ -3726,7 +3717,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                     style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }}
                   />
                 )}
-                {(user.role === 'admin' || user.role === 'staff') && attendanceView !== 'student' && (
+                {attendanceView !== 'student' && (
                   <button onClick={handleExportExcel} style={{ padding: '0.6rem 1rem', borderRadius: '8px', border: 'none', background: '#10b981', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}>
                     📥 Export Excel
                   </button>
@@ -3813,7 +3804,16 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                         <div className="activity-dot" style={{ background: attendanceView === 'daily' ? (record.status === 'Present' ? '#10b981' : '#ef4444') : '#3b82f6' }}></div>
                         <div>
                           <strong>{user.role === 'student' ? 'My Attendance Summary' : (record.studentName || record.studentId || 'Unknown Student')}</strong>
-                          <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>ID: {record.studentId} • Course: {record.course || '-'}</div>
+                          {(() => {
+                            const studentInfo = Array.isArray(students) ? students.find(s => s.userId === record.studentId) : null;
+                            const joiningDateStr = studentInfo?.joiningDate || (record.studentId === user.userId ? data?.joiningDate : null);
+                            return (
+                              <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                                ID: {record.studentId} • Course: {record.course || '-'}
+                                {joiningDateStr && ` • DOJ: ${new Date(joiningDateStr).toLocaleDateString()}`}
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
 
@@ -3859,9 +3859,9 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
                           <span style={{ color: '#10b981', fontWeight: 'bold' }}>Present: {record.totalPresent}</span>
                           <span style={{ color: '#ef4444', fontWeight: 'bold' }}>
-                            {attendanceView === 'monthly' ? `Absent (Leaves): ${record.totalAbsent}` : `Absent: ${record.totalAbsent}`}
+                            Absent: {record.totalAbsent}
                           </span>
-                          {attendanceView === 'monthly' && (
+                          {(attendanceView === 'weekly' || attendanceView === 'range') && (
                             <span style={{ color: '#f59e0b', fontWeight: 'bold' }}>Late Logins: {record.lateCount || 0}</span>
                           )}
                           <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>Study: {formatStudyTime(record.totalHours)}</span>
