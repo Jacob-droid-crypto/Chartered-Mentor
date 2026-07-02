@@ -5265,6 +5265,13 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                 });
               }
 
+              // Sort dueItems by dueDate in ascending order (oldest due date / most overdue first, leading up to current day and future)
+              dueItems.sort((a, b) => {
+                const timeA = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+                const timeB = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+                return timeA - timeB;
+              });
+
               // Compute counts for filter sub-tabs (filtering upcoming by custom range)
               const totalCount = dueItems.length;
               const overdueCount = dueItems.filter(item => item.dueStatus === 'overdue').length;
