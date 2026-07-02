@@ -422,13 +422,17 @@ const getStudents = async (req, res) => {
 
     const studentData = students.map(s => {
        const sObj = s.toObject();
-       if (req.user && req.user.role === 'staff') {
-         delete sObj.totalFees;
-         delete sObj.feesPaid;
-         delete sObj.feeHistory;
-         delete sObj.installments;
-         delete sObj.nextPaymentDueDate;
-       }
+        if (req.user && req.user.role === 'staff') {
+          delete sObj.totalFees;
+          delete sObj.feesPaid;
+          delete sObj.feeHistory;
+          if (sObj.installments) {
+            sObj.installments = sObj.installments.map(inst => {
+              const { amount, adjustedAmount, ...rest } = inst;
+              return rest;
+            });
+          }
+        }
        return {
          ...sObj,
          currentStatus: statusMap[s.userId] === "IN" ? "Inside" : "Outside"

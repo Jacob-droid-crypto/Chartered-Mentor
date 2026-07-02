@@ -765,6 +765,12 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
   // Due Students Tab States
   const [dueSearchQuery, setDueSearchQuery] = useState('');
   const [dueFilterType, setDueFilterType] = useState('all'); // all, overdue, due_today, upcoming
+  const [upcomingStartDate, setUpcomingStartDate] = useState(getLocalDateString());
+  const [upcomingEndDate, setUpcomingEndDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return getLocalDateString(d);
+  });
 
   // Campus QR Rotation States
   const [campusQRConfig, setCampusQRConfig] = useState({
@@ -2281,82 +2287,48 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
     XLSX.writeFile(workbook, fileName);
   };
 
-  const handleExportDueStudents = () => {
-    if (!Array.isArray(students) || students.length === 0) {
-      alert("No student data available to export.");
+  const handleExportDueStudents = (itemsToExport) => {
+    if (!Array.isArray(itemsToExport) || itemsToExport.length === 0) {
+      alert("No due fee records match the current filters to export.");
       return;
     }
 
-    const todayStr = getLocalDateString();
-    const exportData = [];
+    const isStaff = user.role === 'staff';
 
-    students.forEach(student => {
-      if (student.role !== 'student') return;
+    const exportData = itemsToExport.map(item => {
+      const daysText = item.dueStatus === 'due_today'
+        ? 'Today'
+        : item.dueStatus === 'overdue'
+          ? `${Math.abs(item.daysDiff)} days overdue`
+          : `${item.daysDiff} days remaining`;
 
-      const remainingBalance = (student.totalFees || 0) - (student.feesPaid || 0);
-      const insts = student.installments || [];
-      const unpaidInsts = insts.filter(inst => inst.status !== 'Paid');
-      
-      const addRow = (instIndex, instAmt, originalAmt, dueDate, isFallback = false) => {
-        const dueDateStr = dueDate ? getLocalDateString(new Date(dueDate)) : '';
-        let dueStatusLabel = 'Upcoming';
-        let daysDiff = 0;
-        
-        if (dueDateStr) {
-          const dueDateTime = new Date(dueDateStr).getTime();
-          const todayTime = new Date(todayStr).getTime();
-          const diffTime = dueDateTime - todayTime;
-          daysDiff = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          
-          if (dueDateStr === todayStr) {
-            dueStatusLabel = 'Due Today';
-          } else if (dueDateStr < todayStr) {
-            dueStatusLabel = 'Overdue';
-          }
-        }
-
-        const daysText = dueStatusLabel === 'Due Today'
-          ? 'Today'
-          : dueStatusLabel === 'Overdue'
-            ? `${Math.abs(daysDiff)} days overdue`
-            : `${daysDiff} days remaining`;
-
-        exportData.push({
-          "Student ID": student.userId || "-",
-          "Student Name": student.name || "-",
-          "Email": student.email || "-",
-          "Phone": student.phone || "-",
-          "Course": student.course || "-",
-          "Batch": student.batch || "-",
-          "Installment": isFallback ? "Pending Balance" : `Installment ${instIndex + 1}`,
-          "Original Amount (₹)": originalAmt || 0,
-          "Adjusted Amount Due (₹)": instAmt || 0,
-          "Due Date": dueDateStr || "-",
-          "Due Status": dueStatusLabel,
-          "Timeline": daysText,
-          "Remaining Student Balance (₹)": remainingBalance
-        });
+      const row = {
+        "Student ID": item.studentId || "-",
+        "Student Name": item.studentName || "-",
+        "Email": item.email || "-",
+        "Phone": item.phone || "-",
+        "Course": item.course || "-",
+        "Batch": item.batch || "-",
+        "Installment": item.installmentIndex === -1 ? "Pending Balance" : `Installment ${item.installmentIndex + 1}`,
+        "Due Date": item.dueDateStr || "-",
+        "Due Status": item.dueStatusLabel,
+        "Timeline": daysText,
       };
 
-      if (unpaidInsts.length > 0) {
-        unpaidInsts.forEach((inst) => {
-          const idx = insts.indexOf(inst);
-          addRow(idx, inst.adjustedAmount !== undefined ? inst.adjustedAmount : inst.amount, inst.amount, inst.dueDate);
-        });
-      } else if (remainingBalance > 0 && student.nextPaymentDueDate) {
-        addRow(-1, remainingBalance, remainingBalance, student.nextPaymentDueDate, true);
+      // Only show amount columns if user is admin
+      if (!isStaff) {
+        row["Original Amount (₹)"] = item.originalAmount || 0;
+        row["Adjusted Amount Due (₹)"] = item.installmentAmount || 0;
+        row["Remaining Student Balance (₹)"] = item.remainingBalance || 0;
       }
-    });
 
-    if (exportData.length === 0) {
-      alert("No students with pending or overdue fees found to export.");
-      return;
-    }
+      return row;
+    });
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Due Students");
-    XLSX.writeFile(workbook, `Due_Students_List_${getLocalDateString()}.xlsx`);
+    XLSX.writeFile(workbook, `Due_Students_${dueFilterType}_${getLocalDateString()}.xlsx`);
   };
 
   useEffect(() => {
@@ -2688,14 +2660,23 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                             <span>🗓️</span> Schedules
                           </li>
                           <li
-                            className={`nav-dropdown-item ${activeTab === 'exam_scheduler' ? 'active' : ''}`}
-                            onClick={() => {
-                              setShowNavDropdown(false);
-                              setActiveTab('exam_scheduler');
-                            }}
-                          >
-                            <span>📅</span> Exam Scheduler
-                          </li>
+                             className={`nav-dropdown-item ${activeTab === 'exam_scheduler' ? 'active' : ''}`}
+                             onClick={() => {
+                               setShowNavDropdown(false);
+                               setActiveTab('exam_scheduler');
+                             }}
+                           >
+                             <span>📅</span> Exam Scheduler
+                           </li>
+                           <li
+                             className={`nav-dropdown-item ${activeTab === 'due_students' ? 'active' : ''}`}
+                             onClick={() => {
+                               setShowNavDropdown(false);
+                               setActiveTab('due_students');
+                             }}
+                           >
+                             <span>⏳</span> Due Students
+                           </li>
                           {user.role === 'admin' && (
                             <>
                               <li
@@ -2706,15 +2687,6 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                                 }}
                               >
                                 <span>💳</span> Payments
-                              </li>
-                              <li
-                                className={`nav-dropdown-item ${activeTab === 'due_students' ? 'active' : ''}`}
-                                onClick={() => {
-                                  setShowNavDropdown(false);
-                                  setActiveTab('due_students');
-                                }}
-                              >
-                                <span>⏳</span> Due Students
                               </li>
                               <li
                                 className={`nav-dropdown-item ${activeTab === 'campus_qr' ? 'active' : ''}`}
@@ -5223,7 +5195,9 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
               if (Array.isArray(students)) {
                 students.forEach(student => {
                   if (student.role !== 'student') return;
-                  const remainingBalance = (student.totalFees || 0) - (student.feesPaid || 0);
+                  const remainingBalance = student.totalFees !== undefined
+                    ? (student.totalFees || 0) - (student.feesPaid || 0)
+                    : undefined;
                   const insts = student.installments || [];
                   const unpaidInsts = insts.filter(inst => inst.status !== 'Paid');
                   
@@ -5279,29 +5253,37 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                 });
               }
 
-              // Compute counts for filter sub-tabs
+              // Compute counts for filter sub-tabs (filtering upcoming by custom range)
               const totalCount = dueItems.length;
               const overdueCount = dueItems.filter(item => item.dueStatus === 'overdue').length;
               const dueTodayCount = dueItems.filter(item => item.dueStatus === 'due_today').length;
-              const upcomingCount = dueItems.filter(item => item.dueStatus === 'upcoming').length;
+              const upcomingCount = dueItems.filter(item => 
+                item.dueStatus === 'upcoming' && 
+                (!upcomingStartDate || item.dueDateStr >= upcomingStartDate) && 
+                (!upcomingEndDate || item.dueDateStr <= upcomingEndDate)
+              ).length;
 
-              // Filter list based on search and filter selections
+              // Filter list based on search, filter, and calendar selections
               const filteredDueItems = dueItems.filter(item => {
                 if (dueFilterType === 'overdue' && item.dueStatus !== 'overdue') return false;
                 if (dueFilterType === 'due_today' && item.dueStatus !== 'due_today') return false;
-                if (dueFilterType === 'upcoming' && item.dueStatus !== 'upcoming') return false;
+                if (dueFilterType === 'upcoming') {
+                  if (item.dueStatus !== 'upcoming') return false;
+                  if (upcomingStartDate && item.dueDateStr < upcomingStartDate) return false;
+                  if (upcomingEndDate && item.dueDateStr > upcomingEndDate) return false;
+                }
 
                 const q = dueSearchQuery.toLowerCase().trim();
                 if (q) {
                   return (
                     (item.studentName && item.studentName.toLowerCase().includes(q)) ||
-                    (item.studentId && item.studentId.toLowerCase().includes(q)) ||
-                    (item.course && item.course.toLowerCase().includes(q)) ||
-                    (item.batch && item.batch.toLowerCase().includes(q))
+                    (item.studentId && item.studentId.toLowerCase().includes(q))
                   );
                 }
                 return true;
               });
+
+              const isStaff = user.role === 'staff';
 
               return (
                 <>
@@ -5339,7 +5321,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
 
                   {/* Filter and Search Bar */}
                   <div className="card" style={{ marginBottom: '2rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
                       
                       {/* Sub-tabs */}
                       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -5405,9 +5387,29 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                         </button>
                       </div>
 
+                      {/* Date Range Picker for Upcoming */}
+                      {dueFilterType === 'upcoming' && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(255,255,255,0.4)', padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--glass-border)', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>Upcoming Calendar Range:</span>
+                          <input
+                            type="date"
+                            value={upcomingStartDate}
+                            onChange={(e) => setUpcomingStartDate(e.target.value)}
+                            style={{ padding: '0.4rem 0.6rem', borderRadius: '6px', border: '1px solid var(--glass-border)', fontSize: '0.9rem', background: 'white', color: 'var(--text-main)' }}
+                          />
+                          <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>to</span>
+                          <input
+                            type="date"
+                            value={upcomingEndDate}
+                            onChange={(e) => setUpcomingEndDate(e.target.value)}
+                            style={{ padding: '0.4rem 0.6rem', borderRadius: '6px', border: '1px solid var(--glass-border)', fontSize: '0.9rem', background: 'white', color: 'var(--text-main)' }}
+                          />
+                        </div>
+                      )}
+
                       {/* Export button */}
                       <button
-                        onClick={handleExportDueStudents}
+                        onClick={() => handleExportDueStudents(filteredDueItems)}
                         style={{
                           padding: '0.6rem 1.2rem',
                           background: '#10b981',
@@ -5433,7 +5435,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                       <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '1.1rem', pointerEvents: 'none' }}>🔍</span>
                       <input
                         type="text"
-                        placeholder="Search by student name, ID, course, batch..."
+                        placeholder="Search by student name or ID..."
                         value={dueSearchQuery}
                         onChange={(e) => setDueSearchQuery(e.target.value)}
                         style={{
@@ -5476,10 +5478,8 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                         <thead>
                           <tr style={{ borderBottom: '2px solid var(--glass-border)' }}>
                             <th style={{ padding: '1rem 0.75rem', color: 'var(--text-muted)' }}>Student</th>
-                            <th style={{ padding: '1rem 0.75rem', color: 'var(--text-muted)' }}>Course/Batch</th>
-                            <th style={{ padding: '1rem 0.75rem', color: 'var(--text-muted)' }}>Contact Info</th>
                             <th style={{ padding: '1rem 0.75rem', color: 'var(--text-muted)' }}>Due Item</th>
-                            <th style={{ padding: '1rem 0.75rem', color: 'var(--text-muted)' }}>Amount Due</th>
+                            {!isStaff && <th style={{ padding: '1rem 0.75rem', color: 'var(--text-muted)' }}>Amount Due</th>}
                             <th style={{ padding: '1rem 0.75rem', color: 'var(--text-muted)' }}>Due Date</th>
                             <th style={{ padding: '1rem 0.75rem', color: 'var(--text-muted)' }}>Status</th>
                             <th style={{ padding: '1rem 0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>Actions</th>
@@ -5487,93 +5487,98 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                         </thead>
                         <tbody>
                           {filteredDueItems.length > 0 ? (
-                            filteredDueItems.map((item, idx) => (
-                              <tr key={idx} style={{ borderBottom: '1px solid var(--glass-border)', transition: 'background 0.2s' }}>
-                                <td style={{ padding: '1rem 0.75rem' }}>
-                                  <div style={{ fontWeight: '600', color: 'var(--text-main)' }}>{item.studentName}</div>
-                                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>ID: {item.studentId}</div>
-                                </td>
-                                <td style={{ padding: '1rem 0.75rem' }}>
-                                  <div style={{ fontWeight: '500' }}>{item.course}</div>
-                                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{item.batch}</div>
-                                </td>
-                                <td style={{ padding: '1rem 0.75rem' }}>
-                                  <div style={{ fontSize: '0.9rem' }}>
-                                    <div>📞 <a href={`tel:${item.phone}`} style={{ color: 'var(--primary-color)', textDecoration: 'none' }}>{item.phone || 'N/A'}</a></div>
-                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                                      ✉️ <a href={`mailto:${item.email}`} style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>{item.email || 'N/A'}</a>
+                            <>
+                              {filteredDueItems.map((item, idx) => (
+                                <tr key={idx} style={{ borderBottom: '1px solid var(--glass-border)', transition: 'background 0.2s' }}>
+                                  <td style={{ padding: '1rem 0.75rem' }}>
+                                    <div style={{ fontWeight: '600', color: 'var(--text-main)' }}>{item.studentName}</div>
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>ID: {item.studentId}</div>
+                                  </td>
+                                  <td style={{ padding: '1rem 0.75rem' }}>
+                                    <div>{item.installmentIndex === -1 ? 'Pending Balance' : `Installment ${item.installmentIndex + 1}`}</div>
+                                    {!isStaff && (
+                                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>Total Bal: ₹{item.remainingBalance}</div>
+                                    )}
+                                  </td>
+                                  {!isStaff && (
+                                    <td style={{ padding: '1rem 0.75rem' }}>
+                                      <strong style={{ color: 'var(--text-main)', fontSize: '1.05rem' }}>₹{item.installmentAmount}</strong>
+                                    </td>
+                                  )}
+                                  <td style={{ padding: '1rem 0.75rem' }}>
+                                    <div style={{ fontWeight: '500' }}>
+                                      {item.dueDate ? new Date(item.dueDate).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A'}
                                     </div>
-                                  </div>
-                                </td>
-                                <td style={{ padding: '1rem 0.75rem' }}>
-                                  <div>{item.installmentIndex === -1 ? 'Pending Balance' : `Installment ${item.installmentIndex + 1}`}</div>
-                                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>Total Bal: ₹{item.remainingBalance}</div>
-                                </td>
-                                <td style={{ padding: '1rem 0.75rem' }}>
-                                  <strong style={{ color: 'var(--text-main)', fontSize: '1.05rem' }}>₹{item.installmentAmount}</strong>
-                                </td>
-                                <td style={{ padding: '1rem 0.75rem' }}>
-                                  <div style={{ fontWeight: '500' }}>
-                                    {item.dueDate ? new Date(item.dueDate).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A'}
-                                  </div>
-                                  <div style={{
-                                    fontSize: '0.8rem',
-                                    fontWeight: 'bold',
-                                    color: item.dueStatus === 'overdue' ? '#ef4444' : item.dueStatus === 'due_today' ? '#f59e0b' : '#3b82f6',
-                                    marginTop: '2px'
-                                  }}>
-                                    {item.dueStatus === 'due_today' ? 'Due today' : 
-                                     item.dueStatus === 'overdue' ? `${Math.abs(item.daysDiff)} days overdue` : 
-                                     `Due in ${item.daysDiff} days`}
-                                  </div>
-                                </td>
-                                <td style={{ padding: '1rem 0.75rem' }}>
-                                  <span style={{
-                                    padding: '4px 10px',
-                                    borderRadius: '12px',
-                                    fontSize: '0.8rem',
-                                    fontWeight: 'bold',
-                                    background: item.dueStatus === 'overdue' ? 'rgba(239, 68, 68, 0.1)' : 
-                                                item.dueStatus === 'due_today' ? 'rgba(245, 158, 11, 0.1)' : 
-                                                'rgba(59, 130, 246, 0.1)',
-                                    color: item.dueStatus === 'overdue' ? '#ef4444' : 
-                                           item.dueStatus === 'due_today' ? '#f59e0b' : 
-                                           '#3b82f6'
-                                  }}>
-                                    {item.dueStatusLabel}
-                                  </span>
-                                </td>
-                                <td style={{ padding: '1rem 0.75rem', textAlign: 'center' }}>
-                                  <button
-                                    onClick={() => setViewingProfileStudent(item.studentObj)}
-                                    style={{
-                                      padding: '0.4rem 0.8rem',
-                                      background: 'rgba(99, 102, 241, 0.1)',
-                                      color: 'var(--primary-color)',
-                                      border: 'none',
-                                      borderRadius: '6px',
-                                      cursor: 'pointer',
-                                      fontSize: '0.85rem',
+                                    <div style={{
+                                      fontSize: '0.8rem',
                                       fontWeight: 'bold',
-                                      transition: 'all 0.2s'
-                                    }}
-                                    onMouseEnter={(e) => {
-                                      e.currentTarget.style.background = 'var(--primary-color)';
-                                      e.currentTarget.style.color = 'white';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                      e.currentTarget.style.background = 'rgba(99, 102, 241, 0.1)';
-                                      e.currentTarget.style.color = 'var(--primary-color)';
-                                    }}
-                                  >
-                                    🔍 View Ledger
-                                  </button>
-                                </td>
-                              </tr>
-                            ))
+                                      color: item.dueStatus === 'overdue' ? '#ef4444' : item.dueStatus === 'due_today' ? '#f59e0b' : '#3b82f6',
+                                      marginTop: '2px'
+                                    }}>
+                                      {item.dueStatus === 'due_today' ? 'Due today' : 
+                                       item.dueStatus === 'overdue' ? `${Math.abs(item.daysDiff)} days overdue` : 
+                                       `Due in ${item.daysDiff} days`}
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: '1rem 0.75rem' }}>
+                                    <span style={{
+                                      padding: '4px 10px',
+                                      borderRadius: '12px',
+                                      fontSize: '0.8rem',
+                                      fontWeight: 'bold',
+                                      background: item.dueStatus === 'overdue' ? 'rgba(239, 68, 68, 0.1)' : 
+                                                  item.dueStatus === 'due_today' ? 'rgba(245, 158, 11, 0.1)' : 
+                                                  'rgba(59, 130, 246, 0.1)',
+                                      color: item.dueStatus === 'overdue' ? '#ef4444' : 
+                                             item.dueStatus === 'due_today' ? '#f59e0b' : 
+                                             '#3b82f6'
+                                    }}>
+                                      {item.dueStatusLabel}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '1rem 0.75rem', textAlign: 'center' }}>
+                                    <button
+                                      onClick={() => setViewingProfileStudent(item.studentObj)}
+                                      style={{
+                                        padding: '0.4rem 0.8rem',
+                                        background: 'rgba(99, 102, 241, 0.1)',
+                                        color: 'var(--primary-color)',
+                                        border: 'none',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        fontSize: '0.85rem',
+                                        fontWeight: 'bold',
+                                        transition: 'all 0.2s'
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        e.currentTarget.style.background = 'var(--primary-color)';
+                                        e.currentTarget.style.color = 'white';
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.background = 'rgba(99, 102, 241, 0.1)';
+                                        e.currentTarget.style.color = 'var(--primary-color)';
+                                      }}
+                                    >
+                                      {isStaff ? '🔍 View Details' : '🔍 View Ledger'}
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+
+                              {/* Sum Total Row (Only for admin) */}
+                              {!isStaff && (
+                                <tr style={{ borderTop: '2px solid var(--glass-border)', fontWeight: 'bold', background: 'rgba(255,255,255,0.05)' }}>
+                                  <td colSpan="2" style={{ padding: '1rem 0.75rem', color: 'var(--text-main)' }}>Total Due Amount</td>
+                                  <td style={{ padding: '1rem 0.75rem', color: 'var(--text-main)', fontSize: '1.1rem' }}>
+                                    ₹{filteredDueItems.reduce((sum, item) => sum + (item.installmentAmount || 0), 0)}
+                                  </td>
+                                  <td colSpan="3"></td>
+                                </tr>
+                              )}
+                            </>
                           ) : (
                             <tr>
-                              <td colSpan="8" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                              <td colSpan={isStaff ? 5 : 6} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
                                 <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🍃</div>
                                 <div>No students with due fees match the current search or filters.</div>
                               </td>
@@ -7556,6 +7561,13 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                 <span className="nav-icon">📅</span>
                 <span className="nav-text">Scheduler</span>
               </li>
+              <li
+                className={`mobile-bottom-nav-item ${activeTab === 'due_students' ? 'active' : ''}`}
+                onClick={() => setActiveTab('due_students')}
+              >
+                <span className="nav-icon">⏳</span>
+                <span className="nav-text">Dues</span>
+              </li>
               {user.role === 'admin' && (
                 <>
                   <li
@@ -7564,13 +7576,6 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                   >
                     <span className="nav-icon">💳</span>
                     <span className="nav-text">Payments</span>
-                  </li>
-                  <li
-                    className={`mobile-bottom-nav-item ${activeTab === 'due_students' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('due_students')}
-                  >
-                    <span className="nav-icon">⏳</span>
-                    <span className="nav-text">Dues</span>
                   </li>
                   <li
                     className={`mobile-bottom-nav-item ${activeTab === 'campus_qr' ? 'active' : ''}`}
