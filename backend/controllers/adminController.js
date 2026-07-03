@@ -221,7 +221,7 @@ const getAttendance = async (req, res) => {
     const { studentId } = req.query;
     const query = {};
     if (studentId) {
-      query.studentId = studentId;
+      query.studentId = studentId.trim().toUpperCase();
     }
     const records = await Attendance.find(query).sort({ timestamp: -1 });
 
@@ -359,7 +359,7 @@ const manualCheckout = async (req, res) => {
     }
 
     // Check if the student has an "IN" record on this date
-    const lastInRecord = await Attendance.findOne({ studentId, date, type: "IN" }).sort({ createdAt: -1 });
+    const lastInRecord = await Attendance.findOne({ studentId: cleanId, date, type: "IN" }).sort({ createdAt: -1 });
     if (!lastInRecord) {
       return res.status(400).json({ message: "Student must have a Check-In record (IN) on this date to mark Check-OUT manually." });
     }
@@ -376,12 +376,12 @@ const manualCheckout = async (req, res) => {
     }
 
     // Look for the latest overall record for this student today
-    const lastRecord = await Attendance.findOne({ studentId, date }).sort({ createdAt: -1 });
+    const lastRecord = await Attendance.findOne({ studentId: cleanId, date }).sort({ createdAt: -1 });
 
     if (lastRecord && lastRecord.type === "IN") {
       // Create a new OUT record
       await Attendance.create({
-        studentId,
+        studentId: cleanId,
         course: student.course,
         type: "OUT",
         date,
@@ -458,16 +458,16 @@ const deleteStudent = async (req, res) => {
     }
     
     // Also clear out their attendance 
-    await Attendance.deleteMany({ studentId: id });
+    await Attendance.deleteMany({ studentId: cleanId });
     
     // Also clear out their scheduled question papers (base64 storage recovery)
-    await QuestionPaper.deleteMany({ target: id });
+    await QuestionPaper.deleteMany({ target: cleanId });
 
     // Also clear out their schedules
-    await Schedule.deleteMany({ target: id });
+    await Schedule.deleteMany({ target: cleanId });
 
     // Also clear out their exam schedules
-    await ExamSchedule.deleteMany({ studentId: id });
+    await ExamSchedule.deleteMany({ studentId: cleanId });
 
     res.json({ message: "Student deleted successfully" });
   } catch (err) {

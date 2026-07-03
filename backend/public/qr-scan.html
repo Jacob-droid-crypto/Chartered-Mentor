@@ -25,7 +25,21 @@
     <p id="status">Processing QR scan...</p>
 
     <script>
-      const studentId = localStorage.getItem("studentId");
+      let studentId = localStorage.getItem("studentId");
+      let token = null;
+
+      const cmUserStr = localStorage.getItem("cmUser");
+      if (cmUserStr) {
+        try {
+          const cmUser = JSON.parse(cmUserStr);
+          if (cmUser) {
+            studentId = cmUser.userId || cmUser.studentId || studentId;
+            token = cmUser.token;
+          }
+        } catch (e) {
+          console.error("Failed to parse cmUser from localStorage", e);
+        }
+      }
 
       if (!studentId) {
         document.getElementById("status").innerText =
@@ -55,11 +69,16 @@
       navigator.geolocation.getCurrentPosition((position) => {
         const { latitude, longitude } = position.coords;
 
+        const headers = {
+          "Content-Type": "application/json",
+        };
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+
         fetch("/student/scan-qr", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: headers,
           body: JSON.stringify({
             studentId,
             qrValue,

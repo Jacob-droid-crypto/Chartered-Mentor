@@ -70,6 +70,7 @@ app.get("/qr/out", (req, res) => {
 });
 
 /* ================= STATIC FRONTEND SUPPORT ================= */
+app.use(express.static(path.join(__dirname, "public")));
 const frontendPath = path.join(__dirname, '..', 'frontend', 'dist');
 app.use(express.static(frontendPath));
 

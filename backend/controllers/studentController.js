@@ -96,11 +96,11 @@ const getDashboard = async (req, res) => {
     const today = getISTDateString();
 
     const logs = await Attendance.find({
-      studentId,
+      studentId: cleanId,
       date: today,
     }).sort({ createdAt: 1 });
 
-    const allLogs = await Attendance.find({ studentId }).sort({ timestamp: 1 });
+    const allLogs = await Attendance.find({ studentId: cleanId }).sort({ timestamp: 1 });
     const groupedLogs = {};
     allLogs.forEach((r) => {
       const key = r.date;
@@ -348,23 +348,33 @@ const scanQr = async (req, res) => {
     const course = student.course;
     const today = getISTDateString();
 
-    const lastRecord = await Attendance.findOne({ studentId, date: today }).sort({ createdAt: -1 });
+    const lastRecord = await Attendance.findOne({ studentId: cleanId }).sort({ createdAt: -1 });
+    const limitMs = 16 * 60 * 60 * 1000; // 16 hours limit
 
     if (type === "IN") {
       if (lastRecord && lastRecord.type === "IN") {
-        return res.status(400).json({ message: "You are already Checked IN!" });
+        const timeDiffMs = Date.now() - new Date(lastRecord.timestamp).getTime();
+        if (timeDiffMs < limitMs) {
+          return res.status(400).json({ message: "You are already Checked IN!" });
+        }
       }
     } else if (type === "OUT") {
       if (!lastRecord || lastRecord.type === "OUT") {
         return res.status(400).json({ message: "You must Check IN first before Checking OUT!" });
       }
+      const timeDiffMs = Date.now() - new Date(lastRecord.timestamp).getTime();
+      if (timeDiffMs > limitMs) {
+        return res.status(400).json({ message: "Your last Check-In has expired. Please Check IN again." });
+      }
     }
 
+    const recordDate = (type === "OUT" && lastRecord) ? lastRecord.date : today;
+
     await Attendance.create({
-      studentId,
+      studentId: cleanId,
       course,
       type,
-      date: today
+      date: recordDate
     });
 
     res.json({ message: `Attendance ${type} marked successfully` });
@@ -772,29 +782,34 @@ const manualAttendance = async (req, res) => {
       return res.status(403).json({ message: "Manual attendance is only allowed for online students." });
     }
 
-    const today = getISTDateString();
+    const lastRecord = await Attendance.findOne({ studentId: cleanId }).sort({ createdAt: -1 });
+    const limitMs = 16 * 60 * 60 * 1000; // 16 hours limit
 
-    // Get today's logs to validate logic
-    const logs = await Attendance.find({ studentId, date: today }).sort({ createdAt: 1 });
-    
-    // Determine current state based on last log
-    const lastLog = logs.length > 0 ? logs[logs.length - 1] : null;
-    
     if (action === "IN") {
-      if (lastLog && lastLog.type === "IN") {
-        return res.status(400).json({ message: "You are already checked IN." });
+      if (lastRecord && lastRecord.type === "IN") {
+        const timeDiffMs = Date.now() - new Date(lastRecord.timestamp).getTime();
+        if (timeDiffMs < limitMs) {
+          return res.status(400).json({ message: "You are already checked IN." });
+        }
       }
     } else if (action === "OUT") {
-      if (!lastLog || lastLog.type === "OUT") {
+      if (!lastRecord || lastRecord.type === "OUT") {
         return res.status(400).json({ message: "You must check IN before checking OUT." });
+      }
+      const timeDiffMs = Date.now() - new Date(lastRecord.timestamp).getTime();
+      if (timeDiffMs > limitMs) {
+        return res.status(400).json({ message: "Your last Check-In has expired. Please Check IN again." });
       }
     }
 
+    const today = getISTDateString();
+    const recordDate = (action === "OUT" && lastRecord) ? lastRecord.date : today;
+
     const newLog = await Attendance.create({
-      studentId: studentId,
+      studentId: cleanId,
       course: student.course,
       type: action,
-      date: today,
+      date: recordDate,
     });
 
     res.json({
@@ -1020,7 +1035,8 @@ const markScheduleOpened = async (req, res) => {
 const getStudentAttendanceHistory = async (req, res) => {
   try {
     const studentId = req.user.userId;
-    const records = await Attendance.find({ studentId }).sort({ timestamp: -1 });
+    const cleanId = studentId.trim().toUpperCase();
+    const records = await Attendance.find({ studentId: cleanId }).sort({ timestamp: -1 });
 
     const cleaned = records.map((r) => {
       const d = new Date(r.timestamp);
