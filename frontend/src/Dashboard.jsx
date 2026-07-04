@@ -795,6 +795,10 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
   const [showManualCheckoutModal, setShowManualCheckoutModal] = useState(false);
   const [manualCheckoutData, setManualCheckoutData] = useState({ studentId: '', studentName: '', date: '', checkoutTime: '18:00', checkInTimeDisplay: '' });
 
+  // Manual Checkin UI States
+  const [showManualCheckinModal, setShowManualCheckinModal] = useState(false);
+  const [manualCheckinData, setManualCheckinData] = useState({ studentId: '', studentName: '', date: '', checkinTime: '09:00' });
+
   // Reusable submit logic for attendance
   const submitAttendance = async (qrData) => {
     if (!navigator.geolocation) {
@@ -936,6 +940,50 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
       }
       alert(d.message || 'Check-out marked successfully!');
       setShowManualCheckoutModal(false);
+      fetchDashboardData();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleOpenManualCheckin = async (record) => {
+    let initialCheckinTime = '09:00';
+    if (record.firstIn) {
+      const inDate = new Date(record.firstIn);
+      if (!isNaN(inDate.getTime())) {
+        const h = String(inDate.getHours()).padStart(2, '0');
+        const m = String(inDate.getMinutes()).padStart(2, '0');
+        initialCheckinTime = `${h}:${m}`;
+      }
+    }
+
+    setManualCheckinData({
+      studentId: record.studentId,
+      studentName: record.studentName || 'Unknown Student',
+      date: record.date,
+      checkinTime: initialCheckinTime,
+    });
+    setShowManualCheckinModal(true);
+  };
+
+  const handleManualCheckinSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const { studentId, date, checkinTime } = manualCheckinData;
+      const res = await fetch(`/admin/attendance/manual-checkin`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${user.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ studentId, date, checkinTime })
+      });
+      const d = await res.json();
+      if (!res.ok) {
+        throw new Error(d.message || 'Failed to submit manual checkin');
+      }
+      alert(d.message || 'Check-in marked successfully!');
+      setShowManualCheckinModal(false);
       fetchDashboardData();
     } catch (err) {
       alert(err.message);
@@ -3889,24 +3937,64 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                                 {record.firstIn && `First Log In: ${new Date(record.firstIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • `}Target: {targetHours > 0 ? `${targetHours} hrs` : 'Holiday'} • {record.date}
                               </span>
                             </div>
-                            {user.role === 'admin' && record.status === 'Present' && (
-                              <button
-                                onClick={() => handleOpenManualCheckout(record)}
-                                style={{
-                                  padding: '0.45rem 0.9rem',
-                                  background: !record.hasOUT ? '#f59e0b' : 'transparent',
-                                  border: !record.hasOUT ? 'none' : '1px solid #3b82f6',
-                                  color: !record.hasOUT ? 'white' : '#3b82f6',
-                                  borderRadius: '6px',
-                                  fontSize: '0.8rem',
-                                  fontWeight: 'bold',
-                                  cursor: 'pointer',
-                                  transition: 'all 0.2s',
-                                  boxShadow: !record.hasOUT ? '0 4px 10px rgba(245, 158, 11, 0.2)' : 'none'
-                                }}
-                              >
-                                {!record.hasOUT ? 'Mark OUT 🕒' : 'Edit OUT ✏️'}
-                              </button>
+                            {user.role === 'admin' && (
+                              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                {record.status === 'Present' ? (
+                                  <>
+                                    <button
+                                      onClick={() => handleOpenManualCheckin(record)}
+                                      style={{
+                                        padding: '0.45rem 0.9rem',
+                                        background: 'transparent',
+                                        border: '1px solid #10b981',
+                                        color: '#10b981',
+                                        borderRadius: '6px',
+                                        fontSize: '0.8rem',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                      }}
+                                    >
+                                      Edit IN ✏️
+                                    </button>
+                                    <button
+                                      onClick={() => handleOpenManualCheckout(record)}
+                                      style={{
+                                        padding: '0.45rem 0.9rem',
+                                        background: !record.hasOUT ? '#f59e0b' : 'transparent',
+                                        border: !record.hasOUT ? 'none' : '1px solid #3b82f6',
+                                        color: !record.hasOUT ? 'white' : '#3b82f6',
+                                        borderRadius: '6px',
+                                        fontSize: '0.8rem',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                        boxShadow: !record.hasOUT ? '0 4px 10px rgba(245, 158, 11, 0.2)' : 'none'
+                                      }}
+                                    >
+                                      {!record.hasOUT ? 'Mark OUT 🕒' : 'Edit OUT ✏️'}
+                                    </button>
+                                  </>
+                                ) : (
+                                  <button
+                                    onClick={() => handleOpenManualCheckin(record)}
+                                    style={{
+                                      padding: '0.45rem 0.9rem',
+                                      background: '#10b981',
+                                      border: 'none',
+                                      color: 'white',
+                                      borderRadius: '6px',
+                                      fontSize: '0.8rem',
+                                      fontWeight: 'bold',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s',
+                                      boxShadow: '0 4px 10px rgba(16, 185, 129, 0.2)'
+                                    }}
+                                  >
+                                    Mark IN 🕒
+                                  </button>
+                                )}
+                              </div>
                             )}
                           </div>
                         );
@@ -7513,6 +7601,47 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
               <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
                 <button type="button" onClick={() => setEditingPayment(null)} style={{ flex: 1, padding: '0.8rem', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-main)', fontWeight: 'bold' }}>Cancel</button>
                 <button type="submit" style={{ flex: 1, padding: '0.8rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Save Changes</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MANUAL CHECK-IN MODAL */}
+      {showManualCheckinModal && manualCheckinData && (
+        <div className="modal-overlay" onClick={() => setShowManualCheckinModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px', width: '90%' }}>
+            <h2 style={{ marginBottom: '1rem', color: 'var(--text-main)' }}>🕒 Manual Check-In</h2>
+            <p className="subtitle" style={{ marginBottom: '1.5rem', color: 'var(--text-muted)' }}>
+              Set check-in time for the student's daily record.
+            </p>
+
+            <div style={{ background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--glass-border)', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Student</span>
+                <strong style={{ color: 'var(--text-main)', fontSize: '0.85rem' }}>{manualCheckinData.studentName} ({manualCheckinData.studentId})</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Date</span>
+                <strong style={{ color: 'var(--text-main)', fontSize: '0.85rem' }}>{manualCheckinData.date}</strong>
+              </div>
+            </div>
+
+            <form onSubmit={handleManualCheckinSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem', fontWeight: 'bold' }}>Check-In Time</label>
+                <input
+                  type="time"
+                  value={manualCheckinData.checkinTime}
+                  onChange={(e) => setManualCheckinData({ ...manualCheckinData, checkinTime: e.target.value })}
+                  required
+                  style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)', fontSize: '1rem' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+                <button type="button" onClick={() => setShowManualCheckinModal(false)} style={{ flex: 1, padding: '0.8rem', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-main)', fontWeight: 'bold' }}>Cancel</button>
+                <button type="submit" style={{ flex: 1, padding: '0.8rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(16, 185, 129, 0.2)' }}>Confirm Check-In</button>
               </div>
             </form>
           </div>

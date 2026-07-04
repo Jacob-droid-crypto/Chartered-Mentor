@@ -400,6 +400,52 @@ const manualCheckout = async (req, res) => {
   }
 };
 
+/* ================= ADMIN - MANUAL CHECK-IN ================= */
+const manualCheckin = async (req, res) => {
+  try {
+    const { studentId, date, checkinTime } = req.body;
+
+    if (!studentId || !date || !checkinTime) {
+      return res.status(400).json({ message: "All fields (studentId, date, checkinTime) are required" });
+    }
+    const cleanId = studentId.trim().toUpperCase();
+
+    const student = await User.findOne({ userId: cleanId, role: "student" });
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    // Construct the timestamp for the IN record in Indian Standard Time (IST, UTC+05:30)
+    const timestamp = new Date(`${date}T${checkinTime}:00+05:30`);
+    if (isNaN(timestamp.getTime())) {
+      return res.status(400).json({ message: "Invalid date or time format" });
+    }
+
+    // Look for the latest overall record for this student today
+    const lastRecord = await Attendance.findOne({ studentId: cleanId, date }).sort({ createdAt: -1 });
+
+    if (lastRecord && lastRecord.type === "IN") {
+      // If the latest record on this date is already IN, update its check-in timestamp
+      lastRecord.timestamp = timestamp;
+      await lastRecord.save();
+    } else {
+      // Otherwise, create a new IN record
+      await Attendance.create({
+        studentId: cleanId,
+        course: student.course,
+        type: "IN",
+        date,
+        timestamp
+      });
+    }
+
+    res.json({ message: "Check-in time recorded successfully" });
+  } catch (err) {
+    console.error("Manual Checkin Error:", err);
+    res.status(500).json({ message: "Server error: " + err.message });
+  }
+};
+
 /* ================= ADMIN - GET ALL STUDENTS ================= */
 const getStudents = async (req, res) => {
   try {
@@ -1428,6 +1474,7 @@ module.exports = {
   getAdminSchedules,
   deleteSchedule,
   manualCheckout,
+  manualCheckin,
   downloadScheduleFileAdmin,
   getExamSchedules,
   createExamSchedule,
