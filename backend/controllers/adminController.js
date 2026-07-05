@@ -11,7 +11,7 @@ const CampusQR = require("../models/CampusQR");
 
 const generateToken = (userId, role) => {
   return jwt.sign({ userId, role }, process.env.JWT_SECRET || "fallback_secret", {
-    expiresIn: "30d",
+    expiresIn: "45d",
   });
 };
 

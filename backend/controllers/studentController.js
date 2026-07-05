@@ -13,7 +13,7 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const generateToken = (userId, role) => {
   return jwt.sign({ userId, role }, process.env.JWT_SECRET || "fallback_secret", {
-    expiresIn: "30d",
+    expiresIn: "45d",
   });
 };
 
