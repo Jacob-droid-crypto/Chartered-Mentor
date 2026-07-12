@@ -4274,11 +4274,13 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                             </button>
                           )}
 
-                          <button onClick={async () => {
-                            if (!await showConfirm('Delete this question paper?')) return;
-                            await fetch(`/admin/paper/${paper._id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${user.token}` } });
-                            fetchPapers();
-                          }} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '1.2rem', padding: '0 0.5rem' }}>🗑️</button>
+                          {user.role === 'admin' && (
+                            <button onClick={async () => {
+                              if (!await showConfirm('Delete this question paper?')) return;
+                              await fetch(`/admin/paper/${paper._id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${user.token}` } });
+                              fetchPapers();
+                            }} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '1.2rem', padding: '0 0.5rem' }}>🗑️</button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -4445,24 +4447,26 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                               }}>
                                 {sched.status}
                               </span>
-                              <button
-                                onClick={async () => {
-                                  if (!await showConfirm('Delete this schedule?')) return;
-                                  try {
-                                    const res = await fetch(`/admin/schedule/${sched._id}`, {
-                                      method: 'DELETE',
-                                      headers: { 'Authorization': `Bearer ${user.token}` }
-                                    });
-                                    if (res.ok) fetchSchedules();
-                                  } catch (e) {
-                                    console.error(e);
-                                  }
-                                }}
-                                style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '1.2rem', padding: '0 0.5rem' }}
-                                title="Delete Schedule"
-                              >
-                                🗑️
-                              </button>
+                              {user.role === 'admin' && (
+                                <button
+                                  onClick={async () => {
+                                    if (!await showConfirm('Delete this schedule?')) return;
+                                    try {
+                                      const res = await fetch(`/admin/schedule/${sched._id}`, {
+                                        method: 'DELETE',
+                                        headers: { 'Authorization': `Bearer ${user.token}` }
+                                      });
+                                      if (res.ok) fetchSchedules();
+                                    } catch (e) {
+                                      console.error(e);
+                                    }
+                                  }}
+                                  style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '1.2rem', padding: '0 0.5rem' }}
+                                  title="Delete Schedule"
+                                >
+                                  🗑️
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -4793,12 +4797,14 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                               >
                                 Edit
                               </button>
-                              <button
-                                onClick={() => handleDeleteExamSchedule(item._id)}
-                                style={{ padding: '4px 10px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}
-                              >
-                                Delete
-                              </button>
+                              {user.role === 'admin' && (
+                                <button
+                                  onClick={() => handleDeleteExamSchedule(item._id)}
+                                  style={{ padding: '4px 10px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}
+                                >
+                                  Delete
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -6085,7 +6091,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                           </div>
                         </div>
                         
-                        {!isFallback && (
+                        {!isFallback && user.role === 'admin' && (
                           <button
                             onClick={async () => {
                               if (window.confirm(`Are you sure you want to delete this configuration for ${studentName} effective from ${c.effectiveFrom}?`)) {
@@ -6858,10 +6864,14 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
 
                             </>
                           )}
-                          <div style={{ height: '1px', background: 'var(--glass-border)', margin: '4px 0' }}></div>
-                          <button onClick={() => { handleDelete(student.userId); setOpenMenuId(null); }} className="dropdown-item danger">
-                            🗑️ Delete Student
-                          </button>
+                          {user.role === 'admin' && (
+                            <>
+                              <div style={{ height: '1px', background: 'var(--glass-border)', margin: '4px 0' }}></div>
+                              <button onClick={() => { handleDelete(student.userId); setOpenMenuId(null); }} className="dropdown-item danger">
+                                🗑️ Delete Student
+                              </button>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>

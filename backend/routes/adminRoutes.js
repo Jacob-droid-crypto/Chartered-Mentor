@@ -18,7 +18,7 @@ router.post("/campus-qr/refresh", protect, adminOnly, refreshCampusQR);
 router.post("/login", loginAdmin);
 router.get("/students", protect, adminOnly, getStudents);
 router.post("/add-student", protect, adminOnly, addStudent);
-router.delete("/student/:id", protect, adminOnly, deleteStudent);
+router.delete("/student/:id", protect, adminRoleRequired, deleteStudent);
 router.post("/student/:id/reset-password", protect, adminOnly, resetPassword);
 router.post("/student/:id/reset-device", protect, adminOnly, resetStudentDevice);
 router.get("/attendance", protect, adminOnly, getAttendance);
@@ -31,26 +31,26 @@ router.get("/profile", protect, adminOnly, getProfile);
 // Schedules
 router.post("/schedule", protect, adminOnly, upload.single("file"), createSchedule);
 router.get("/schedules", protect, adminOnly, getAdminSchedules);
-router.delete("/schedule/:id", protect, adminOnly, deleteSchedule);
+router.delete("/schedule/:id", protect, adminRoleRequired, deleteSchedule);
 router.get("/schedule/:id/download", protect, adminOnly, downloadScheduleFileAdmin);
 
 // Exam Schedules
 router.get("/exam-schedules", protect, adminOnly, getExamSchedules);
 router.post("/exam-schedules", protect, adminOnly, createExamSchedule);
 router.put("/exam-schedules/:id", protect, adminOnly, updateExamSchedule);
-router.delete("/exam-schedules/:id", protect, adminOnly, deleteExamSchedule);
+router.delete("/exam-schedules/:id", protect, adminRoleRequired, deleteExamSchedule);
 
 // Papers
 router.post("/upload-paper", protect, adminOnly, upload.single("file"), uploadQuestionPaper);
 router.get("/papers", protect, adminOnly, getAdminPapers);
-router.delete("/paper/:id", protect, adminOnly, deletePaper);
+router.delete("/paper/:id", protect, adminRoleRequired, deletePaper);
 router.get("/paper/:id/download-answer", protect, adminOnly, downloadAnswerPaper);
 // Payments
 router.get("/payment-config", protect, adminRoleRequired, getPaymentConfig);
 router.post("/payment-config", protect, adminRoleRequired, updatePaymentConfig);
 router.get("/goal-config", protect, adminOnly, getGoalConfig);
 router.post("/goal-config", protect, adminOnly, updateGoalConfig);
-router.delete("/goal-config/:id", protect, adminOnly, deleteGoalConfig);
+router.delete("/goal-config/:id", protect, adminRoleRequired, deleteGoalConfig);
 router.post("/student/:studentId/fees", protect, adminRoleRequired, updateStudentFees);
 router.post("/student/:studentId/payment", protect, adminRoleRequired, addStudentPayment);
 router.post("/student/:studentId/profile", protect, adminOnly, updateStudentProfileByAdmin);
