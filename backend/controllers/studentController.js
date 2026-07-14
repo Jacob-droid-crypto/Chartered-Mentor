@@ -284,17 +284,38 @@ const scanQr = async (req, res) => {
     if (!isIpAllowed) {
       // Also check for 172.16.x.x to 172.31.x.x
       const parts = cleanIP.split(".");
-      if (parts.length === 4 && parts[0] === "172") {
-        const secondOctet = parseInt(parts[1], 10);
-        if (secondOctet >= 16 && secondOctet <= 31) {
-          isIpAllowed = true;
+      if (parts.length === 4) {
+        const p0 = parts[0];
+        const p1 = parseInt(parts[1], 10);
+        if (p0 === "172") {
+          // Standard private network check (172.16.x.x - 172.31.x.x)
+          if (p1 >= 16 && p1 <= 31) {
+            isIpAllowed = true;
+          }
+          // iCloud Private Relay check (172.224.x.x to 172.239.x.x)
+          else if (p1 >= 224 && p1 <= 239) {
+            isIpAllowed = true;
+            console.log(`[IP Check Bypass] Allowed iCloud Private Relay IP: ${cleanIP}`);
+          }
+        } else {
+          // Other potential iCloud Private Relay ranges
+          const p0Num = parseInt(p0, 10);
+          const isOtherICloudRelay = 
+            (p0Num === 104 && p1 >= 28 && p1 <= 31) || // 104.28.0.0/14
+            (p0Num === 140 && p1 === 248) ||             // 140.248.0.0/16
+            (p0Num === 146 && p1 === 75);                // Fastly range used by iCloud Relay
+          
+          if (isOtherICloudRelay) {
+            isIpAllowed = true;
+            console.log(`[IP Check Bypass] Allowed iCloud Private Relay IP: ${cleanIP}`);
+          }
         }
       }
     }
 
     if (!isIpAllowed) {
       return res.status(403).json({
-        message: `Network Error: You must be connected to the Institute's WiFi to mark attendance. (Your IP: ${cleanIP})`,
+        message: `Network Error: You must be connected to the Institute's WiFi to mark attendance. (Your IP: ${cleanIP}). If you are on campus, please ensure you are connected to the Institute's WiFi and have disabled any VPN or iCloud Private Relay.`,
       });
     }
 

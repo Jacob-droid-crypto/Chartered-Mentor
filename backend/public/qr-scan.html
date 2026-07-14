@@ -66,9 +66,19 @@
         localStorage.setItem("device_id", deviceId);
       }
 
-      navigator.geolocation.getCurrentPosition((position) => {
-        const { latitude, longitude } = position.coords;
+      const optionsHigh = {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      };
 
+      const optionsLow = {
+        enableHighAccuracy: false,
+        timeout: 15000,
+        maximumAge: 60000
+      };
+
+      const sendAttendance = (lat, lng) => {
         const headers = {
           "Content-Type": "application/json",
         };
@@ -83,8 +93,8 @@
             studentId,
             qrValue,
             deviceId,
-            lat: latitude,
-            lng: longitude
+            lat: lat,
+            lng: lng
           }),
         })
           .then((res) => res.json())
@@ -95,13 +105,41 @@
             document.getElementById("status").innerText =
               "Server error while marking attendance";
           });
-      }, (error) => {
-        document.getElementById("status").innerText = "Please allow location access to mark attendance.";
-      }, {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
-      });
+      };
+
+      const handleGeoError = (error) => {
+        if (error.code === error.PERMISSION_DENIED) {
+          document.getElementById("status").innerText = "Location access denied. Please enable location permissions in your browser/device settings to mark attendance.";
+        } else if (error.code === error.TIMEOUT) {
+          document.getElementById("status").innerText = "Location request timed out. Please ensure GPS/location is enabled and try again.";
+        } else {
+          document.getElementById("status").innerText = "Unable to retrieve location. Please check your device location settings and try again.";
+        }
+      };
+
+      // Try high accuracy first
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          sendAttendance(position.coords.latitude, position.coords.longitude);
+        },
+        (error) => {
+          console.warn("High accuracy geolocation failed, trying low accuracy...", error);
+          if (error.code === error.TIMEOUT || error.code === error.POSITION_UNAVAILABLE) {
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                sendAttendance(position.coords.latitude, position.coords.longitude);
+              },
+              (err2) => {
+                handleGeoError(err2);
+              },
+              optionsLow
+            );
+          } else {
+            handleGeoError(error);
+          }
+        },
+        optionsHigh
+      );
     </script>
   </body>
 </html>

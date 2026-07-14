@@ -813,8 +813,19 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
       localStorage.setItem("device_id", deviceId);
     }
 
-    navigator.geolocation.getCurrentPosition(async (position) => {
-      const { latitude, longitude } = position.coords;
+    const optionsHigh = {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
+    };
+
+    const optionsLow = {
+      enableHighAccuracy: false,
+      timeout: 15000,
+      maximumAge: 60000 // Allow cached locations up to 1 minute
+    };
+
+    const sendRequest = async (lat, lng) => {
       try {
         const response = await fetch(`/student/scan-qr`, {
           method: 'POST',
@@ -822,8 +833,8 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
           body: JSON.stringify({
             studentId: user.userId,
             qrValue: qrData,
-            lat: latitude,
-            lng: longitude,
+            lat: lat,
+            lng: lng,
             deviceId: deviceId
           })
         });
@@ -833,13 +844,42 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
       } catch (err) {
         alert('Failed to log attendance');
       }
-    }, (error) => {
-      alert("Please allow location access to mark attendance.");
-    }, {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 0
-    });
+    };
+
+    const handleGeoError = (error) => {
+      if (error.code === error.PERMISSION_DENIED) {
+        alert("Location access denied. Please enable location permissions for this site in your browser/device settings to mark attendance.");
+      } else if (error.code === error.TIMEOUT) {
+        alert("Location request timed out. Please ensure GPS/location is enabled and try again, or move closer to a window.");
+      } else {
+        alert("Unable to retrieve location. Please check your device location settings and try again.");
+      }
+    };
+
+    // Try high accuracy first
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        sendRequest(position.coords.latitude, position.coords.longitude);
+      },
+      (error) => {
+        console.warn("High accuracy geolocation failed, trying low accuracy...", error);
+        // Fall back to low accuracy on timeout or position unavailable
+        if (error.code === error.TIMEOUT || error.code === error.POSITION_UNAVAILABLE) {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              sendRequest(position.coords.latitude, position.coords.longitude);
+            },
+            (err2) => {
+              handleGeoError(err2);
+            },
+            optionsLow
+          );
+        } else {
+          handleGeoError(error);
+        }
+      },
+      optionsHigh
+    );
   };
 
   const handleManualAttendance = async (action) => {
