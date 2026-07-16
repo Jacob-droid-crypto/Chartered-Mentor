@@ -42,7 +42,12 @@ function App() {
     setUser(null);
     localStorage.removeItem('cmUser');
     sessionStorage.removeItem('feePopupShown');
+    // Clear URL hash from the browser history/address bar
+    if (window.location.hash) {
+      window.history.replaceState(null, document.title, window.location.pathname + window.location.search);
+    }
   };
+
 
   // Intercept all fetch requests to catch 401 Unauthorized responses (invalid/expired tokens)
   useEffect(() => {
