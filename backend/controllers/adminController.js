@@ -8,6 +8,7 @@ const GoalConfig = require("../models/GoalConfig");
 const Schedule = require("../models/Schedule");
 const ExamSchedule = require("../models/ExamSchedule");
 const CampusQR = require("../models/CampusQR");
+const { executeAutoLogout } = require("../utils/cronJobs");
 
 const generateToken = (userId, role) => {
   return jwt.sign({ userId, role }, process.env.JWT_SECRET || "fallback_secret", {
@@ -1445,6 +1446,22 @@ const resetStudentDevice = async (req, res) => {
   }
 };
 
+/* ================= TRIGGER AUTO LOGOUT ================= */
+const triggerAutoLogout = async (req, res) => {
+  const authHeader = req.headers.authorization;
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret && (!authHeader || authHeader !== `Bearer ${cronSecret}`)) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  try {
+    const stats = await executeAutoLogout();
+    res.json({ message: "Auto logout cron job completed", stats });
+  } catch (err) {
+    console.error("Cron route error:", err);
+    res.status(500).json({ message: "Cron job failed: " + err.message });
+  }
+};
+
 module.exports = {
   loginAdmin,
   addStudent,
@@ -1482,5 +1499,6 @@ module.exports = {
   deleteExamSchedule,
   getCampusQR,
   refreshCampusQR,
-  resetStudentDevice
+  resetStudentDevice,
+  triggerAutoLogout
 };

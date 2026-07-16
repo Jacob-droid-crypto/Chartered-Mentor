@@ -644,7 +644,33 @@ function StudentPaperCard({ paper, user, onRefresh, showConfirm }) {
 }
 
 function Dashboard({ user, onLogout, theme, setTheme }) {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  // Helper to parse tab from hash
+  const getTabFromHash = () => {
+    const hash = window.location.hash; // e.g. "#/attendance"
+    if (hash && hash.startsWith('#/')) {
+      return hash.substring(2);
+    }
+    return 'dashboard';
+  };
+
+  const [activeTab, setActiveTabState] = useState(getTabFromHash);
+
+  // Wrapper to set state and update URL hash
+  const setActiveTab = useCallback((tab) => {
+    setActiveTabState(tab);
+    window.location.hash = `#/${tab}`;
+  }, []);
+
+  // Listen to hash changes (for browser back/forward buttons)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const tab = getTabFromHash();
+      setActiveTabState(tab);
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
   const [toasts, setToasts] = useState([]);
   const [confirmDialog, setConfirmDialog] = useState(null);
 

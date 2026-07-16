@@ -114,60 +114,9 @@ const initCronJobs = () => {
   // Auto Logout Cron Job - Runs every minute to checkout students who forgot
   cron.schedule('* * * * *', async () => {
     try {
-      const config = await GoalConfig.findOne({ studentId: null }).sort({ effectiveFrom: -1 });
-      if (!config || !config.autoLogoutEnabled || !config.autoLogoutTime) {
-        return;
-      }
-
-      // Current date in IST
-      const today = getISTDateString();
-      
-      // Target auto logout timestamp today in IST
-      const autoLogoutTimestamp = new Date(`${today}T${config.autoLogoutTime}:00+05:30`);
-      
-      // Only run auto-logout if the current time is past the auto-logout time of today
-      if (new Date() < autoLogoutTimestamp) {
-        return;
-      }
-
-      // Find all attendance records for today, sorted by timestamp ascending
-      const records = await Attendance.find({ date: today }).sort({ timestamp: 1 });
-      
-      // Determine which students are currently checked IN and their last check-in timestamp
-      const inStudents = {}; // studentId -> { lastInLog }
-      for (const r of records) {
-        if (r.type === 'IN') {
-          inStudents[r.studentId] = r;
-        } else if (r.type === 'OUT') {
-          delete inStudents[r.studentId];
-        }
-      }
-      
-      // For each student who is currently checked IN
-      for (const studentId in inStudents) {
-        const lastInLog = inStudents[studentId];
-        // If their check-in time is before the auto logout threshold
-        if (new Date(lastInLog.timestamp) < autoLogoutTimestamp) {
-          // Fetch student course details from User collection
-          const student = await User.findOne({ userId: studentId });
-          if (student) {
-            if (student.mode === 'online') {
-              console.log(`[Auto Logout] Skipping student ${studentId} because mode is online.`);
-              continue;
-            }
-            console.log(`[Auto Logout] Checking OUT student ${studentId} automatically for target time ${config.autoLogoutTime}`);
-            await Attendance.create({
-              studentId,
-              course: student.course,
-              type: 'OUT',
-              date: today,
-              timestamp: autoLogoutTimestamp
-            });
-          }
-        }
-      }
+      await executeAutoLogout();
     } catch (error) {
-      console.error("Error in auto logout cron job:", error);
+      console.error("Error in scheduled auto logout job:", error);
     }
   });
 
@@ -196,4 +145,96 @@ const initCronJobs = () => {
   console.log("Cron jobs initialized.");
 };
 
-module.exports = { initCronJobs };
+const executeAutoLogout = async () => {
+  const stats = { checkedOut: [], skippedOnline: [], errors: 0 };
+  try {
+    // Find all students whose last attendance record is "IN"
+    const checkedIn = await Attendance.aggregate([
+      { $sort: { timestamp: 1, createdAt: 1 } },
+      {
+        $group: {
+          _id: "$studentId",
+          lastRecord: { $last: "$$ROOT" }
+        }
+      },
+      {
+        $match: {
+          "lastRecord.type": "IN"
+        }
+      }
+    ]);
+
+    if (checkedIn.length === 0) {
+      return stats;
+    }
+
+    const todayStr = getISTDateString();
+    const now = new Date();
+
+    // Retrieve all global configurations to resolve effective configs quickly
+    const defaultConfigs = await GoalConfig.find({ studentId: null }).sort({ effectiveFrom: -1 });
+
+    for (const group of checkedIn) {
+      const studentId = group._id;
+      const lastInLog = group.lastRecord;
+      const checkInDate = lastInLog.date; // YYYY-MM-DD format
+
+      // Resolve active goal configuration on the check-in date
+      const config = defaultConfigs.find(c => c.effectiveFrom <= checkInDate) || defaultConfigs[defaultConfigs.length - 1];
+
+      if (!config || !config.autoLogoutEnabled || !config.autoLogoutTime) {
+        continue;
+      }
+
+      // Auto logout threshold for that specific check-in date
+      const autoLogoutTimestamp = new Date(`${checkInDate}T${config.autoLogoutTime}:00+05:30`);
+
+      // Determine if we should trigger checkout
+      let shouldCheckout = false;
+      let checkoutTimestamp = autoLogoutTimestamp;
+
+      if (checkInDate < todayStr) {
+        // If check-in date is a past day, they should always be logged out (since we are past that day's auto-logout window)
+        shouldCheckout = true;
+        // If the student checked in *after* the auto-logout time of that day, set checkout to 23:59:59 of that day
+        // to prevent negative duration (checkout timestamp preceding check-in timestamp)
+        if (new Date(lastInLog.timestamp) >= autoLogoutTimestamp) {
+          checkoutTimestamp = new Date(`${checkInDate}T23:59:59+05:30`);
+        }
+      } else if (checkInDate === todayStr) {
+        // If check-in date is today, checkout only if the current time is past the auto-logout time
+        if (now >= autoLogoutTimestamp && new Date(lastInLog.timestamp) < autoLogoutTimestamp) {
+          shouldCheckout = true;
+        }
+      }
+
+      if (shouldCheckout) {
+        const student = await User.findOne({ userId: studentId });
+        if (student) {
+          if (student.mode === 'online') {
+            console.log(`[Auto Logout] Skipping student ${studentId} because mode is online.`);
+            stats.skippedOnline.push(studentId);
+            continue;
+          }
+          console.log(`[Auto Logout] Checking OUT student ${studentId} automatically for date ${checkInDate} target time ${config.autoLogoutTime}`);
+          
+          await Attendance.create({
+            studentId,
+            course: student.course,
+            type: 'OUT',
+            date: checkInDate,
+            timestamp: checkoutTimestamp
+          });
+
+          stats.checkedOut.push({ studentId, date: checkInDate, time: config.autoLogoutTime });
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error in executeAutoLogout:", error);
+    stats.errors++;
+  }
+  return stats;
+};
+
+module.exports = { initCronJobs, executeAutoLogout };
