@@ -131,9 +131,9 @@ const initCronJobs = () => {
         console.log(`🧹 [Cron Cleanup] Auto-deleted ${scheduleRes.deletedCount} schedules.`);
       }
 
-      // 2. Delete question papers started more than 3 days ago
+      // 2. Delete question papers started more than 3 days ago (only if no answer sheet uploaded)
       const paperThreshold = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-      const paperRes = await QuestionPaper.deleteMany({ startTime: { $ne: null, $lte: paperThreshold } });
+      const paperRes = await QuestionPaper.deleteMany({ startTime: { $ne: null, $lte: paperThreshold }, answerFileData: null });
       if (paperRes.deletedCount > 0) {
         console.log(`🧹 [Cron Cleanup] Auto-deleted ${paperRes.deletedCount} question papers.`);
       }

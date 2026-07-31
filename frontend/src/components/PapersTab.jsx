@@ -628,7 +628,7 @@ export default function PapersTab({
             animation: 'fadeIn 0.5s ease-out'
           }}>
             <span style={{ fontSize: '1.25rem' }}>⚠️</span>
-            <span>Question papers are automatically deleted from the system <strong>3 days</strong> after you start (open) them.</span>
+            <span>Question papers (without uploaded answer sheets) are automatically deleted from the system <strong>3 days</strong> after you start (open) them.</span>
           </div>
         )}
 

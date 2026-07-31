@@ -713,9 +713,9 @@ const getStudentPapers = async (req, res) => {
     const user = req.user;
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Auto-delete question papers 3 days after student started/opened them
+    // Auto-delete question papers 3 days after student started/opened them (only if no answer sheet uploaded)
     const paperThreshold = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-    await QuestionPaper.deleteMany({ startTime: { $ne: null, $lte: paperThreshold } });
+    await QuestionPaper.deleteMany({ startTime: { $ne: null, $lte: paperThreshold }, answerFileData: null });
 
     const query = { target: user.userId };
 
