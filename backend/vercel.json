@@ -15,7 +15,7 @@
   "crons": [
     {
       "path": "/admin/cron-auto-logout",
-      "schedule": "*/10 * * * *"
+      "schedule": "0 18 * * *"
     }
   ]
 }
