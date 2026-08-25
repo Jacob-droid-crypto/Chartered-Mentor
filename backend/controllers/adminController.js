@@ -1345,7 +1345,86 @@ const deleteExamSchedule = async (req, res) => {
   }
 };
 
+/* ================= GET CAMPUS QR CONFIG ================= */
+const getCampusQR = async (req, res) => {
+  try {
+    let config = await CampusQR.findOne();
+    if (!config) {
+      config = await CampusQR.create({
+        activeInToken: "CM-ATTENDANCE-IN",
+        activeOutToken: "CM-ATTENDANCE-OUT"
+      });
+    }
+    res.json(config);
+  } catch (err) {
+    console.error("Get campus QR error:", err);
+    res.status(500).json({ message: "Server error: " + err.message });
+  }
+};
 
+/* ================= REFRESH CAMPUS QR TOKEN ================= */
+const refreshCampusQR = async (req, res) => {
+  try {
+    const { type } = req.body;
+    if (!type || !["IN", "OUT"].includes(type.toUpperCase())) {
+      return res.status(400).json({ message: "Invalid type. Must be 'IN' or 'OUT'" });
+    }
+
+    let config = await CampusQR.findOne();
+    if (!config) {
+      config = await CampusQR.create({
+        activeInToken: "CM-ATTENDANCE-IN",
+        activeOutToken: "CM-ATTENDANCE-OUT"
+      });
+    }
+
+    const rand = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const newToken = `CM-ATTENDANCE-${type.toUpperCase()}-${rand}`;
+
+    if (type.toUpperCase() === "IN") {
+      config.activeInToken = newToken;
+    } else {
+      config.activeOutToken = newToken;
+    }
+    config.updatedAt = new Date();
+    await config.save();
+
+    res.json(config);
+  } catch (err) {
+    console.error("Refresh campus QR error:", err);
+    res.status(500).json({ message: "Server error: " + err.message });
+  }
+};
+
+/* ================= RESET STUDENT DEVICE LOCK ================= */
+const resetStudentDevice = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const student = await User.findOne({ userId: id.trim().toUpperCase(), role: "student" });
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    student.deviceFingerprint = undefined;
+    await student.save();
+
+    res.json({ message: "Device lock reset successfully" });
+  } catch (err) {
+    console.error("Reset student device error:", err);
+    res.status(500).json({ message: "Server error: " + err.message });
+  }
+};
+
+/* ================= TRIGGER AUTO LOGOUT ================= */
+const triggerAutoLogout = async (req, res) => {
+  try {
+    const stats = await executeAutoLogout();
+    res.json({ message: "Auto logout triggered successfully", stats });
+  } catch (err) {
+    console.error("Trigger auto logout error:", err);
+    res.status(500).json({ message: "Server error: " + err.message });
+  }
+};
 
 /* ================= APPLY FINE TO STUDENT ================= */
 const applyFine = async (req, res) => {
@@ -1419,6 +1498,38 @@ const deleteFine = async (req, res) => {
   }
 };
 
+/* ================= MARK FINE AS PAID ================= */
+const payFine = async (req, res) => {
+  try {
+    const { studentId, fineId } = req.params;
+
+    const student = await User.findOne({ userId: studentId.trim().toUpperCase(), role: "student" });
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    if (!student.fines) {
+      return res.status(400).json({ message: "Student has no fines" });
+    }
+
+    const fine = student.fines.id(fineId);
+    if (!fine) {
+      return res.status(404).json({ message: "Fine record not found" });
+    }
+
+    fine.status = "Paid";
+    await student.save();
+
+    const studentObj = student.toObject();
+    delete studentObj.password;
+
+    res.json({ message: "Fine marked as Paid successfully", student: studentObj });
+  } catch (err) {
+    console.error("Pay fine error:", err);
+    res.status(500).json({ message: "Server error: " + err.message });
+  }
+};
+
 module.exports = {
   loginAdmin,
   addStudent,
@@ -1459,5 +1570,6 @@ module.exports = {
   resetStudentDevice,
   triggerAutoLogout,
   applyFine,
-  deleteFine
+  deleteFine,
+  payFine
 };

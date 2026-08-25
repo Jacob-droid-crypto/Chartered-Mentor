@@ -21,6 +21,7 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
   // Search & Filter state for fines ledger
   const [searchQuery, setSearchQuery] = useState('');
   const [reasonFilter, setReasonFilter] = useState('All');
+  const [statusFilter, setStatusFilter] = useState('All');
 
   // Handle fine submission
   const handleApplyFine = async (e) => {
@@ -116,6 +117,41 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
     }
   };
 
+  // Handle fine payment status update
+  const handlePayFine = async (studentId, fineId) => {
+    if (!window.confirm('Mark this fine as paid?')) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/admin/student/${studentId}/fine/${fineId}/pay`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${user.token}`
+        }
+      });
+      const contentTypePay = res.headers.get('content-type');
+      let dataPay = {};
+      if (contentTypePay && contentTypePay.includes('application/json')) {
+        dataPay = await res.json();
+      } else {
+        const text = await res.text();
+        if (res.status === 404 || text.includes('Cannot POST') || text.includes('<!DOCTYPE')) {
+          throw new Error('Backend deployment in progress on Vercel. Please wait 1 minute for Vercel to finish updating the server.');
+        }
+        throw new Error('Server error: Non-JSON response received.');
+      }
+
+      if (!res.ok) {
+        throw new Error(dataPay.message || 'Failed to mark fine as paid');
+      }
+      setStatusMsg({ type: 'success', text: 'Fine marked as Paid successfully.' });
+      if (fetchStudentsData) fetchStudentsData();
+    } catch (err) {
+      setStatusMsg({ type: 'error', text: err.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Helper to format fine date or range
   const formatFinePeriod = (fine) => {
     const s = fine.startDate || fine.date;
@@ -152,9 +188,10 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
   // Filter fines
   const filteredFines = allFines.filter((f) => {
     const matchesReason = reasonFilter === 'All' || f.reason === reasonFilter;
+    const matchesStatus = statusFilter === 'All' || (statusFilter === 'Paid' ? f.status === 'Paid' : f.status !== 'Paid');
     const q = searchQuery.toLowerCase();
     const matchesQuery = !q || f.studentName.toLowerCase().includes(q) || f.studentId.toLowerCase().includes(q);
-    return matchesReason && matchesQuery;
+    return matchesReason && matchesStatus && matchesQuery;
   });
 
   return (
@@ -465,6 +502,23 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
               <option value="Late Arrival" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>Late Arrival</option>
               <option value="Taking Leaves" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>Taking Leaves</option>
             </select>
+
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              style={{
+                padding: '0.5rem 1rem',
+                borderRadius: '8px',
+                border: '1px solid var(--glass-border, #cbd5e1)',
+                background: 'var(--card-bg, #ffffff)',
+                color: 'var(--text-main, #0f172a)',
+                fontSize: '0.85rem'
+              }}
+            >
+              <option value="All" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>All Statuses</option>
+              <option value="Paid" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>Paid</option>
+              <option value="Unpaid" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>Unpaid</option>
+            </select>
           </div>
         </div>
 
@@ -481,6 +535,7 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                   <th style={{ padding: '0.75rem 1rem' }}>Reason</th>
                   <th style={{ padding: '0.75rem 1rem' }}>Amount</th>
                   <th style={{ padding: '0.75rem 1rem' }}>Applicable Period</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>Status</th>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
@@ -510,24 +565,58 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                     <td style={{ padding: '0.85rem 1rem', color: 'var(--text-main)', fontSize: '0.85rem', fontWeight: '500' }}>
                       📅 {formatFinePeriod(fine)}
                     </td>
+                    <td style={{ padding: '0.85rem 1rem' }}>
+                      <span style={{
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        fontSize: '0.85rem',
+                        fontWeight: 'bold',
+                        background: fine.status === 'Paid' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                        color: fine.status === 'Paid' ? '#10b981' : '#ef4444',
+                        border: `1px solid ${fine.status === 'Paid' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+                      }}>
+                        {fine.status === 'Paid' ? 'Paid' : 'Unpaid'}
+                      </span>
+                    </td>
                     <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>
-                      <button
-                        onClick={() => handleDeleteFine(fine.studentId, fine._id)}
-                        style={{
-                          padding: '0.35rem 0.75rem',
-                          background: 'rgba(239, 68, 68, 0.1)',
-                          color: '#ef4444',
-                          border: '1px solid rgba(239, 68, 68, 0.3)',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          fontWeight: 'bold',
-                          fontSize: '0.8rem',
-                          transition: 'all 0.2s'
-                        }}
-                        title="Delete Fine"
-                      >
-                        🗑️ Delete
-                      </button>
+                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                        {fine.status !== 'Paid' && (
+                          <button
+                            onClick={() => handlePayFine(fine.studentId, fine._id)}
+                            style={{
+                              padding: '0.35rem 0.75rem',
+                              background: 'rgba(16, 185, 129, 0.1)',
+                              color: '#10b981',
+                              border: '1px solid rgba(16, 185, 129, 0.3)',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontWeight: 'bold',
+                              fontSize: '0.8rem',
+                              transition: 'all 0.2s'
+                            }}
+                            title="Mark as Paid"
+                          >
+                            ✓ Mark Paid
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeleteFine(fine.studentId, fine._id)}
+                          style={{
+                            padding: '0.35rem 0.75rem',
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            color: '#ef4444',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontWeight: 'bold',
+                            fontSize: '0.8rem',
+                            transition: 'all 0.2s'
+                          }}
+                          title="Delete Fine"
+                        >
+                          🗑️ Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

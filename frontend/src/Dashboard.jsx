@@ -718,6 +718,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
   const [data, setData] = useState(null);
   const [students, setStudents] = useState([]);
   const [studentSearch, setStudentSearch] = useState('');
+  const [paymentFilter, setPaymentFilter] = useState('all');
   const [seatSearch, setSeatSearch] = useState('');
   const [showFineAlertModal, setShowFineAlertModal] = useState(false);
 
@@ -1090,10 +1091,11 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
         }
       }
 
-      if (user.role === 'student' && result.fines && result.fines.length > 0) {
-        if (!sessionStorage.getItem('finePopupShown_' + result.studentId)) {
+      if (user.role === 'student' && result.fines && result.fines.some(fine => fine.status !== 'Paid')) {
+        const studentIdKey = result.userId || user.userId || 'student';
+        if (!sessionStorage.getItem('finePopupShown_' + studentIdKey)) {
           setShowFineAlertModal(true);
-          sessionStorage.setItem('finePopupShown_' + result.studentId, 'true');
+          sessionStorage.setItem('finePopupShown_' + studentIdKey, 'true');
         }
       }
     } catch (err) {
@@ -1558,6 +1560,22 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
             message: `New Schedule Uploaded: Admin uploaded study schedule "${sch.title}" on ${dateStr} at ${timeStr}.`,
             severity: 'success',
             rawTime: uploadTime
+          });
+        }
+      });
+    }
+
+    // 4. Unpaid Fines Notifications
+    if (data?.fines && Array.isArray(data.fines)) {
+      data.fines.forEach((fine, index) => {
+        if (fine.status !== 'Paid') {
+          notifications.push({
+            id: `fine-${fine._id || index}`,
+            type: 'fine_unpaid',
+            icon: '💸',
+            message: `Fine Pending: A fine of ₹${fine.amount} for "${fine.reason}" is recorded on your account.`,
+            severity: 'warning',
+            rawTime: new Date(fine.date || fine.startDate || today).getTime()
           });
         }
       });
@@ -2680,14 +2698,24 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
   const filteredStudents = Array.isArray(students)
     ? students.filter(student => {
         const query = studentSearch.toLowerCase().trim();
-        if (!query) return true;
-        return (
+        const matchesQuery = !query || (
           (student.name && student.name.toLowerCase().includes(query)) ||
           (student.userId && student.userId.toLowerCase().includes(query)) ||
           (student.email && student.email.toLowerCase().includes(query)) ||
           (student.course && student.course.toLowerCase().includes(query)) ||
           (student.batch && student.batch.toLowerCase().includes(query))
         );
+
+        if (!matchesQuery) return false;
+
+        if (paymentFilter === 'paid') {
+          return (student.totalFees || 0) > 0 && (student.feesPaid || 0) >= (student.totalFees || 0);
+        }
+        if (paymentFilter === 'unpaid') {
+          return ((student.totalFees || 0) - (student.feesPaid || 0)) > 0;
+        }
+
+        return true;
       })
     : [];
 
@@ -2855,6 +2883,15 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                            >
                              <span>⏳</span> Due Students
                            </li>
+                           <li
+                             className={`nav-dropdown-item ${activeTab === 'fines' ? 'active' : ''}`}
+                             onClick={() => {
+                               setShowNavDropdown(false);
+                               setActiveTab('fines');
+                             }}
+                           >
+                             <span>💸</span> Fines
+                           </li>
                           {user.role === 'admin' && (
                             <>
                               <li
@@ -2883,15 +2920,6 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                                 }}
                               >
                                 <span>🎯</span> Goal Settings
-                              </li>
-                              <li
-                                className={`nav-dropdown-item ${activeTab === 'fines' ? 'active' : ''}`}
-                                onClick={() => {
-                                  setShowNavDropdown(false);
-                                  setActiveTab('fines');
-                                }}
-                              >
-                                <span>💸</span> Fines
                               </li>
                             </>
                           )}
@@ -2964,6 +2992,32 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                             <span>⏱️</span> Study Goal Tracker
                           </li>
                           <li
+                            className={`nav-dropdown-item ${activeTab === 'notifications' ? 'active' : ''}`}
+                            onClick={() => {
+                              setShowNavDropdown(false);
+                              if (data && !data.profileCompleted) {
+                                alert('Please complete your profile details first to unlock all dashboard features.');
+                                return;
+                              }
+                              setActiveTab('notifications');
+                            }}
+                          >
+                            <span>🔔</span> Notifications
+                          </li>
+                          <li
+                            className={`nav-dropdown-item ${activeTab === 'scan_qr' ? 'active' : ''}`}
+                            onClick={() => {
+                              setShowNavDropdown(false);
+                              if (data && !data.profileCompleted) {
+                                alert('Please complete your profile details first to unlock all dashboard features.');
+                                return;
+                              }
+                              setActiveTab('scan_qr');
+                            }}
+                          >
+                            <span>📷</span> Scan QR Code
+                          </li>
+                          <li
                             className={`nav-dropdown-item ${activeTab === 'profile' ? 'active' : ''}`}
                             onClick={() => {
                               setShowNavDropdown(false);
@@ -3010,6 +3064,8 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                   : activeTab === 'seats' ? 'Seats Allocation'
                   : activeTab === 'fines' ? 'Student Fine Management'
                   : activeTab === 'exam_scheduler' ? 'Exam Scheduler'
+                  : activeTab === 'notifications' ? 'My Alerts & Notifications'
+                  : activeTab === 'scan_qr' ? 'Scan Attendance QR Code'
                   : 'Campus QR'}
               </h1>
               <p style={{ margin: '4px 0 0 0', fontSize: '0.95rem', color: 'var(--text-muted)' }}>
@@ -3027,6 +3083,8 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                   : activeTab === 'seats' ? 'Allot and manage classroom seat allocations for residential students.'
                   : activeTab === 'fines' ? 'Apply and manage fines issued to students.'
                   : activeTab === 'exam_scheduler' ? 'Manually schedule exam dates and study schedule ending dates for students.'
+                  : activeTab === 'notifications' ? 'View warnings, fine notifications, and study alerts.'
+                  : activeTab === 'scan_qr' ? 'Scan the dynamic class QR code to mark your check-in or check-out.'
                   : 'Display the active QR code for students to scan.'}
               </p>
             </div>
@@ -6580,7 +6638,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
               )}
             </div>
           </>
-        ) : activeTab === 'fines' && user.role === 'admin' ? (
+        ) : activeTab === 'fines' && (user.role === 'admin' || user.role === 'staff') ? (
           <FinesTab user={user} students={students} fetchStudentsData={fetchStudentsData} />
         ) : activeTab === 'seats' ? (
           <>
@@ -6810,57 +6868,80 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
 
             {/* Search Box */}
             <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-              <div style={{ position: 'relative', flex: 1, maxWidth: '400px', minWidth: '280px' }}>
-                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '1.1rem', pointerEvents: 'none' }}>🔍</span>
-                <input
-                  type="text"
-                  placeholder="Search students by name, ID, email, course, batch..."
-                  value={studentSearch}
-                  onChange={(e) => setStudentSearch(e.target.value)}
+              <div style={{ display: 'flex', gap: '0.75rem', flex: 1, maxWidth: '600px', minWidth: '280px', flexWrap: 'wrap' }}>
+                <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
+                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '1.1rem', pointerEvents: 'none' }}>🔍</span>
+                  <input
+                    type="text"
+                    placeholder="Search students by name, ID, email, course, batch..."
+                    value={studentSearch}
+                    onChange={(e) => setStudentSearch(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.65rem 2.5rem 0.65rem 2.5rem',
+                      borderRadius: '10px',
+                      border: '1px solid var(--glass-border)',
+                      background: 'var(--surface-color)',
+                      backdropFilter: 'blur(8px)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.95rem',
+                      outline: 'none',
+                      transition: 'all 0.2s ease',
+                      boxShadow: '0 4px 12px var(--shadow-color)',
+                      boxSizing: 'border-box'
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = 'var(--primary-color)';
+                      e.target.style.boxShadow = '0 0 0 3px rgba(79, 70, 229, 0.15)';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = 'var(--glass-border)';
+                      e.target.style.boxShadow = '0 4px 12px var(--shadow-color)';
+                    }}
+                  />
+                  {studentSearch && (
+                    <button
+                      onClick={() => setStudentSearch('')}
+                      style={{
+                        position: 'absolute',
+                        right: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        fontSize: '1rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: 0
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                <select
+                  value={paymentFilter}
+                  onChange={(e) => setPaymentFilter(e.target.value)}
                   style={{
-                    width: '100%',
-                    padding: '0.65rem 2.5rem 0.65rem 2.5rem',
+                    padding: '0.65rem 1rem',
                     borderRadius: '10px',
                     border: '1px solid var(--glass-border)',
                     background: 'var(--surface-color)',
-                    backdropFilter: 'blur(8px)',
                     color: 'var(--text-main)',
                     fontSize: '0.95rem',
                     outline: 'none',
-                    transition: 'all 0.2s ease',
+                    cursor: 'pointer',
                     boxShadow: '0 4px 12px var(--shadow-color)'
                   }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = 'var(--primary-color)';
-                    e.target.style.boxShadow = '0 0 0 3px rgba(79, 70, 229, 0.15)';
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = 'var(--glass-border)';
-                    e.target.style.boxShadow = '0 4px 12px var(--shadow-color)';
-                  }}
-                />
-                {studentSearch && (
-                  <button
-                    onClick={() => setStudentSearch('')}
-                    style={{
-                      position: 'absolute',
-                      right: '12px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--text-muted)',
-                      cursor: 'pointer',
-                      fontSize: '1rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      padding: 0
-                    }}
-                  >
-                    ✕
-                  </button>
-                )}
+                >
+                  <option value="all">All Payment Statuses</option>
+                  <option value="paid">Fully Paid</option>
+                  <option value="unpaid">Has Dues (Unpaid)</option>
+                </select>
               </div>
               <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: '500' }}>
                 Found {filteredStudents.length} of {students.length} students
@@ -7836,85 +7917,88 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
         </div>
       )}
       {/* Student Fine Alert Modal */}
-      {showFineAlertModal && user.role === 'student' && data?.fines && data.fines.length > 0 && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.75)',
-          backdropFilter: 'blur(8px)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 9999,
-          padding: '1rem'
-        }}>
+      {showFineAlertModal && user.role === 'student' && data?.fines && data.fines.some(f => f.status !== 'Paid') && (() => {
+        const unpaidFines = data.fines.filter(f => f.status !== 'Paid');
+        return (
           <div style={{
-            background: 'var(--surface-color)',
-            border: '2px solid #ef4444',
-            borderRadius: '20px',
-            maxWidth: '500px',
-            width: '100%',
-            padding: '2rem',
-            boxShadow: '0 20px 50px rgba(239, 68, 68, 0.3)'
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 9999,
+            padding: '1rem'
           }}>
-            <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
-              <div style={{ fontSize: '3.5rem', marginBottom: '0.5rem' }}>⚠️</div>
-              <h2 style={{ color: '#ef4444', fontSize: '1.6rem', fontWeight: '800', margin: 0 }}>
-                Fine Notification
-              </h2>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '0.5rem' }}>
-                Administration has recorded fine(s) for your account.
-              </p>
-            </div>
-
             <div style={{
-              background: 'rgba(239, 68, 68, 0.08)',
-              borderRadius: '12px',
-              padding: '1rem',
-              marginBottom: '1.5rem',
-              maxHeight: '200px',
-              overflowY: 'auto'
+              background: 'var(--surface-color)',
+              border: '2px solid #ef4444',
+              borderRadius: '20px',
+              maxWidth: '500px',
+              width: '100%',
+              padding: '2rem',
+              boxShadow: '0 20px 50px rgba(239, 68, 68, 0.3)'
             }}>
-              {data.fines.map((f, i) => (
-                <div key={i} style={{
-                  display: 'flex',
-                  justify: 'space-between',
-                  alignItems: 'center',
-                  padding: '0.5rem 0',
-                  borderBottom: i < data.fines.length - 1 ? '1px solid rgba(239, 68, 68, 0.2)' : 'none'
-                }}>
-                  <div>
-                    <strong style={{ color: 'var(--text-main)', display: 'block' }}>{f.reason}</strong>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Period: {f.startDate && f.endDate && new Date(f.startDate).toLocaleDateString() !== new Date(f.endDate).toLocaleDateString() ? `${new Date(f.startDate).toLocaleDateString()} – ${new Date(f.endDate).toLocaleDateString()}` : new Date(f.startDate || f.date).toLocaleDateString()}</span>
-                  </div>
-                  <span style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#ef4444' }}>₹{f.amount}</span>
-                </div>
-              ))}
-            </div>
+              <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
+                <div style={{ fontSize: '3.5rem', marginBottom: '0.5rem' }}>⚠️</div>
+                <h2 style={{ color: '#ef4444', fontSize: '1.6rem', fontWeight: '800', margin: 0 }}>
+                  Fine Notification
+                </h2>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '0.5rem' }}>
+                  Administration has recorded fine(s) for your account.
+                </p>
+              </div>
 
-            <button
-              onClick={() => setShowFineAlertModal(false)}
-              style={{
-                width: '100%',
-                padding: '0.85rem',
-                background: '#ef4444',
-                color: 'white',
-                border: 'none',
-                borderRadius: '10px',
-                fontWeight: 'bold',
-                fontSize: '1rem',
-                cursor: 'pointer',
-                boxShadow: '0 4px 14px rgba(239, 68, 68, 0.4)'
-              }}
-            >
-              Acknowledge & Dismiss
-            </button>
+              <div style={{
+                background: 'rgba(239, 68, 68, 0.08)',
+                borderRadius: '12px',
+                padding: '1rem',
+                marginBottom: '1.5rem',
+                maxHeight: '200px',
+                overflowY: 'auto'
+              }}>
+                {unpaidFines.map((f, i) => (
+                  <div key={i} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '0.5rem 0',
+                    borderBottom: i < unpaidFines.length - 1 ? '1px solid rgba(239, 68, 68, 0.2)' : 'none'
+                  }}>
+                    <div>
+                      <strong style={{ color: 'var(--text-main)', display: 'block' }}>{f.reason}</strong>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Period: {f.startDate && f.endDate && new Date(f.startDate).toLocaleDateString() !== new Date(f.endDate).toLocaleDateString() ? `${new Date(f.startDate).toLocaleDateString()} – ${new Date(f.endDate).toLocaleDateString()}` : new Date(f.startDate || f.date).toLocaleDateString()}</span>
+                    </div>
+                    <span style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#ef4444' }}>₹{f.amount}</span>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={() => setShowFineAlertModal(false)}
+                style={{
+                  width: '100%',
+                  padding: '0.85rem',
+                  background: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontWeight: 'bold',
+                  fontSize: '1rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(239, 68, 68, 0.4)'
+                }}
+              >
+                Acknowledge & Dismiss
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
       
 {/* Mobile Bottom Navigation Bar (app-like structure) */}
       <nav className="mobile-bottom-nav">
@@ -7991,6 +8075,13 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                 <span className="nav-icon">⏳</span>
                 <span className="nav-text">Dues</span>
               </li>
+              <li
+                className={`mobile-bottom-nav-item ${activeTab === 'fines' ? 'active' : ''}`}
+                onClick={() => setActiveTab('fines')}
+              >
+                <span className="nav-icon">💸</span>
+                <span className="nav-text">Fines</span>
+              </li>
               {user.role === 'admin' && (
                 <>
                   <li
@@ -8013,13 +8104,6 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                   >
                     <span className="nav-icon">🎯</span>
                     <span className="nav-text">Goal Set</span>
-                  </li>
-                  <li
-                    className={`mobile-bottom-nav-item ${activeTab === 'fines' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('fines')}
-                  >
-                    <span className="nav-icon">💸</span>
-                    <span className="nav-text">Fines</span>
                   </li>
                 </>
               )}
@@ -8090,6 +8174,19 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
               >
                 <span className="nav-icon">⏱️</span>
                 <span className="nav-text">Goal Tracker</span>
+              </li>
+              <li
+                className={`mobile-bottom-nav-item ${activeTab === 'scan_qr' ? 'active' : ''}`}
+                onClick={() => {
+                  if (data && !data.profileCompleted) {
+                    alert('Please complete your profile details first to unlock all dashboard features.');
+                    return;
+                  }
+                  setActiveTab('scan_qr');
+                }}
+              >
+                <span className="nav-icon">📷</span>
+                <span className="nav-text">Scan QR</span>
               </li>
               <li
                 className={`mobile-bottom-nav-item ${activeTab === 'profile' ? 'active' : ''}`}

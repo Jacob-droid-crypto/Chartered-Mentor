@@ -127,7 +127,8 @@ const userSchema = new mongoose.Schema({
     reason: { type: String, enum: ["Late Arrival", "Taking Leaves"], required: true },
     date: { type: Date, default: Date.now },
     startDate: { type: Date },
-    endDate: { type: Date }
+    endDate: { type: Date },
+    status: { type: String, enum: ["Unpaid", "Paid"], default: "Unpaid" }
   }]
 });
 
