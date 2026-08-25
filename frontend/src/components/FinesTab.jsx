@@ -10,7 +10,7 @@ const getTodayStr = () => {
 
 export default function FinesTab({ user, students = [], fetchStudentsData }) {
   const [selectedStudentId, setSelectedStudentId] = useState('');
-  const [reason, setReason] = useState('Late Arrival');
+  const [reason, setReason] = useState('Study Hours Deficit');
   const [amount, setAmount] = useState('');
   const [startDate, setStartDate] = useState(getTodayStr());
   const [endDate, setEndDate] = useState(getTodayStr());
@@ -210,7 +210,7 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
             💸 Student Fine Management
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '0.3rem' }}>
-            Apply fines to students for Late Arrival or Taking Leaves with date range selection.
+            Apply fines to students for Study Hours Deficit or Over Leaves with date range selection.
           </p>
         </div>
       </div>
@@ -295,8 +295,8 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                   gap: '0.5rem',
                   padding: '0.75rem 1rem',
                   borderRadius: '10px',
-                  border: `2px solid ${reason === 'Late Arrival' ? '#f59e0b' : 'var(--glass-border, #cbd5e1)'}`,
-                  background: reason === 'Late Arrival' ? 'rgba(245, 158, 11, 0.12)' : 'var(--card-bg, #ffffff)',
+                  border: `2px solid ${reason === 'Study Hours Deficit' ? '#f59e0b' : 'var(--glass-border, #cbd5e1)'}`,
+                  background: reason === 'Study Hours Deficit' ? 'rgba(245, 158, 11, 0.12)' : 'var(--card-bg, #ffffff)',
                   cursor: 'pointer',
                   fontWeight: '600',
                   color: 'var(--text-main, #0f172a)',
@@ -305,12 +305,12 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                   <input
                     type="radio"
                     name="reason"
-                    value="Late Arrival"
-                    checked={reason === 'Late Arrival'}
-                    onChange={() => setReason('Late Arrival')}
+                    value="Study Hours Deficit"
+                    checked={reason === 'Study Hours Deficit'}
+                    onChange={() => setReason('Study Hours Deficit')}
                     style={{ accentColor: '#f59e0b' }}
                   />
-                  ⏰ Late Arrival
+                  ⏰ Study Hours Deficit
                 </label>
 
                 <label style={{
@@ -320,8 +320,8 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                   gap: '0.5rem',
                   padding: '0.75rem 1rem',
                   borderRadius: '10px',
-                  border: `2px solid ${reason === 'Taking Leaves' ? '#8b5cf6' : 'var(--glass-border, #cbd5e1)'}`,
-                  background: reason === 'Taking Leaves' ? 'rgba(139, 92, 246, 0.12)' : 'var(--card-bg, #ffffff)',
+                  border: `2px solid ${reason === 'Over Leaves' ? '#8b5cf6' : 'var(--glass-border, #cbd5e1)'}`,
+                  background: reason === 'Over Leaves' ? 'rgba(139, 92, 246, 0.12)' : 'var(--card-bg, #ffffff)',
                   cursor: 'pointer',
                   fontWeight: '600',
                   color: 'var(--text-main, #0f172a)',
@@ -330,12 +330,12 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                   <input
                     type="radio"
                     name="reason"
-                    value="Taking Leaves"
-                    checked={reason === 'Taking Leaves'}
-                    onChange={() => setReason('Taking Leaves')}
+                    value="Over Leaves"
+                    checked={reason === 'Over Leaves'}
+                    onChange={() => setReason('Over Leaves')}
                     style={{ accentColor: '#8b5cf6' }}
                   />
-                  🏖️ Taking Leaves
+                  🏖️ Over Leaves
                 </label>
               </div>
             </div>
@@ -499,8 +499,8 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
               }}
             >
               <option value="All" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>All Reasons</option>
-              <option value="Late Arrival" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>Late Arrival</option>
-              <option value="Taking Leaves" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>Taking Leaves</option>
+              <option value="Study Hours Deficit" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>Study Hours Deficit</option>
+              <option value="Over Leaves" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>Over Leaves</option>
             </select>
 
             <select
@@ -552,11 +552,11 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                         borderRadius: '6px',
                         fontSize: '0.8rem',
                         fontWeight: 'bold',
-                        background: fine.reason === 'Late Arrival' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(139, 92, 246, 0.15)',
-                        color: fine.reason === 'Late Arrival' ? '#d97706' : '#7c3aed',
-                        border: `1px solid ${fine.reason === 'Late Arrival' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(139, 92, 246, 0.3)'}`
+                        background: fine.reason === 'Study Hours Deficit' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(139, 92, 246, 0.15)',
+                        color: fine.reason === 'Study Hours Deficit' ? '#d97706' : '#7c3aed',
+                        border: `1px solid ${fine.reason === 'Study Hours Deficit' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(139, 92, 246, 0.3)'}`
                       }}>
-                        {fine.reason === 'Late Arrival' ? '⏰ Late Arrival' : '🏖️ Taking Leaves'}
+                        {fine.reason === 'Study Hours Deficit' ? '⏰ Study Hours Deficit' : '🏖️ Over Leaves'}
                       </span>
                     </td>
                     <td style={{ padding: '0.85rem 1rem', fontWeight: 'bold', color: '#ef4444' }}>
