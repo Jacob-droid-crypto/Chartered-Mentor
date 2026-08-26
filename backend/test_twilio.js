@@ -73,7 +73,7 @@ const runTest = async () => {
     const todayKey = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][todayDayIndex];
     console.log(`Target Date: ${todayStr} (Weekday: ${todayKey.toUpperCase()})\n`);
 
-    const students = await User.find({ role: 'student', active: { $ne: false } });
+    const students = await User.find({ role: 'student', userId: 'INT26122', active: { $ne: false } });
     console.log(`Found ${students.length} active students in the database.`);
 
     console.log("\n-----------------------------------------");

@@ -197,7 +197,7 @@ const initCronJobs = () => {
       const todayDayIndex = new Date(new Date().getTime() + 5.5 * 60 * 60 * 1000).getDay();
       const todayKey = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][todayDayIndex];
 
-      const students = await User.find({ role: 'student', active: { $ne: false } });
+      const students = await User.find({ role: 'student', userId: 'INT26122', active: { $ne: false } });
 
       for (const student of students) {
         // Resolve goal target
@@ -234,7 +234,7 @@ const initCronJobs = () => {
       const todayDayIndex = new Date(new Date().getTime() + 5.5 * 60 * 60 * 1000).getDay();
       const todayKey = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][todayDayIndex];
 
-      const students = await User.find({ role: 'student', active: { $ne: false } });
+      const students = await User.find({ role: 'student', userId: 'INT26122', active: { $ne: false } });
 
       for (const student of students) {
         // Resolve goal target
