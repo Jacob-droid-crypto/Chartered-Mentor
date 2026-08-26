@@ -4,10 +4,57 @@ const Attendance = require('../models/Attendance');
 const GoalConfig = require('../models/GoalConfig');
 const Schedule = require('../models/Schedule');
 const QuestionPaper = require('../models/QuestionPaper');
+const { sendTwilioMessage } = require('./twilio');
 
 const getISTDateString = (date = new Date()) => {
   const shifted = new Date(date.getTime() + 5.5 * 60 * 60 * 1000);
   return shifted.toISOString().split("T")[0];
+};
+
+const resolveStudentGoalForDate = async (studentId, dateStr) => {
+  const configs = await GoalConfig.find({});
+  const studentConfigs = configs.filter(c => c.studentId === studentId);
+  studentConfigs.sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom));
+  let active = studentConfigs.find(c => c.effectiveFrom <= dateStr);
+  if (!active) {
+    const defaultConfigs = configs.filter(c => !c.studentId);
+    defaultConfigs.sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom));
+    active = defaultConfigs.find(c => c.effectiveFrom <= dateStr) || defaultConfigs[defaultConfigs.length - 1];
+  }
+  return active;
+};
+
+const calculateStudyHours = async (studentId, dateStr) => {
+  const logs = await Attendance.find({ studentId, date: dateStr }).sort({ timestamp: 1 });
+  let totalMs = 0;
+  let lastInTime = null;
+  
+  logs.forEach(log => {
+    const logTime = log.timestamp ? new Date(log.timestamp).getTime() : (log.createdAt ? new Date(log.createdAt).getTime() : 0);
+    if (log.type === "IN") {
+      if (lastInTime === null) {
+        lastInTime = logTime;
+      }
+    } else if (log.type === "OUT") {
+      if (lastInTime !== null) {
+        totalMs += Math.max(0, logTime - lastInTime);
+        lastInTime = null;
+      }
+    }
+  });
+  
+  if (lastInTime !== null) {
+    const today = getISTDateString();
+    if (dateStr === today) {
+      totalMs += Math.max(0, Date.now() - lastInTime);
+    } else {
+      const latestLog = logs[logs.length - 1];
+      const latestTime = latestLog.timestamp ? new Date(latestLog.timestamp).getTime() : (latestLog.createdAt ? new Date(latestLog.createdAt).getTime() : 0);
+      totalMs += Math.max(0, latestTime - lastInTime);
+    }
+  }
+
+  return totalMs / (1000 * 60 * 60);
 };
 
 // Utility to send email
@@ -140,6 +187,81 @@ const initCronJobs = () => {
     } catch (error) {
       console.error("Error in auto-delete cleanup cron job:", error);
     }
+  });
+
+  // Twilio parents alert - Late Check-In (Runs daily at 11:00 AM)
+  cron.schedule('0 11 * * *', async () => {
+    console.log("Running Twilio late check-in alert cron job...");
+    try {
+      const todayStr = getISTDateString();
+      const todayDayIndex = new Date(new Date().getTime() + 5.5 * 60 * 60 * 1000).getDay();
+      const todayKey = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][todayDayIndex];
+
+      const students = await User.find({ role: 'student', active: { $ne: false } });
+
+      for (const student of students) {
+        // Resolve goal target
+        const goal = await resolveStudentGoalForDate(student.userId, todayStr);
+        const target = goal ? goal[todayKey] : 12;
+        
+        // If target is 0 (Holiday), skip
+        if (target <= 0) continue;
+
+        // Check if student checked in today
+        const hasCheckedIn = await Attendance.findOne({ studentId: student.userId, date: todayStr, type: 'IN' });
+
+        if (!hasCheckedIn) {
+          const parentPhone = student.fatherPhone || student.motherPhone;
+          if (parentPhone) {
+            const alertMsg = `Dear Parent, this is an alert from Chartered Mentor. Your ward, ${student.name} (ID: ${student.userId}), has not checked in for study today as of 11:00 AM. Please verify.`;
+            await sendTwilioMessage(parentPhone, alertMsg);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Error in Twilio late check-in cron job:", err);
+    }
+  }, {
+    scheduled: true,
+    timezone: "Asia/Kolkata"
+  });
+
+  // Twilio parents alert - Daily target shortfall (Runs daily at 10:05 PM)
+  cron.schedule('5 22 * * *', async () => {
+    console.log("Running Twilio study shortfall alert cron job...");
+    try {
+      const todayStr = getISTDateString();
+      const todayDayIndex = new Date(new Date().getTime() + 5.5 * 60 * 60 * 1000).getDay();
+      const todayKey = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][todayDayIndex];
+
+      const students = await User.find({ role: 'student', active: { $ne: false } });
+
+      for (const student of students) {
+        // Resolve goal target
+        const goal = await resolveStudentGoalForDate(student.userId, todayStr);
+        const target = goal ? goal[todayKey] : 12;
+        
+        // If target is 0 (Holiday), skip
+        if (target <= 0) continue;
+
+        // Calculate actual study hours
+        const actualHours = await calculateStudyHours(student.userId, todayStr);
+
+        if (actualHours < target) {
+          const parentPhone = student.fatherPhone || student.motherPhone;
+          if (parentPhone) {
+            const actualFormatted = actualHours.toFixed(2);
+            const alertMsg = `Dear Parent, your ward ${student.name} (ID: ${student.userId}) completed ${actualFormatted} hours of study today, falling short of their daily target of ${target} hours. — Chartered Mentor`;
+            await sendTwilioMessage(parentPhone, alertMsg);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Error in Twilio shortfall cron job:", err);
+    }
+  }, {
+    scheduled: true,
+    timezone: "Asia/Kolkata"
   });
   
   console.log("Cron jobs initialized.");
