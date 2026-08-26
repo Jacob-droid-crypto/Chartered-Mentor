@@ -24,6 +24,17 @@ export default function AttendanceTab({
   handleOpenManualCheckin,
   handleOpenManualCheckout
 }) {
+  const [searchStudentTerm, setSearchStudentTerm] = React.useState('');
+  const [isStudentDropdownOpen, setIsStudentDropdownOpen] = React.useState(false);
+  const selectedStudent = Array.isArray(students) ? students.find(s => s.userId === selectedAttendanceStudentId) : null;
+  const filteredStudentsForSelect = Array.isArray(students) ? students.filter(s => {
+    const term = searchStudentTerm.toLowerCase();
+    return (
+      (s.name || '').toLowerCase().includes(term) ||
+      (s.userId || '').toLowerCase().includes(term)
+    );
+  }) : [];
+
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
@@ -53,16 +64,115 @@ export default function AttendanceTab({
             )}
           </select>
           {attendanceView === 'student' && (user.role === 'admin' || user.role === 'staff') && (
-            <select
-              value={selectedAttendanceStudentId}
-              onChange={(e) => setSelectedAttendanceStudentId(e.target.value)}
-              style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)', maxWidth: '200px' }}
-            >
-              <option value="">Select Student...</option>
-              {students.map(s => (
-                <option key={s.userId} value={s.userId}>{s.name} ({s.userId})</option>
-              ))}
-            </select>
+            <div style={{ position: 'relative', minWidth: '220px', maxWidth: '300px' }}>
+              <div 
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  background: 'var(--card-bg, #ffffff)',
+                  border: '1px solid var(--glass-border, #cbd5e1)',
+                  borderRadius: '8px',
+                  padding: '0.6rem',
+                  cursor: 'pointer',
+                  position: 'relative'
+                }}
+                onClick={() => setIsStudentDropdownOpen(!isStudentDropdownOpen)}
+              >
+                <input
+                  type="text"
+                  placeholder={selectedStudent ? `${selectedStudent.name} (${selectedStudent.userId})` : "Select Student..."}
+                  value={isStudentDropdownOpen ? searchStudentTerm : (selectedStudent ? `${selectedStudent.name} (${selectedStudent.userId})` : '')}
+                  onChange={(e) => setSearchStudentTerm(e.target.value)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsStudentDropdownOpen(true);
+                  }}
+                  style={{
+                    border: 'none',
+                    background: 'transparent',
+                    outline: 'none',
+                    width: '100%',
+                    color: 'var(--text-main)',
+                    fontSize: '0.9rem',
+                    cursor: 'text'
+                  }}
+                />
+                {selectedAttendanceStudentId && (
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedAttendanceStudentId('');
+                      setSearchStudentTerm('');
+                      setIsStudentDropdownOpen(false);
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      fontSize: '0.95rem',
+                      padding: '0 4px',
+                      fontWeight: 'bold'
+                    }}
+                    title="Clear Selection"
+                  >
+                    ✕
+                  </button>
+                )}
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginLeft: '4px' }}>▼</span>
+              </div>
+
+              {isStudentDropdownOpen && (
+                <div style={{
+                  position: 'absolute',
+                  top: '105%',
+                  left: 0,
+                  width: '100%',
+                  maxHeight: '220px',
+                  overflowY: 'auto',
+                  background: 'var(--card-bg, #ffffff)',
+                  border: '1px solid var(--glass-border, #cbd5e1)',
+                  borderRadius: '10px',
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+                  zIndex: 1000,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  padding: '4px 0'
+                }}>
+                  {filteredStudentsForSelect.length === 0 ? (
+                    <div style={{ padding: '10px 12px', color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center' }}>
+                      No matching students found
+                    </div>
+                  ) : (
+                    filteredStudentsForSelect.map((s) => (
+                      <div
+                        key={s.userId}
+                        onClick={() => {
+                          setSelectedAttendanceStudentId(s.userId);
+                          setSearchStudentTerm('');
+                          setIsStudentDropdownOpen(false);
+                        }}
+                        style={{
+                          padding: '8px 12px',
+                          cursor: 'pointer',
+                          fontSize: '0.85rem',
+                          color: 'var(--text-main)',
+                          background: selectedAttendanceStudentId === s.userId ? 'var(--primary-color-light, rgba(79, 70, 229, 0.08))' : 'transparent',
+                          fontWeight: selectedAttendanceStudentId === s.userId ? 'bold' : 'normal',
+                          textAlign: 'left',
+                          transition: 'background 0.2s',
+                          borderBottom: '1px solid rgba(0,0,0,0.02)'
+                        }}
+                        onMouseEnter={(e) => e.target.style.background = 'var(--primary-color-light, rgba(79, 70, 229, 0.04))'}
+                        onMouseLeave={(e) => e.target.style.background = selectedAttendanceStudentId === s.userId ? 'var(--primary-color-light, rgba(79, 70, 229, 0.08))' : 'transparent'}
+                      >
+                        {s.name} ({s.userId})
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
           )}
           {(attendanceView === 'student' || attendanceView === 'range') && (
             <>
