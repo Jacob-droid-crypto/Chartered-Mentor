@@ -102,3 +102,5 @@ if (require.main === module) {
 }
 
 module.exports = app;
+
+// Trigger Vercel backend deployment - Fine Management System

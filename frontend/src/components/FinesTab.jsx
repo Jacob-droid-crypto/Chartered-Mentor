@@ -56,7 +56,18 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
         })
       });
 
-      const data = await res.json();
+      const contentType = res.headers.get('content-type');
+      let data = {};
+      if (contentType && contentType.includes('application/json')) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        if (res.status === 404 || text.includes('Cannot POST') || text.includes('<!DOCTYPE')) {
+          throw new Error('Backend deployment in progress on Vercel. Please wait 1 minute for Vercel to finish updating the server.');
+        }
+        throw new Error('Server error: Non-JSON response received.');
+      }
+
       if (!res.ok) {
         throw new Error(data.message || 'Failed to apply fine');
       }
@@ -83,9 +94,20 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
           'Authorization': `Bearer ${user.token}`
         }
       });
-      const data = await res.json();
+      const contentTypeDelete = res.headers.get('content-type');
+      let dataDelete = {};
+      if (contentTypeDelete && contentTypeDelete.includes('application/json')) {
+        dataDelete = await res.json();
+      } else {
+        const text = await res.text();
+        if (res.status === 404 || text.includes('Cannot DELETE') || text.includes('<!DOCTYPE')) {
+          throw new Error('Backend deployment in progress on Vercel. Please wait 1 minute for Vercel to finish updating the server.');
+        }
+        throw new Error('Server error: Non-JSON response received.');
+      }
+
       if (!res.ok) {
-        throw new Error(data.message || 'Failed to delete fine');
+        throw new Error(dataDelete.message || 'Failed to delete fine');
       }
       setStatusMsg({ type: 'success', text: 'Fine record removed successfully.' });
       if (fetchStudentsData) fetchStudentsData();
