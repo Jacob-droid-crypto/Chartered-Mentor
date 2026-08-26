@@ -3193,10 +3193,11 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
               const todayLogs = data?.todayLogs || [];
               const lastLog = todayLogs.length > 0 ? todayLogs[todayLogs.length - 1] : null;
               const isCurrentlyCheckedIn = lastLog && lastLog.type === 'IN';
+              const unpaidFinesList = (data?.fines || []).filter(f => !f.status || f.status === 'Unpaid');
 
               return (
                 <>
-                  {data?.fines && data.fines.length > 0 && (
+                  {unpaidFinesList.length > 0 && (
                     <div className="card" style={{
                       marginBottom: '2rem',
                       background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.08) 100%)',
@@ -3207,18 +3208,18 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
                         <div>
                           <h3 style={{ color: '#ef4444', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
-                            ⚠️ Fine Notice ({data.fines.length})
+                            ⚠️ Fine Notice ({unpaidFinesList.length})
                           </h3>
                           <p style={{ color: 'var(--text-main)', fontSize: '0.95rem', marginTop: '0.4rem', marginBottom: 0 }}>
                             You have fine(s) recorded on your account. Please contact administration for details.
                           </p>
                         </div>
                         <div style={{ fontWeight: 'bold', fontSize: '1.2rem', color: '#ef4444' }}>
-                          Total: ₹{data.fines.reduce((sum, f) => sum + (f.amount || 0), 0)}
+                          Total: ₹{unpaidFinesList.reduce((sum, f) => sum + (f.amount || 0), 0)}
                         </div>
                       </div>
                       <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        {data.fines.map((fine, idx) => (
+                        {unpaidFinesList.map((fine, idx) => (
                           <div key={idx} style={{
                             display: 'flex',
                             justify: 'space-between',
