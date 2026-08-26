@@ -3018,19 +3018,21 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                           >
                             <span>🕒</span> Check-In Options
                           </li>
-                          <li
-                            className={`nav-dropdown-item ${activeTab === 'scan_qr' ? 'active' : ''}`}
-                            onClick={() => {
-                              setShowNavDropdown(false);
-                              if (data && !data.profileCompleted) {
-                                alert('Please complete your profile details first to unlock all dashboard features.');
-                                return;
-                              }
-                              setActiveTab('scan_qr');
-                            }}
-                          >
-                            <span>📷</span> Scan QR Code
-                          </li>
+                          {data?.mode !== 'online' && (
+                            <li
+                              className={`nav-dropdown-item ${activeTab === 'scan_qr' ? 'active' : ''}`}
+                              onClick={() => {
+                                setShowNavDropdown(false);
+                                if (data && !data.profileCompleted) {
+                                  alert('Please complete your profile details first to unlock all dashboard features.');
+                                  return;
+                                }
+                                setActiveTab('scan_qr');
+                              }}
+                            >
+                              <span>📷</span> Scan QR Code
+                            </li>
+                          )}
                           <li
                             className={`nav-dropdown-item ${activeTab === 'profile' ? 'active' : ''}`}
                             onClick={() => {
@@ -3279,6 +3281,56 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                       )}
                     </>
                   )}
+
+                  {(() => {
+                    const alerts = getStudentNotifications();
+                    return (
+                      <div className="card" style={{ marginBottom: '2rem', padding: '1.5rem 2rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.75rem' }}>
+                          <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.25rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                            🔔 My Alerts & Notifications
+                          </h3>
+                          <span style={{ fontSize: '0.85rem', background: 'var(--primary-color)', color: 'white', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold' }}>
+                            {alerts.length} Active
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '350px', overflowY: 'auto', paddingRight: '0.5rem' }}>
+                          {alerts.length > 0 ? (
+                            alerts.map((alert) => (
+                              <div
+                                key={alert.id}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '1rem',
+                                  padding: '1rem 1.25rem',
+                                  borderRadius: '12px',
+                                  background: alert.severity === 'warning' ? 'rgba(239, 68, 68, 0.04)'
+                                    : alert.severity === 'success' ? 'rgba(16, 185, 129, 0.04)'
+                                      : alert.severity === 'info' ? 'rgba(59, 130, 246, 0.04)'
+                                        : 'rgba(0, 0, 0, 0.02)',
+                                  border: alert.severity === 'warning' ? '1px solid rgba(239, 68, 68, 0.15)'
+                                    : alert.severity === 'success' ? '1px solid rgba(16, 185, 129, 0.15)'
+                                      : alert.severity === 'info' ? '1px solid rgba(59, 130, 246, 0.15)'
+                                        : '1px solid var(--glass-border)',
+                                }}
+                              >
+                                <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>{alert.icon}</span>
+                                <div style={{ flexGrow: 1, fontSize: '0.95rem', color: 'var(--text-main)', lineHeight: '1.4' }}>
+                                  {alert.message}
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--text-muted)' }}>
+                              <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>✨</span>
+                              No notifications or alerts today. Everything is running smoothly!
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {motivationalQuote && (
                     <div className="card" style={{
@@ -3542,55 +3594,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
               );
             })()}
 
-            {user.role === 'student' && (() => {
-              const alerts = getStudentNotifications();
-              return (
-                <div className="card" style={{ marginBottom: '2rem', padding: '1.5rem 2rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.75rem' }}>
-                    <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.25rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                      🔔 My Alerts & Notifications
-                    </h3>
-                    <span style={{ fontSize: '0.85rem', background: 'var(--primary-color)', color: 'white', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold' }}>
-                      {alerts.length} Active
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '350px', overflowY: 'auto', paddingRight: '0.5rem' }}>
-                    {alerts.length > 0 ? (
-                      alerts.map((alert) => (
-                        <div
-                          key={alert.id}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '1rem',
-                            padding: '1rem 1.25rem',
-                            borderRadius: '12px',
-                            background: alert.severity === 'warning' ? 'rgba(239, 68, 68, 0.04)'
-                              : alert.severity === 'success' ? 'rgba(16, 185, 129, 0.04)'
-                                : alert.severity === 'info' ? 'rgba(59, 130, 246, 0.04)'
-                                  : 'rgba(0, 0, 0, 0.02)',
-                            border: alert.severity === 'warning' ? '1px solid rgba(239, 68, 68, 0.15)'
-                              : alert.severity === 'success' ? '1px solid rgba(16, 185, 129, 0.15)'
-                                : alert.severity === 'info' ? '1px solid rgba(59, 130, 246, 0.15)'
-                                  : '1px solid var(--glass-border)',
-                          }}
-                        >
-                          <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>{alert.icon}</span>
-                          <div style={{ flexGrow: 1, fontSize: '0.95rem', color: 'var(--text-main)', lineHeight: '1.4' }}>
-                            {alert.message}
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--text-muted)' }}>
-                        <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>✨</span>
-                        No notifications or alerts today. Everything is running smoothly!
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
+
 
             {(user.role === 'admin' || user.role === 'staff') && (
               <div className="charts-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
