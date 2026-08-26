@@ -1345,120 +1345,72 @@ const deleteExamSchedule = async (req, res) => {
   }
 };
 
-module.exports = {
-  loginAdmin,
-  addStudent,
-  getAttendance,
-  getDailySummary,
-  getStudents,
-  deleteStudent,
-  resetPassword,
-  getProfile,
-  uploadQuestionPaper,
-  getAdminPapers,
-  deletePaper,
-  downloadAnswerPaper,
-  getPaymentConfig,
-  updatePaymentConfig,
-  updateStudentFees,
-  addStudentPayment,
-  approveStudentPayment,
-  rejectStudentPayment,
-  editStudentPayment,
-  revertStudentPayment,
-  updateStudentProfileByAdmin,
-  getGoalConfig,
-  updateGoalConfig,
-  createSchedule,
-  getAdminSchedules,
-  deleteSchedule,
-  manualCheckout,
-  downloadScheduleFileAdmin,
-  getExamSchedules,
-  createExamSchedule,
-  updateExamSchedule,
-  deleteExamSchedule
-};
 
-const getCampusQR = async (req, res) => {
+
+/* ================= APPLY FINE TO STUDENT ================= */
+const applyFine = async (req, res) => {
   try {
-    let config = await CampusQR.findOne();
-    if (!config) {
-      config = await CampusQR.create({
-        activeInToken: "CM-ATTENDANCE-IN",
-        activeOutToken: "CM-ATTENDANCE-OUT"
-      });
-    }
-    res.json(config);
-  } catch (err) {
-    console.error("Get campus QR error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-};
+    const { studentId } = req.params;
+    const { amount, reason } = req.body;
 
-const refreshCampusQR = async (req, res) => {
-  try {
-    const { type } = req.body; // 'IN' or 'OUT'
-    if (type !== 'IN' && type !== 'OUT') {
-      return res.status(400).json({ message: "Invalid type" });
+    if (!amount || isNaN(amount) || Number(amount) <= 0) {
+      return res.status(400).json({ message: "A valid positive amount is required" });
+    }
+    if (!reason || !["Late Arrival", "Taking Leaves"].includes(reason)) {
+      return res.status(400).json({ message: "Reason must be 'Late Arrival' or 'Taking Leaves'" });
     }
 
-    let config = await CampusQR.findOne();
-    if (!config) {
-      config = new CampusQR();
-    }
-
-    const randomSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
-    if (type === 'IN') {
-      config.activeInToken = `CM-ATTENDANCE-IN-${randomSuffix}`;
-    } else {
-      config.activeOutToken = `CM-ATTENDANCE-OUT-${randomSuffix}`;
-    }
-    config.updatedAt = new Date();
-
-    await config.save();
-    res.json(config);
-  } catch (err) {
-    console.error("Refresh campus QR error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-const resetStudentDevice = async (req, res) => {
-  try {
-    const { id } = req.params;
-    if (!id) return res.status(400).json({ message: "Student ID is required" });
-    const cleanId = id.trim().toUpperCase();
-    const updated = await User.findOneAndUpdate(
-      { userId: cleanId, role: "student" },
-      { deviceFingerprint: null },
-      { new: true }
-    );
-
-    if (!updated) {
+    const student = await User.findOne({ userId: studentId.trim().toUpperCase(), role: "student" });
+    if (!student) {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    res.json({ message: "Student device lock reset successfully" });
+    if (!student.fines) {
+      student.fines = [];
+    }
+
+    student.fines.push({
+      amount: Number(amount),
+      reason,
+      date: new Date()
+    });
+
+    await student.save();
+
+    const studentObj = student.toObject();
+    delete studentObj.password;
+
+    res.json({ message: "Fine applied successfully", student: studentObj });
   } catch (err) {
-    console.error("Reset device error:", err);
-    res.status(500).json({ message: "Server error" });
+    console.error("Apply fine error:", err);
+    res.status(500).json({ message: "Server error: " + err.message });
   }
 };
 
-/* ================= TRIGGER AUTO LOGOUT ================= */
-const triggerAutoLogout = async (req, res) => {
-  const authHeader = req.headers.authorization;
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && (!authHeader || authHeader !== `Bearer ${cronSecret}`)) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
+/* ================= DELETE FINE FROM STUDENT ================= */
+const deleteFine = async (req, res) => {
   try {
-    const stats = await executeAutoLogout();
-    res.json({ message: "Auto logout cron job completed", stats });
+    const { studentId, fineId } = req.params;
+
+    const student = await User.findOne({ userId: studentId.trim().toUpperCase(), role: "student" });
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    if (!student.fines) {
+      return res.status(400).json({ message: "Student has no fines" });
+    }
+
+    student.fines = student.fines.filter(fine => fine._id.toString() !== fineId);
+    await student.save();
+
+    const studentObj = student.toObject();
+    delete studentObj.password;
+
+    res.json({ message: "Fine deleted successfully", student: studentObj });
   } catch (err) {
-    console.error("Cron route error:", err);
-    res.status(500).json({ message: "Cron job failed: " + err.message });
+    console.error("Delete fine error:", err);
+    res.status(500).json({ message: "Server error: " + err.message });
   }
 };
 
@@ -1500,5 +1452,7 @@ module.exports = {
   getCampusQR,
   refreshCampusQR,
   resetStudentDevice,
-  triggerAutoLogout
+  triggerAutoLogout,
+  applyFine,
+  deleteFine
 };

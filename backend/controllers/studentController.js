@@ -199,6 +199,7 @@ const getDashboard = async (req, res) => {
       dob: student.dob || null,
       joiningDate: student.joiningDate || null,
       installments: student.installments || [],
+      fines: student.fines || [],
       serverTime: new Date()
     });
   } catch (err) {

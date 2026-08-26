@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import FinesTab from './components/FinesTab';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import { Html5QrcodeScanner } from 'html5-qrcode';
@@ -718,6 +719,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
   const [students, setStudents] = useState([]);
   const [studentSearch, setStudentSearch] = useState('');
   const [seatSearch, setSeatSearch] = useState('');
+  const [showFineAlertModal, setShowFineAlertModal] = useState(false);
 
   const quotesList = [
     "Focus on your goal. Don't look in any direction but ahead.",
@@ -1087,6 +1089,13 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
           sessionStorage.setItem('feePopupShown', 'true');
         }
       }
+
+      if (user.role === 'student' && result.fines && result.fines.length > 0) {
+        if (!sessionStorage.getItem('finePopupShown_' + result.studentId)) {
+          setShowFineAlertModal(true);
+          sessionStorage.setItem('finePopupShown_' + result.studentId, 'true');
+        }
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -1298,7 +1307,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
         fetchExamSchedules();
       }
     }
-    if ((activeTab === 'students' || activeTab === 'seats') && isAdminOrStaff) {
+    if ((activeTab === 'students' || activeTab === 'seats' || activeTab === 'fines') && isAdminOrStaff) {
       fetchStudentsData();
     }
     if (activeTab === 'attendance') {
@@ -2875,6 +2884,15 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                               >
                                 <span>🎯</span> Goal Settings
                               </li>
+                              <li
+                                className={`nav-dropdown-item ${activeTab === 'fines' ? 'active' : ''}`}
+                                onClick={() => {
+                                  setShowNavDropdown(false);
+                                  setActiveTab('fines');
+                                }}
+                              >
+                                <span>💸</span> Fines
+                              </li>
                             </>
                           )}
                         </>
@@ -2990,6 +3008,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                   : activeTab === 'study_tracker' ? 'Study Goal Tracker'
                   : activeTab === 'goal_settings' ? 'Study Goal Settings'
                   : activeTab === 'seats' ? 'Seats Allocation'
+                  : activeTab === 'fines' ? 'Student Fine Management'
                   : activeTab === 'exam_scheduler' ? 'Exam Scheduler'
                   : 'Campus QR'}
               </h1>
@@ -3006,6 +3025,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                   : activeTab === 'study_tracker' ? 'Track days where you studied less than your configured daily target hours.'
                   : activeTab === 'goal_settings' ? 'Configure the mandatory study hours for each day of the week.'
                   : activeTab === 'seats' ? 'Allot and manage classroom seat allocations for residential students.'
+                  : activeTab === 'fines' ? 'Apply and manage fines issued to students.'
                   : activeTab === 'exam_scheduler' ? 'Manually schedule exam dates and study schedule ending dates for students.'
                   : 'Display the active QR code for students to scan.'}
               </p>
@@ -3102,6 +3122,51 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
 
               return (
                 <>
+                  {data?.fines && data.fines.length > 0 && (
+                    <div className="card" style={{
+                      marginBottom: '2rem',
+                      background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.08) 100%)',
+                      border: '1px solid #ef4444',
+                      borderRadius: '16px',
+                      padding: '1.25rem'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+                        <div>
+                          <h3 style={{ color: '#ef4444', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+                            ⚠️ Fine Notice (${data.fines.length})
+                          </h3>
+                          <p style={{ color: 'var(--text-main)', fontSize: '0.95rem', marginTop: '0.4rem', marginBottom: 0 }}>
+                            You have fine(s) recorded on your account. Please contact administration for details.
+                          </p>
+                        </div>
+                        <div style={{ fontWeight: 'bold', fontSize: '1.2rem', color: '#ef4444' }}>
+                          Total: ₹${data.fines.reduce((sum, f) => sum + (f.amount || 0), 0)}
+                        </div>
+                      </div>
+                      <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {data.fines.map((fine, idx) => (
+                          <div key={idx} style={{
+                            display: 'flex',
+                            justify: 'space-between',
+                            alignItems: 'center',
+                            background: 'var(--surface-color)',
+                            padding: '0.6rem 1rem',
+                            borderRadius: '8px',
+                            border: '1px solid var(--glass-border)',
+                            fontSize: '0.9rem'
+                          }}>
+                            <span>
+                              <strong>${fine.reason}</strong>
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginLeft: '0.75rem' }}>
+                                (${new Date(fine.date).toLocaleDateString()})
+                              </span>
+                            </span>
+                            <span style={{ fontWeight: 'bold', color: '#ef4444' }}>₹${fine.amount}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {data?.mode === 'online' ? (
                     <div className="card" style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
                       <div>
@@ -6515,6 +6580,8 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
               )}
             </div>
           </>
+        ) : activeTab === 'fines' && user.role === 'admin' ? (
+          <FinesTab user={user} students={students} fetchStudentsData={fetchStudentsData} />
         ) : activeTab === 'seats' ? (
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
@@ -7768,7 +7835,88 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
           </div>
         </div>
       )}
-      {/* Mobile Bottom Navigation Bar (app-like structure) */}
+      {/* Student Fine Alert Modal */}
+      {showFineAlertModal && user.role === 'student' && data?.fines && data.fines.length > 0 && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999,
+          padding: '1rem'
+        }}>
+          <div style={{
+            background: 'var(--surface-color)',
+            border: '2px solid #ef4444',
+            borderRadius: '20px',
+            maxWidth: '500px',
+            width: '100%',
+            padding: '2rem',
+            boxShadow: '0 20px 50px rgba(239, 68, 68, 0.3)'
+          }}>
+            <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
+              <div style={{ fontSize: '3.5rem', marginBottom: '0.5rem' }}>⚠️</div>
+              <h2 style={{ color: '#ef4444', fontSize: '1.6rem', fontWeight: '800', margin: 0 }}>
+                Fine Notification
+              </h2>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '0.5rem' }}>
+                Administration has recorded fine(s) for your account.
+              </p>
+            </div>
+
+            <div style={{
+              background: 'rgba(239, 68, 68, 0.08)',
+              borderRadius: '12px',
+              padding: '1rem',
+              marginBottom: '1.5rem',
+              maxHeight: '200px',
+              overflowY: 'auto'
+            }}>
+              {data.fines.map((f, i) => (
+                <div key={i} style={{
+                  display: 'flex',
+                  justify: 'space-between',
+                  alignItems: 'center',
+                  padding: '0.5rem 0',
+                  borderBottom: i < data.fines.length - 1 ? '1px solid rgba(239, 68, 68, 0.2)' : 'none'
+                }}>
+                  <div>
+                    <strong style={{ color: 'var(--text-main)', display: 'block' }}>{f.reason}</strong>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{new Date(f.date).toLocaleDateString()}</span>
+                  </div>
+                  <span style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#ef4444' }}>₹{f.amount}</span>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setShowFineAlertModal(false)}
+              style={{
+                width: '100%',
+                padding: '0.85rem',
+                background: '#ef4444',
+                color: 'white',
+                border: 'none',
+                borderRadius: '10px',
+                fontWeight: 'bold',
+                fontSize: '1rem',
+                cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(239, 68, 68, 0.4)'
+              }}
+            >
+              Acknowledge & Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+      
+{/* Mobile Bottom Navigation Bar (app-like structure) */}
       <nav className="mobile-bottom-nav">
         <ul className="mobile-bottom-nav-list">
           <li
@@ -7865,6 +8013,13 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                   >
                     <span className="nav-icon">🎯</span>
                     <span className="nav-text">Goal Set</span>
+                  </li>
+                  <li
+                    className={`mobile-bottom-nav-item ${activeTab === 'fines' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('fines')}
+                  >
+                    <span className="nav-icon">💸</span>
+                    <span className="nav-text">Fines</span>
                   </li>
                 </>
               )}
