@@ -148,9 +148,9 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
         padding: '1.75rem',
         borderRadius: '16px',
         marginBottom: '2.5rem',
-        background: 'var(--surface-color)',
-        border: '1px solid var(--glass-border)',
-        boxShadow: '0 8px 32px var(--shadow-color)'
+        background: 'var(--surface-color, #ffffff)',
+        border: '1px solid var(--glass-border, rgba(0, 0, 0, 0.1))',
+        boxShadow: '0 8px 32px var(--shadow-color, rgba(0, 0, 0, 0.05))'
       }}>
         <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '1.25rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           📝 Apply Fine
@@ -170,18 +170,21 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                   width: '100%',
                   padding: '0.75rem 1rem',
                   borderRadius: '10px',
-                  border: '1px solid var(--glass-border)',
-                  background: 'var(--bg-main, #1e293b)',
-                  color: 'var(--text-main)',
+                  border: '1px solid var(--glass-border, #cbd5e1)',
+                  background: 'var(--card-bg, #ffffff)',
+                  color: 'var(--text-main, #0f172a)',
                   fontSize: '0.95rem',
                   outline: 'none',
-                  boxSizing: 'border-box'
+                  boxSizing: 'border-box',
+                  cursor: 'pointer'
                 }}
                 required
               >
-                <option value="">-- Choose a Student --</option>
+                <option value="" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>
+                  -- Choose a Student ({Array.isArray(students) ? students.length : 0} available) --
+                </option>
                 {Array.isArray(students) && students.map((s) => (
-                  <option key={s.userId} value={s.userId}>
+                  <option key={s.userId} value={s.userId} style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>
                     {s.name || 'Unnamed'} ({s.userId}) {s.course ? `- ${s.course}` : ''}
                   </option>
                 ))}
@@ -201,11 +204,11 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                   gap: '0.5rem',
                   padding: '0.75rem 1rem',
                   borderRadius: '10px',
-                  border: `2px solid ${reason === 'Late Arrival' ? '#f59e0b' : 'var(--glass-border)'}`,
-                  background: reason === 'Late Arrival' ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
+                  border: `2px solid ${reason === 'Late Arrival' ? '#f59e0b' : 'var(--glass-border, #cbd5e1)'}`,
+                  background: reason === 'Late Arrival' ? 'rgba(245, 158, 11, 0.12)' : 'var(--card-bg, #ffffff)',
                   cursor: 'pointer',
                   fontWeight: '600',
-                  color: 'var(--text-main)',
+                  color: 'var(--text-main, #0f172a)',
                   transition: 'all 0.2s'
                 }}>
                   <input
@@ -226,11 +229,11 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                   gap: '0.5rem',
                   padding: '0.75rem 1rem',
                   borderRadius: '10px',
-                  border: `2px solid ${reason === 'Taking Leaves' ? '#8b5cf6' : 'var(--glass-border)'}`,
-                  background: reason === 'Taking Leaves' ? 'rgba(139, 92, 246, 0.1)' : 'transparent',
+                  border: `2px solid ${reason === 'Taking Leaves' ? '#8b5cf6' : 'var(--glass-border, #cbd5e1)'}`,
+                  background: reason === 'Taking Leaves' ? 'rgba(139, 92, 246, 0.12)' : 'var(--card-bg, #ffffff)',
                   cursor: 'pointer',
                   fontWeight: '600',
-                  color: 'var(--text-main)',
+                  color: 'var(--text-main, #0f172a)',
                   transition: 'all 0.2s'
                 }}>
                   <input
@@ -261,9 +264,9 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                   width: '100%',
                   padding: '0.75rem 1rem',
                   borderRadius: '10px',
-                  border: '1px solid var(--glass-border)',
-                  background: 'var(--bg-main, #1e293b)',
-                  color: 'var(--text-main)',
+                  border: '1px solid var(--glass-border, #cbd5e1)',
+                  background: 'var(--card-bg, #ffffff)',
+                  color: 'var(--text-main, #0f172a)',
                   fontSize: '0.95rem',
                   outline: 'none',
                   boxSizing: 'border-box'
@@ -299,9 +302,9 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
       <div className="card" style={{
         padding: '1.75rem',
         borderRadius: '16px',
-        background: 'var(--surface-color)',
-        border: '1px solid var(--glass-border)',
-        boxShadow: '0 8px 32px var(--shadow-color)'
+        background: 'var(--surface-color, #ffffff)',
+        border: '1px solid var(--glass-border, rgba(0, 0, 0, 0.1))',
+        boxShadow: '0 8px 32px var(--shadow-color, rgba(0, 0, 0, 0.05))'
       }}>
         <div style={{
           display: 'flex',
@@ -325,9 +328,9 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
               style={{
                 padding: '0.5rem 1rem',
                 borderRadius: '8px',
-                border: '1px solid var(--glass-border)',
-                background: 'var(--bg-main, #1e293b)',
-                color: 'var(--text-main)',
+                border: '1px solid var(--glass-border, #cbd5e1)',
+                background: 'var(--card-bg, #ffffff)',
+                color: 'var(--text-main, #0f172a)',
                 fontSize: '0.85rem'
               }}
             />
@@ -338,15 +341,15 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
               style={{
                 padding: '0.5rem 1rem',
                 borderRadius: '8px',
-                border: '1px solid var(--glass-border)',
-                background: 'var(--bg-main, #1e293b)',
-                color: 'var(--text-main)',
+                border: '1px solid var(--glass-border, #cbd5e1)',
+                background: 'var(--card-bg, #ffffff)',
+                color: 'var(--text-main, #0f172a)',
                 fontSize: '0.85rem'
               }}
             >
-              <option value="All">All Reasons</option>
-              <option value="Late Arrival">Late Arrival</option>
-              <option value="Taking Leaves">Taking Leaves</option>
+              <option value="All" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>All Reasons</option>
+              <option value="Late Arrival" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>Late Arrival</option>
+              <option value="Taking Leaves" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>Taking Leaves</option>
             </select>
           </div>
         </div>
@@ -359,7 +362,7 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
               <thead>
-                <tr style={{ borderBottom: '2px solid var(--glass-border)', color: 'var(--text-muted)' }}>
+                <tr style={{ borderBottom: '2px solid var(--glass-border, #cbd5e1)', color: 'var(--text-muted)' }}>
                   <th style={{ padding: '0.75rem 1rem' }}>Student</th>
                   <th style={{ padding: '0.75rem 1rem' }}>Reason</th>
                   <th style={{ padding: '0.75rem 1rem' }}>Amount</th>
@@ -369,7 +372,7 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
               </thead>
               <tbody>
                 {filteredFines.map((fine, idx) => (
-                  <tr key={fine._id || idx} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                  <tr key={fine._id || idx} style={{ borderBottom: '1px solid var(--glass-border, #e2e8f0)' }}>
                     <td style={{ padding: '0.85rem 1rem' }}>
                       <strong style={{ color: 'var(--text-main)' }}>{fine.studentName}</strong>
                       <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>ID: {fine.studentId}</div>
@@ -381,7 +384,7 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                         fontSize: '0.8rem',
                         fontWeight: 'bold',
                         background: fine.reason === 'Late Arrival' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(139, 92, 246, 0.15)',
-                        color: fine.reason === 'Late Arrival' ? '#f59e0b' : '#8b5cf6',
+                        color: fine.reason === 'Late Arrival' ? '#d97706' : '#7c3aed',
                         border: `1px solid ${fine.reason === 'Late Arrival' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(139, 92, 246, 0.3)'}`
                       }}>
                         {fine.reason === 'Late Arrival' ? '⏰ Late Arrival' : '🏖️ Taking Leaves'}
