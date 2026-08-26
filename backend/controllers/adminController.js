@@ -1498,7 +1498,7 @@ const deleteFine = async (req, res) => {
   }
 };
 
-/* ================= MARK FINE AS PAID ================= */
+/* ================= MARK FINE AS PAID / APPROVE ================= */
 const payFine = async (req, res) => {
   try {
     const { studentId, fineId } = req.params;
@@ -1523,9 +1523,41 @@ const payFine = async (req, res) => {
     const studentObj = student.toObject();
     delete studentObj.password;
 
-    res.json({ message: "Fine marked as Paid successfully", student: studentObj });
+    res.json({ message: "Fine payment approved successfully", student: studentObj });
   } catch (err) {
     console.error("Pay fine error:", err);
+    res.status(500).json({ message: "Server error: " + err.message });
+  }
+};
+
+/* ================= REJECT FINE PAYMENT ================= */
+const rejectFine = async (req, res) => {
+  try {
+    const { studentId, fineId } = req.params;
+
+    const student = await User.findOne({ userId: studentId.trim().toUpperCase(), role: "student" });
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    if (!student.fines) {
+      return res.status(400).json({ message: "Student has no fines" });
+    }
+
+    const fine = student.fines.id(fineId);
+    if (!fine) {
+      return res.status(404).json({ message: "Fine record not found" });
+    }
+
+    fine.status = "Unpaid";
+    await student.save();
+
+    const studentObj = student.toObject();
+    delete studentObj.password;
+
+    res.json({ message: "Fine payment rejected successfully", student: studentObj });
+  } catch (err) {
+    console.error("Reject fine error:", err);
     res.status(500).json({ message: "Server error: " + err.message });
   }
 };
@@ -1571,5 +1603,6 @@ module.exports = {
   triggerAutoLogout,
   applyFine,
   deleteFine,
-  payFine
+  payFine,
+  rejectFine
 };

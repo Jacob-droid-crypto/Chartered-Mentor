@@ -165,15 +165,29 @@ export default function StudentFinesView({ user, data, fetchDashboardData }) {
                         borderRadius: '6px',
                         fontSize: '0.8rem',
                         fontWeight: 'bold',
-                        background: fine.status === 'Paid' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                        color: fine.status === 'Paid' ? '#10b981' : '#ef4444',
-                        border: `1px solid ${fine.status === 'Paid' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+                        background: fine.status === 'Paid' ? 'rgba(16, 185, 129, 0.12)'
+                          : fine.status === 'Pending Approval' ? 'rgba(245, 158, 11, 0.12)'
+                          : 'rgba(239, 68, 68, 0.12)',
+                        color: fine.status === 'Paid' ? '#10b981'
+                          : fine.status === 'Pending Approval' ? '#d97706'
+                          : '#ef4444',
+                        border: `1px solid ${fine.status === 'Paid' ? 'rgba(16, 185, 129, 0.3)'
+                          : fine.status === 'Pending Approval' ? 'rgba(245, 158, 11, 0.3)'
+                          : 'rgba(239, 68, 68, 0.3)'}`
                       }}>
                         {fine.status}
                       </span>
                     </td>
                     <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>
-                      {fine.status !== 'Paid' ? (
+                      {fine.status === 'Paid' ? (
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: '500' }}>
+                          Settled ✓
+                        </span>
+                      ) : fine.status === 'Pending Approval' ? (
+                        <span style={{ color: '#d97706', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '3px', justifyContent: 'flex-end' }}>
+                          🕒 Pending Approval
+                        </span>
+                      ) : (
                         <button
                           disabled={payingId === fine._id}
                           onClick={() => handleMarkAsPaid(fine._id)}
@@ -192,10 +206,6 @@ export default function StudentFinesView({ user, data, fetchDashboardData }) {
                         >
                           {payingId === fine._id ? 'Processing...' : 'Mark Paid'}
                         </button>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: '500' }}>
-                          Settled ✓
-                        </span>
                       )}
                     </td>
                   </tr>

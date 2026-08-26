@@ -1114,13 +1114,13 @@ const markFinePaid = async (req, res) => {
       return res.status(404).json({ message: "Fine record not found" });
     }
 
-    fine.status = "Paid";
+    fine.status = "Pending Approval";
     await student.save();
 
     const studentObj = student.toObject();
     delete studentObj.password;
 
-    res.json({ message: "Fine marked as Paid successfully", student: studentObj });
+    res.json({ message: "Fine payment submitted and is pending admin approval.", student: studentObj });
   } catch (err) {
     console.error("Student mark fine paid error:", err);
     res.status(500).json({ message: "Server error: " + err.message });

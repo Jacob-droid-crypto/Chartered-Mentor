@@ -156,6 +156,41 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
     }
   };
 
+  // Handle fine payment rejection
+  const handleRejectFine = async (studentId, fineId) => {
+    if (!window.confirm('Reject this fine payment and mark it as unpaid?')) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/admin/student/${studentId}/fine/${fineId}/reject`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${user.token}`
+        }
+      });
+      const contentTypePay = res.headers.get('content-type');
+      let dataPay = {};
+      if (contentTypePay && contentTypePay.includes('application/json')) {
+        dataPay = await res.json();
+      } else {
+        const text = await res.text();
+        if (res.status === 404 || text.includes('Cannot POST') || text.includes('<!DOCTYPE')) {
+          throw new Error('Backend deployment in progress on Vercel. Please wait 1 minute for Vercel to finish updating the server.');
+        }
+        throw new Error('Server error: Non-JSON response received.');
+      }
+
+      if (!res.ok) {
+        throw new Error(dataPay.message || 'Failed to reject fine payment');
+      }
+      setStatusMsg({ type: 'success', text: 'Fine payment rejected successfully.' });
+      if (fetchStudentsData) fetchStudentsData();
+    } catch (err) {
+      setStatusMsg({ type: 'error', text: err.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Helper to format fine date or range
   const formatFinePeriod = (fine) => {
     const s = fine.startDate || fine.date;
@@ -192,7 +227,7 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
   // Filter fines
   const filteredFines = allFines.filter((f) => {
     const matchesReason = reasonFilter === 'All' || f.reason === reasonFilter;
-    const matchesStatus = statusFilter === 'All' || (statusFilter === 'Paid' ? f.status === 'Paid' : f.status !== 'Paid');
+    const matchesStatus = statusFilter === 'All' || f.status === statusFilter;
     const q = searchQuery.toLowerCase();
     const matchesQuery = !q || f.studentName.toLowerCase().includes(q) || f.studentId.toLowerCase().includes(q);
     return matchesReason && matchesStatus && matchesQuery;
@@ -628,6 +663,7 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
               <option value="All" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>All Statuses</option>
               <option value="Paid" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>Paid</option>
               <option value="Unpaid" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>Unpaid</option>
+              <option value="Pending Approval" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>Pending Approval</option>
             </select>
           </div>
         </div>
@@ -681,16 +717,60 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                         borderRadius: '6px',
                         fontSize: '0.85rem',
                         fontWeight: 'bold',
-                        background: fine.status === 'Paid' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                        color: fine.status === 'Paid' ? '#10b981' : '#ef4444',
-                        border: `1px solid ${fine.status === 'Paid' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+                        background: fine.status === 'Paid' ? 'rgba(16, 185, 129, 0.15)'
+                          : fine.status === 'Pending Approval' ? 'rgba(245, 158, 11, 0.15)'
+                          : 'rgba(239, 68, 68, 0.15)',
+                        color: fine.status === 'Paid' ? '#10b981'
+                          : fine.status === 'Pending Approval' ? '#d97706'
+                          : '#ef4444',
+                        border: `1px solid ${fine.status === 'Paid' ? 'rgba(16, 185, 129, 0.3)'
+                          : fine.status === 'Pending Approval' ? 'rgba(245, 158, 11, 0.3)'
+                          : 'rgba(239, 68, 68, 0.3)'}`
                       }}>
-                        {fine.status === 'Paid' ? 'Paid' : 'Unpaid'}
+                        {fine.status}
                       </span>
                     </td>
                     <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                        {fine.status !== 'Paid' && (
+                        {fine.status === 'Pending Approval' && (
+                          <>
+                            <button
+                              onClick={() => handlePayFine(fine.studentId, fine._id)}
+                              style={{
+                                padding: '0.35rem 0.75rem',
+                                background: 'rgba(16, 185, 129, 0.1)',
+                                color: '#10b981',
+                                border: '1px solid rgba(16, 185, 129, 0.3)',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontWeight: 'bold',
+                                fontSize: '0.8rem',
+                                transition: 'all 0.2s'
+                              }}
+                              title="Approve Payment"
+                            >
+                              ✓ Approve
+                            </button>
+                            <button
+                              onClick={() => handleRejectFine(fine.studentId, fine._id)}
+                              style={{
+                                padding: '0.35rem 0.75rem',
+                                background: 'rgba(245, 158, 11, 0.1)',
+                                color: '#d97706',
+                                border: '1px solid rgba(245, 158, 11, 0.3)',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontWeight: 'bold',
+                                fontSize: '0.8rem',
+                                transition: 'all 0.2s'
+                              }}
+                              title="Reject Payment"
+                            >
+                              ✗ Reject
+                            </button>
+                          </>
+                        )}
+                        {fine.status === 'Unpaid' && (
                           <button
                             onClick={() => handlePayFine(fine.studentId, fine._id)}
                             style={{
