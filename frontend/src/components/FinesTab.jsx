@@ -1,9 +1,20 @@
 import React, { useState } from 'react';
 
+const getTodayStr = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export default function FinesTab({ user, students = [], fetchStudentsData }) {
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [reason, setReason] = useState('Late Arrival');
   const [amount, setAmount] = useState('');
+  const [startDate, setStartDate] = useState(getTodayStr());
+  const [endDate, setEndDate] = useState(getTodayStr());
+  
   const [loading, setLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
   
@@ -24,6 +35,10 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
       setStatusMsg({ type: 'error', text: 'Please enter a valid positive fine amount.' });
       return;
     }
+    if (startDate && endDate && new Date(endDate) < new Date(startDate)) {
+      setStatusMsg({ type: 'error', text: 'End Date cannot be earlier than Start Date.' });
+      return;
+    }
 
     setLoading(true);
     try {
@@ -35,7 +50,9 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
         },
         body: JSON.stringify({
           amount: Number(amount),
-          reason
+          reason,
+          startDate,
+          endDate
         })
       });
 
@@ -46,6 +63,8 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
 
       setStatusMsg({ type: 'success', text: `Fine of ₹${amount} for '${reason}' applied successfully!` });
       setAmount('');
+      setStartDate(getTodayStr());
+      setEndDate(getTodayStr());
       if (fetchStudentsData) fetchStudentsData();
     } catch (err) {
       setStatusMsg({ type: 'error', text: err.message });
@@ -73,6 +92,19 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
     } catch (err) {
       setStatusMsg({ type: 'error', text: err.message });
     }
+  };
+
+  // Helper to format fine date or range
+  const formatFinePeriod = (fine) => {
+    const s = fine.startDate || fine.date;
+    const e = fine.endDate || fine.date;
+    if (!s) return 'N/A';
+    const sStr = new Date(s).toLocaleDateString([], { dateStyle: 'medium' });
+    const eStr = new Date(e).toLocaleDateString([], { dateStyle: 'medium' });
+    if (sStr === eStr) {
+      return sStr;
+    }
+    return `${sStr} – ${eStr}`;
   };
 
   // Compile all fines from students array
@@ -119,7 +151,7 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
             💸 Student Fine Management
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '0.3rem' }}>
-            Apply fines to students for Late Arrival or Taking Leaves.
+            Apply fines to students for Late Arrival or Taking Leaves with date range selection.
           </p>
         </div>
       </div>
@@ -274,6 +306,66 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                 required
               />
             </div>
+
+            {/* Date Range Selection (Calendar Pickers) */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--text-main)', fontSize: '0.9rem' }}>
+                📅 Fine Period / Date Range <span style={{ color: '#ef4444' }}>*</span>
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                <div>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>
+                    Start Date
+                  </span>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => {
+                      setStartDate(e.target.value);
+                      if (new Date(endDate) < new Date(e.target.value)) {
+                        setEndDate(e.target.value);
+                      }
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem 1rem',
+                      borderRadius: '10px',
+                      border: '1px solid var(--glass-border, #cbd5e1)',
+                      background: 'var(--card-bg, #ffffff)',
+                      color: 'var(--text-main, #0f172a)',
+                      fontSize: '0.95rem',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>
+                    End Date
+                  </span>
+                  <input
+                    type="date"
+                    value={endDate}
+                    min={startDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem 1rem',
+                      borderRadius: '10px',
+                      border: '1px solid var(--glass-border, #cbd5e1)',
+                      background: 'var(--card-bg, #ffffff)',
+                      color: 'var(--text-main, #0f172a)',
+                      fontSize: '0.95rem',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                    required
+                  />
+                </div>
+              </div>
+            </div>
           </div>
 
           <button
@@ -366,7 +458,7 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                   <th style={{ padding: '0.75rem 1rem' }}>Student</th>
                   <th style={{ padding: '0.75rem 1rem' }}>Reason</th>
                   <th style={{ padding: '0.75rem 1rem' }}>Amount</th>
-                  <th style={{ padding: '0.75rem 1rem' }}>Date Issued</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>Applicable Period</th>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
@@ -393,8 +485,8 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                     <td style={{ padding: '0.85rem 1rem', fontWeight: 'bold', color: '#ef4444' }}>
                       ₹{fine.amount}
                     </td>
-                    <td style={{ padding: '0.85rem 1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                      {new Date(fine.date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                    <td style={{ padding: '0.85rem 1rem', color: 'var(--text-main)', fontSize: '0.85rem', fontWeight: '500' }}>
+                      📅 {formatFinePeriod(fine)}
                     </td>
                     <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>
                       <button

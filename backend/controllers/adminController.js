@@ -1351,7 +1351,7 @@ const deleteExamSchedule = async (req, res) => {
 const applyFine = async (req, res) => {
   try {
     const { studentId } = req.params;
-    const { amount, reason } = req.body;
+    const { amount, reason, startDate, endDate } = req.body;
 
     if (!amount || isNaN(amount) || Number(amount) <= 0) {
       return res.status(400).json({ message: "A valid positive amount is required" });
@@ -1369,10 +1369,15 @@ const applyFine = async (req, res) => {
       student.fines = [];
     }
 
+    const sDate = startDate ? new Date(startDate) : new Date();
+    const eDate = endDate ? new Date(endDate) : sDate;
+
     student.fines.push({
       amount: Number(amount),
       reason,
-      date: new Date()
+      date: new Date(),
+      startDate: sDate,
+      endDate: eDate
     });
 
     await student.save();

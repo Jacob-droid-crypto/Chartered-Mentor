@@ -3158,7 +3158,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                             <span>
                               <strong>${fine.reason}</strong>
                               <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginLeft: '0.75rem' }}>
-                                (${new Date(fine.date).toLocaleDateString()})
+                                (${fine.startDate && fine.endDate && new Date(fine.startDate).toLocaleDateString() !== new Date(fine.endDate).toLocaleDateString() ? `${new Date(fine.startDate).toLocaleDateString()} – ${new Date(fine.endDate).toLocaleDateString()}` : new Date(fine.startDate || fine.date).toLocaleDateString()})
                               </span>
                             </span>
                             <span style={{ fontWeight: 'bold', color: '#ef4444' }}>₹${fine.amount}</span>
@@ -7888,7 +7888,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                 }}>
                   <div>
                     <strong style={{ color: 'var(--text-main)', display: 'block' }}>{f.reason}</strong>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{new Date(f.date).toLocaleDateString()}</span>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Period: {f.startDate && f.endDate && new Date(f.startDate).toLocaleDateString() !== new Date(f.endDate).toLocaleDateString() ? `${new Date(f.startDate).toLocaleDateString()} – ${new Date(f.endDate).toLocaleDateString()}` : new Date(f.startDate || f.date).toLocaleDateString()}</span>
                   </div>
                   <span style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#ef4444' }}>₹{f.amount}</span>
                 </div>
