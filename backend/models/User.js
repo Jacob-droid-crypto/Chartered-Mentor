@@ -121,6 +121,11 @@ const userSchema = new mongoose.Schema({
     dueDate: { type: Date, required: true },
     status: { type: String, enum: ["Unpaid", "Paid"], default: "Unpaid" },
     paidDate: { type: Date }
+  }],
+  fines: [{
+    amount: { type: Number, required: true },
+    reason: { type: String, enum: ["Late Arrival", "Taking Leaves"], required: true },
+    date: { type: Date, default: Date.now }
   }]
 });
 
