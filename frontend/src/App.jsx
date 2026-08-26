@@ -21,12 +21,23 @@ function App() {
     localStorage.setItem('cmTheme', theme);
   }, [theme]);
 
+  const clearReminderPopupFlags = () => {
+    sessionStorage.removeItem('feePopupShown');
+    for (let i = sessionStorage.length - 1; i >= 0; i--) {
+      const key = sessionStorage.key(i);
+      if (key && key.startsWith('finePopupShown_')) {
+        sessionStorage.removeItem(key);
+      }
+    }
+  };
+
   useEffect(() => {
     // Check if user is stored in localStorage
     const storedUser = localStorage.getItem('cmUser');
     if (storedUser) {
       try {
         setUser(JSON.parse(storedUser));
+        clearReminderPopupFlags(); // Clear popups on auto-login
       } catch (e) {
         console.error('Failed to parse user from local storage');
       }
@@ -34,7 +45,7 @@ function App() {
   }, []);
 
   const handleLoginSuccess = (userData) => {
-    sessionStorage.removeItem('feePopupShown');
+    clearReminderPopupFlags(); // Clear popups on manual login
     setUser(userData);
     localStorage.setItem('cmUser', JSON.stringify(userData));
   };
@@ -42,7 +53,7 @@ function App() {
   const handleLogout = () => {
     setUser(null);
     localStorage.removeItem('cmUser');
-    sessionStorage.removeItem('feePopupShown');
+    clearReminderPopupFlags(); // Clear popups on logout
     // Clear URL hash from the browser history/address bar
     if (window.location.hash) {
       window.history.replaceState(null, document.title, window.location.pathname + window.location.search);

@@ -18,6 +18,10 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
   const [loading, setLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
   
+  // States for searchable student dropdown
+  const [searchStudentTerm, setSearchStudentTerm] = useState('');
+  const [isStudentDropdownOpen, setIsStudentDropdownOpen] = useState(false);
+  
   // Search & Filter state for fines ledger
   const [searchQuery, setSearchQuery] = useState('');
   const [reasonFilter, setReasonFilter] = useState('All');
@@ -194,6 +198,15 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
     return matchesReason && matchesStatus && matchesQuery;
   });
 
+  const selectedStudent = Array.isArray(students) ? students.find(s => s.userId === selectedStudentId) : null;
+  const filteredStudentsForSelect = Array.isArray(students) ? students.filter(s => {
+    const term = searchStudentTerm.toLowerCase();
+    return (
+      (s.name || '').toLowerCase().includes(term) ||
+      (s.userId || '').toLowerCase().includes(term)
+    );
+  }) : [];
+
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
       {/* Header Banner */}
@@ -210,7 +223,7 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
             💸 Student Fine Management
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '0.3rem' }}>
-            Apply fines to students for Study Hours Deficit or Over Leaves with date range selection.
+            Apply fines to students for Study Hours Deficit or Excess Leaves with date range selection.
           </p>
         </div>
       </div>
@@ -254,32 +267,129 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
               <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--text-main)', fontSize: '0.9rem' }}>
                 Select Student <span style={{ color: '#ef4444' }}>*</span>
               </label>
-              <select
-                value={selectedStudentId}
-                onChange={(e) => setSelectedStudentId(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem 1rem',
-                  borderRadius: '10px',
-                  border: '1px solid var(--glass-border, #cbd5e1)',
-                  background: 'var(--card-bg, #ffffff)',
-                  color: 'var(--text-main, #0f172a)',
-                  fontSize: '0.95rem',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                  cursor: 'pointer'
-                }}
-                required
-              >
-                <option value="" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>
-                  -- Choose a Student ({Array.isArray(students) ? students.length : 0} available) --
-                </option>
-                {Array.isArray(students) && students.map((s) => (
-                  <option key={s.userId} value={s.userId} style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>
-                    {s.name || 'Unnamed'} ({s.userId}) {s.course ? `- ${s.course}` : ''}
-                  </option>
-                ))}
-              </select>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="text"
+                  placeholder={selectedStudent ? `${selectedStudent.name} (${selectedStudent.userId})` : "-- Search and choose a student --"}
+                  value={isStudentDropdownOpen ? searchStudentTerm : (selectedStudent ? `${selectedStudent.name} (${selectedStudent.userId})` : '')}
+                  onFocus={() => {
+                    setIsStudentDropdownOpen(true);
+                    setSearchStudentTerm(''); // Clear term to show all on focus
+                  }}
+                  onChange={(e) => setSearchStudentTerm(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem 1.8rem 0.75rem 1rem',
+                    borderRadius: '10px',
+                    border: '1px solid var(--glass-border, #cbd5e1)',
+                    background: 'var(--card-bg, #ffffff)',
+                    color: 'var(--text-main, #0f172a)',
+                    fontSize: '0.95rem',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    cursor: 'text'
+                  }}
+                />
+                {selectedStudent && !isStudentDropdownOpen && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedStudentId('');
+                      setSearchStudentTerm('');
+                    }}
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: 'var(--text-muted, #64748b)',
+                      fontSize: '1rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: 0
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
+                {isStudentDropdownOpen && (
+                  <>
+                    <div
+                      style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        zIndex: 998
+                      }}
+                      onClick={() => setIsStudentDropdownOpen(false)}
+                    />
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        background: 'var(--card-bg, #ffffff)',
+                        border: '1px solid var(--glass-border, #cbd5e1)',
+                        borderRadius: '10px',
+                        marginTop: '4px',
+                        maxHeight: '220px',
+                        overflowY: 'auto',
+                        zIndex: 999,
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                        padding: '4px'
+                      }}
+                    >
+                      {filteredStudentsForSelect.length === 0 ? (
+                        <div style={{ padding: '0.75rem 1rem', color: 'var(--text-muted, #64748b)', fontSize: '0.9rem' }}>
+                          No students found
+                        </div>
+                      ) : (
+                        filteredStudentsForSelect.map((s) => (
+                          <div
+                            key={s.userId}
+                            onClick={() => {
+                              setSelectedStudentId(s.userId);
+                              setIsStudentDropdownOpen(false);
+                            }}
+                            style={{
+                              padding: '0.6rem 1rem',
+                              cursor: 'pointer',
+                              borderRadius: '6px',
+                              background: selectedStudentId === s.userId ? 'var(--primary-color, #4f46e5)' : 'transparent',
+                              color: selectedStudentId === s.userId ? '#ffffff' : 'var(--text-main, #0f172a)',
+                              fontSize: '0.9rem',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              transition: 'background 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                              if (selectedStudentId !== s.userId) {
+                                e.currentTarget.style.background = 'rgba(0, 0, 0, 0.05)';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (selectedStudentId !== s.userId) {
+                                e.currentTarget.style.background = 'transparent';
+                              }
+                            }}
+                          >
+                            <span>{s.name || 'Unnamed'}</span>
+                            <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>{s.userId}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Fine Reason Scheme */}
@@ -320,8 +430,8 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                   gap: '0.5rem',
                   padding: '0.75rem 1rem',
                   borderRadius: '10px',
-                  border: `2px solid ${reason === 'Over Leaves' ? '#8b5cf6' : 'var(--glass-border, #cbd5e1)'}`,
-                  background: reason === 'Over Leaves' ? 'rgba(139, 92, 246, 0.12)' : 'var(--card-bg, #ffffff)',
+                  border: `2px solid ${reason === 'Excess Leaves' ? '#8b5cf6' : 'var(--glass-border, #cbd5e1)'}`,
+                  background: reason === 'Excess Leaves' ? 'rgba(139, 92, 246, 0.12)' : 'var(--card-bg, #ffffff)',
                   cursor: 'pointer',
                   fontWeight: '600',
                   color: 'var(--text-main, #0f172a)',
@@ -330,12 +440,12 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                   <input
                     type="radio"
                     name="reason"
-                    value="Over Leaves"
-                    checked={reason === 'Over Leaves'}
-                    onChange={() => setReason('Over Leaves')}
+                    value="Excess Leaves"
+                    checked={reason === 'Excess Leaves'}
+                    onChange={() => setReason('Excess Leaves')}
                     style={{ accentColor: '#8b5cf6' }}
                   />
-                  🏖️ Over Leaves
+                  🏖️ Excess Leaves
                 </label>
               </div>
             </div>
@@ -500,7 +610,7 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
             >
               <option value="All" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>All Reasons</option>
               <option value="Study Hours Deficit" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>Study Hours Deficit</option>
-              <option value="Over Leaves" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>Over Leaves</option>
+              <option value="Excess Leaves" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>Excess Leaves</option>
             </select>
 
             <select
@@ -556,7 +666,7 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                         color: fine.reason === 'Study Hours Deficit' ? '#d97706' : '#7c3aed',
                         border: `1px solid ${fine.reason === 'Study Hours Deficit' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(139, 92, 246, 0.3)'}`
                       }}>
-                        {fine.reason === 'Study Hours Deficit' ? '⏰ Study Hours Deficit' : '🏖️ Over Leaves'}
+                        {fine.reason === 'Study Hours Deficit' ? '⏰ Study Hours Deficit' : '🏖️ Excess Leaves'}
                       </span>
                     </td>
                     <td style={{ padding: '0.85rem 1rem', fontWeight: 'bold', color: '#ef4444' }}>

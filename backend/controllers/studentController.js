@@ -1091,6 +1091,42 @@ const getStudentExamSchedules = async (req, res) => {
   }
 };
 
+/* ================= STUDENT MARK FINE AS PAID ================= */
+const markFinePaid = async (req, res) => {
+  try {
+    const user = req.user;
+    if (!user || user.role !== 'student') {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    const { fineId } = req.params;
+    const student = await User.findOne({ userId: user.userId, role: "student" });
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    if (!student.fines) {
+      return res.status(400).json({ message: "Student has no fines" });
+    }
+
+    const fine = student.fines.id(fineId);
+    if (!fine) {
+      return res.status(404).json({ message: "Fine record not found" });
+    }
+
+    fine.status = "Paid";
+    await student.save();
+
+    const studentObj = student.toObject();
+    delete studentObj.password;
+
+    res.json({ message: "Fine marked as Paid successfully", student: studentObj });
+  } catch (err) {
+    console.error("Student mark fine paid error:", err);
+    res.status(500).json({ message: "Server error: " + err.message });
+  }
+};
+
 module.exports = {
   loginStudent,
   changePassword,
@@ -1113,5 +1149,6 @@ module.exports = {
   downloadScheduleFile,
   markScheduleOpened,
   getStudentAttendanceHistory,
-  getStudentExamSchedules
+  getStudentExamSchedules,
+  markFinePaid
 };

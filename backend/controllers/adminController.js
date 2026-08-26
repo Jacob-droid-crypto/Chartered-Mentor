@@ -1435,8 +1435,8 @@ const applyFine = async (req, res) => {
     if (!amount || isNaN(amount) || Number(amount) <= 0) {
       return res.status(400).json({ message: "A valid positive amount is required" });
     }
-    if (!reason || !["Study Hours Deficit", "Over Leaves"].includes(reason)) {
-      return res.status(400).json({ message: "Reason must be 'Study Hours Deficit' or 'Over Leaves'" });
+    if (!reason || !["Study Hours Deficit", "Excess Leaves"].includes(reason)) {
+      return res.status(400).json({ message: "Reason must be 'Study Hours Deficit' or 'Excess Leaves'" });
     }
 
     const student = await User.findOne({ userId: studentId.trim().toUpperCase(), role: "student" });

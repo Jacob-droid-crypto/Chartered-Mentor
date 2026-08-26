@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import FinesTab from './components/FinesTab';
+import StudentFinesView from './components/StudentFinesView';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import { Html5QrcodeScanner } from 'html5-qrcode';
@@ -1573,7 +1574,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
             id: `fine-${fine._id || index}`,
             type: 'fine_unpaid',
             icon: '💸',
-            message: `Fine Pending: A fine of ₹${fine.amount} for "${fine.reason}" is recorded on your account.`,
+            message: `Fine Pending: A fine of ₹${fine.amount} for "${fine.reason === 'Over Leaves' ? 'Excess Leaves' : fine.reason}" is recorded on your account.`,
             severity: 'warning',
             rawTime: new Date(fine.date || fine.startDate || today).getTime()
           });
@@ -2979,6 +2980,19 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                             <span>💳</span> Payments
                           </li>
                           <li
+                            className={`nav-dropdown-item ${activeTab === 'fines' ? 'active' : ''}`}
+                            onClick={() => {
+                              setShowNavDropdown(false);
+                              if (data && !data.profileCompleted) {
+                                alert('Please complete your profile details first to unlock all dashboard features.');
+                                return;
+                              }
+                              setActiveTab('fines');
+                            }}
+                          >
+                            <span>💸</span> Fines
+                          </li>
+                          <li
                             className={`nav-dropdown-item ${activeTab === 'study_tracker' ? 'active' : ''}`}
                             onClick={() => {
                               setShowNavDropdown(false);
@@ -3002,7 +3016,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                               setActiveTab('notifications');
                             }}
                           >
-                            <span>🔔</span> Notifications
+                            <span>🕒</span> Check-In Options
                           </li>
                           <li
                             className={`nav-dropdown-item ${activeTab === 'scan_qr' ? 'active' : ''}`}
@@ -3062,9 +3076,9 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                   : activeTab === 'study_tracker' ? 'Study Goal Tracker'
                   : activeTab === 'goal_settings' ? 'Study Goal Settings'
                   : activeTab === 'seats' ? 'Seats Allocation'
-                  : activeTab === 'fines' ? 'Student Fine Management'
+                  : activeTab === 'fines' ? ((user.role === 'admin' || user.role === 'staff') ? 'Student Fine Management' : 'My Fines')
                   : activeTab === 'exam_scheduler' ? 'Exam Scheduler'
-                  : activeTab === 'notifications' ? 'My Alerts & Notifications'
+                  : activeTab === 'notifications' ? ((user.role === 'admin' || user.role === 'staff') ? 'Staff Alerts & Notifications' : 'Check-In & Check-Out')
                   : activeTab === 'scan_qr' ? 'Scan Attendance QR Code'
                   : 'Campus QR'}
               </h1>
@@ -3081,9 +3095,9 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                   : activeTab === 'study_tracker' ? 'Track days where you studied less than your configured daily target hours.'
                   : activeTab === 'goal_settings' ? 'Configure the mandatory study hours for each day of the week.'
                   : activeTab === 'seats' ? 'Allot and manage classroom seat allocations for residential students.'
-                  : activeTab === 'fines' ? 'Apply and manage fines issued to students.'
+                  : activeTab === 'fines' ? ((user.role === 'admin' || user.role === 'staff') ? 'Apply and manage fines issued to students.' : 'View your fine history and mark payments as done.')
                   : activeTab === 'exam_scheduler' ? 'Manually schedule exam dates and study schedule ending dates for students.'
-                  : activeTab === 'notifications' ? 'View warnings, fine notifications, and study alerts.'
+                  : activeTab === 'notifications' ? ((user.role === 'admin' || user.role === 'staff') ? 'View warnings and notifications.' : 'Perform manual check-in or scan campus QR code to log your attendance.')
                   : activeTab === 'scan_qr' ? 'Scan the dynamic class QR code to mark your check-in or check-out.'
                   : 'Display the active QR code for students to scan.'}
               </p>
@@ -3191,14 +3205,14 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
                         <div>
                           <h3 style={{ color: '#ef4444', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
-                            ⚠️ Fine Notice (${data.fines.length})
+                            ⚠️ Fine Notice ({data.fines.length})
                           </h3>
                           <p style={{ color: 'var(--text-main)', fontSize: '0.95rem', marginTop: '0.4rem', marginBottom: 0 }}>
                             You have fine(s) recorded on your account. Please contact administration for details.
                           </p>
                         </div>
                         <div style={{ fontWeight: 'bold', fontSize: '1.2rem', color: '#ef4444' }}>
-                          Total: ₹${data.fines.reduce((sum, f) => sum + (f.amount || 0), 0)}
+                          Total: ₹{data.fines.reduce((sum, f) => sum + (f.amount || 0), 0)}
                         </div>
                       </div>
                       <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -3214,12 +3228,12 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                             fontSize: '0.9rem'
                           }}>
                             <span>
-                              <strong>${fine.reason}</strong>
+                              <strong>{fine.reason === 'Over Leaves' ? 'Excess Leaves' : fine.reason}</strong>
                               <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginLeft: '0.75rem' }}>
-                                (${fine.startDate && fine.endDate && new Date(fine.startDate).toLocaleDateString() !== new Date(fine.endDate).toLocaleDateString() ? `${new Date(fine.startDate).toLocaleDateString()} – ${new Date(fine.endDate).toLocaleDateString()}` : new Date(fine.startDate || fine.date).toLocaleDateString()})
+                                ({fine.startDate && fine.endDate && new Date(fine.startDate).toLocaleDateString() !== new Date(fine.endDate).toLocaleDateString() ? `${new Date(fine.startDate).toLocaleDateString()} – ${new Date(fine.endDate).toLocaleDateString()}` : new Date(fine.startDate || fine.date).toLocaleDateString()})
                               </span>
                             </span>
-                            <span style={{ fontWeight: 'bold', color: '#ef4444' }}>₹${fine.amount}</span>
+                            <span style={{ fontWeight: 'bold', color: '#ef4444' }}>₹{fine.amount}</span>
                           </div>
                         ))}
                       </div>
@@ -6638,8 +6652,109 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
               )}
             </div>
           </>
-        ) : activeTab === 'fines' && (user.role === 'admin' || user.role === 'staff') ? (
-          <FinesTab user={user} students={students} fetchStudentsData={fetchStudentsData} />
+        ) : activeTab === 'fines' ? (
+          user.role === 'student' ? (
+            <StudentFinesView user={user} data={data} fetchDashboardData={fetchDashboardData} />
+          ) : (
+            <FinesTab user={user} students={students} fetchStudentsData={fetchStudentsData} />
+          )
+        ) : (activeTab === 'notifications' || activeTab === 'scan_qr') && user.role === 'student' ? (
+          <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+            {data?.mode === 'online' ? (
+              <div className="card" style={{ padding: '2rem', textAlign: 'center' }}>
+                <h3 style={{ marginBottom: '1rem', fontSize: '1.5rem', color: 'var(--text-main)' }}>Online Attendance</h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: '1rem', marginBottom: '2rem' }}>
+                  Manually check in when you start studying and check out when you finish.
+                </p>
+                <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center' }}>
+                  <button
+                    onClick={() => handleManualAttendance('IN')}
+                    style={{
+                      padding: '1rem 2rem',
+                      background: '#10b981',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                      fontSize: '1.1rem',
+                      boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)'
+                    }}
+                  >
+                    ✅ Check-In
+                  </button>
+                  <button
+                    onClick={() => handleManualAttendance('OUT')}
+                    style={{
+                      padding: '1rem 2rem',
+                      background: '#ef4444',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                      fontSize: '1.1rem',
+                      boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)'
+                    }}
+                  >
+                    ❌ Check-Out
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="card" style={{ padding: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.5rem' }}>
+                  <div>
+                    <h3 style={{ marginBottom: '0.5rem', fontSize: '1.4rem', color: 'var(--text-main)' }}>Attend Class via QR</h3>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>
+                      Align the campus dynamic QR code to securely log your attendance duration.
+                    </p>
+                  </div>
+                  {!scanning ? (
+                    <button
+                      onClick={() => setScanning(true)}
+                      style={{
+                        padding: '1rem 2rem',
+                        background: 'var(--primary-color)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        fontSize: '1.1rem',
+                        boxShadow: '0 4px 12px rgba(79, 70, 229, 0.2)'
+                      }}
+                    >
+                      📷 Scan Campus QR
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setScanning(false)}
+                      style={{
+                        padding: '1rem 2rem',
+                        background: '#ef4444',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        fontSize: '1.1rem',
+                        boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)'
+                      }}
+                    >
+                      Cancel Scan
+                    </button>
+                  )}
+                </div>
+
+                {scanning && (
+                  <div className="card" style={{ marginTop: '2rem', padding: '1.5rem' }}>
+                    <div id="reader" style={{ width: '100%', maxWidth: '400px', margin: '0 auto', overflow: 'hidden', borderRadius: '12px' }}></div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         ) : activeTab === 'seats' ? (
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>

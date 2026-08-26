@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { loginStudent, changePassword, getDashboard, scanQr, getDailyHours, updateProfile, forgotPassword, resetPassword, verifyGoogle, getStudentPapers, downloadPaper, startStudentExam, submitAnswerPaper, downloadStudentAnswerPaper, submitPayment, manualAttendance, getStudentSchedules, toggleScheduleStatus, downloadScheduleFile, markScheduleOpened, getStudentAttendanceHistory, getStudentExamSchedules } = require("../controllers/studentController");
+const { loginStudent, changePassword, getDashboard, scanQr, getDailyHours, updateProfile, forgotPassword, resetPassword, verifyGoogle, getStudentPapers, downloadPaper, startStudentExam, submitAnswerPaper, downloadStudentAnswerPaper, submitPayment, manualAttendance, getStudentSchedules, toggleScheduleStatus, downloadScheduleFile, markScheduleOpened, getStudentAttendanceHistory, getStudentExamSchedules, markFinePaid } = require("../controllers/studentController");
 const { protect, studentOnly } = require("../middleware/authMiddleware");
 const { getPaymentConfig, getGoalConfig } = require("../controllers/adminController");
 
@@ -29,6 +29,7 @@ router.get("/paper/:id/download-answer", protect, studentOnly, downloadStudentAn
 router.get("/payment-config", protect, studentOnly, getPaymentConfig);
 router.get("/goal-config", protect, studentOnly, getGoalConfig);
 router.post("/payment", protect, studentOnly, submitPayment);
+router.post("/fine/:fineId/pay", protect, studentOnly, markFinePaid);
 
 // Schedules
 router.get("/schedules", protect, studentOnly, getStudentSchedules);

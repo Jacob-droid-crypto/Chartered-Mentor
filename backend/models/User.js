@@ -124,7 +124,7 @@ const userSchema = new mongoose.Schema({
   }],
   fines: [{
     amount: { type: Number, required: true },
-    reason: { type: String, enum: ["Study Hours Deficit", "Over Leaves"], required: true },
+    reason: { type: String, enum: ["Study Hours Deficit", "Excess Leaves"], required: true },
     date: { type: Date, default: Date.now },
     startDate: { type: Date },
     endDate: { type: Date },
