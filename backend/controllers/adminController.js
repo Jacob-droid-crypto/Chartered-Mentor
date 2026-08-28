@@ -1654,7 +1654,6 @@ const deleteBatch = async (req, res) => {
   }
 };
 
->>>>>>> Stashed changes
 module.exports = {
   loginAdmin,
   addStudent,
