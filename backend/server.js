@@ -20,6 +20,22 @@ User.updateMany({ profilePhoto: { $exists: true } }, { $unset: { profilePhoto: "
   .then((res) => console.log(`🧹 Cleared profile photos from database to reclaim storage:`, res))
   .catch((err) => console.error(`Error clearing profile photos:`, err));
 
+// Seed default batches if not present
+const Batch = require("./models/Batch");
+Batch.countDocuments()
+  .then((count) => {
+    if (count === 0) {
+      return Batch.insertMany([
+        { name: "September 2026" },
+        { name: "November 2026" }
+      ]);
+    }
+  })
+  .then((res) => {
+    if (res) console.log("🌱 Seeded default batches:", res.map(b => b.name));
+  })
+  .catch((err) => console.error("Error seeding default batches:", err));
+
 /* ================= BACKGROUND JOBS ================= */
 initCronJobs();
 

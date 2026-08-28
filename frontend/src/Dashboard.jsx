@@ -755,6 +755,14 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editProfileData, setEditProfileData] = useState({});
 
+  // Batch Management State
+  const [batches, setBatches] = useState([]);
+  const [batchesLoading, setBatchesLoading] = useState(false);
+  const [batchesError, setBatchesError] = useState(null);
+  const [newBatchName, setNewBatchName] = useState('');
+  const [editingBatchId, setEditingBatchId] = useState(null);
+  const [editingBatchName, setEditingBatchName] = useState('');
+
   // Student options dropdown state
   const [openMenuId, setOpenMenuId] = useState(null);
 
@@ -1127,6 +1135,34 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
     }
   };
 
+  const fetchBatches = async () => {
+    try {
+      setBatchesLoading(true);
+      setBatchesError(null);
+      const response = await fetch(`/admin/batches`, {
+        headers: { 'Authorization': `Bearer ${user.token}` }
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || 'Failed to fetch batches');
+      setBatches(result);
+      
+      // Auto-set the new student batch if it's currently empty or has the old hardcoded default
+      if (result.length > 0) {
+        setNewStudent(prev => {
+          if (!prev.batch || prev.batch === 'September 2026') {
+            return { ...prev, batch: result[0].name };
+          }
+          return prev;
+        });
+      }
+    } catch (err) {
+      setBatchesError(err.message);
+    } finally {
+      setBatchesLoading(false);
+    }
+  };
+
+
   const fetchStudentLogs = async (studentId) => {
     if (user.role !== 'student' && !studentId) {
       setStudentLogs([]);
@@ -1309,8 +1345,9 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
         fetchExamSchedules();
       }
     }
-    if ((activeTab === 'students' || activeTab === 'seats' || activeTab === 'fines') && isAdminOrStaff) {
+    if ((activeTab === 'students' || activeTab === 'seats' || activeTab === 'fines' || activeTab === 'batches') && isAdminOrStaff) {
       fetchStudentsData();
+      fetchBatches();
     }
     if (activeTab === 'attendance') {
       fetchDashboardData(); // Fetches daily-summary (admin) or dashboard (student)
@@ -2200,9 +2237,12 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
       exportData = aggregatedData.map(record => {
         const studentInfo = Array.isArray(students) ? students.find(s => s.userId === record.studentId) : null;
         const joiningDateStr = studentInfo?.joiningDate || (record.studentId === user.userId ? data?.joiningDate : null);
+        const studyMode = studentInfo?.mode || (record.studentId === user.userId ? data?.mode : null);
+        const formattedStudyMode = studyMode ? studyMode.charAt(0).toUpperCase() + studyMode.slice(1) : "-";
         return {
           "Student Name": record.studentName || record.studentId || "-",
           "Course": record.course || "-",
+          "Study Mode": formattedStudyMode,
           "DOJ": joiningDateStr ? new Date(joiningDateStr).toLocaleDateString() : "-",
           "Status": record.status,
           "First Log In Time": record.firstIn ? new Date(record.firstIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-",
@@ -2266,10 +2306,13 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
       exportData = aggregatedData.map(record => {
         const studentInfo = Array.isArray(students) ? students.find(s => s.userId === record.studentId) : null;
         const joiningDateStr = studentInfo?.joiningDate || (record.studentId === user.userId ? data?.joiningDate : null);
+        const studyMode = studentInfo?.mode || (record.studentId === user.userId ? data?.mode : null);
+        const formattedStudyMode = studyMode ? studyMode.charAt(0).toUpperCase() + studyMode.slice(1) : "-";
 
         const row = {
           "Student Name": record.studentName || record.studentId || "-",
           "Course": record.course || "-",
+          "Study Mode": formattedStudyMode,
           "DOJ": joiningDateStr ? new Date(joiningDateStr).toLocaleDateString() : "-",
           "Total Present": record.totalPresent,
           "Total Absent (Leaves)": record.totalAbsent,
@@ -2891,6 +2934,15 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                              }}
                            >
                              <span>💸</span> Fines
+                           </li>
+                           <li
+                             className={`nav-dropdown-item ${activeTab === 'batches' ? 'active' : ''}`}
+                             onClick={() => {
+                               setShowNavDropdown(false);
+                               setActiveTab('batches');
+                             }}
+                           >
+                             <span>📦</span> Batches
                            </li>
                           {user.role === 'admin' && (
                             <>
@@ -6838,6 +6890,207 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
               </div>
             </section>
           </>
+        ) : activeTab === 'batches' ? (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+              <h2>Batch Management & Settings</h2>
+            </div>
+
+            {/* Add Batch Card */}
+            <div className="card" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
+              <h3 style={{ margin: '0 0 1rem 0', color: 'var(--text-main)' }}>➕ Add New Batch</h3>
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!newBatchName.trim()) {
+                    alert('Please enter a valid batch name.');
+                    return;
+                  }
+                  try {
+                    setLoading(true);
+                    const res = await fetch('/admin/batches', {
+                      method: 'POST',
+                      headers: {
+                        'Authorization': `Bearer ${user.token}`,
+                        'Content-Type': 'application/json'
+                      },
+                      body: JSON.stringify({ name: newBatchName.trim() })
+                    });
+                    const d = await res.json();
+                    if (!res.ok) throw new Error(d.message || 'Failed to create batch');
+                    alert('Batch created successfully!');
+                    setNewBatchName('');
+                    fetchBatches();
+                  } catch (err) {
+                    alert('Error creating batch: ' + err.message);
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}
+              >
+                <div style={{ flex: 1, minWidth: '200px' }}>
+                  <input
+                    type="text"
+                    placeholder="e.g. January 2027"
+                    value={newBatchName}
+                    onChange={(e) => setNewBatchName(e.target.value)}
+                    required
+                    style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)', fontSize: '1rem', outline: 'none' }}
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  style={{ padding: '0.75rem 1.8rem', background: '#10b981', color: 'white', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}
+                >
+                  Create Batch
+                </button>
+              </form>
+            </div>
+
+            {/* Batches List Card */}
+            <div className="card" style={{ padding: '2rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.75rem' }}>
+                <h3 style={{ margin: 0, color: 'var(--text-main)' }}>📋 All Batches</h3>
+                <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>Total: {batches.length}</span>
+              </div>
+
+              {batchesLoading && batches.length === 0 ? (
+                <div>Loading batches...</div>
+              ) : batchesError ? (
+                <div style={{ color: '#ef4444' }}>Error: {batchesError}</div>
+              ) : batches.length === 0 ? (
+                <p style={{ color: 'var(--text-muted)' }}>No batches configured yet.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {batches.map((batch) => {
+                    const studentCount = Array.isArray(students) ? students.filter(s => s.batch === batch.name).length : 0;
+                    const isEditing = editingBatchId === batch._id;
+
+                    return (
+                      <div
+                        key={batch._id}
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.4)',
+                          border: '1px solid var(--glass-border)',
+                          borderRadius: '12px',
+                          padding: '1.25rem',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          flexWrap: 'wrap',
+                          gap: '1rem',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        {isEditing ? (
+                          <form
+                            onSubmit={async (e) => {
+                              e.preventDefault();
+                              if (!editingBatchName.trim()) {
+                                alert('Please enter a valid batch name.');
+                                return;
+                              }
+                              if (editingBatchName.trim() === batch.name) {
+                                setEditingBatchId(null);
+                                return;
+                              }
+                              try {
+                                setLoading(true);
+                                const res = await fetch(`/admin/batches/${batch._id}`, {
+                                  method: 'PUT',
+                                  headers: {
+                                    'Authorization': `Bearer ${user.token}`,
+                                    'Content-Type': 'application/json'
+                                  },
+                                  body: JSON.stringify({ name: editingBatchName.trim() })
+                                });
+                                const d = await res.json();
+                                if (!res.ok) throw new Error(d.message || 'Failed to rename batch');
+                                alert('Batch renamed successfully! All associated student profiles have been updated.');
+                                setEditingBatchId(null);
+                                fetchBatches();
+                                fetchStudentsData();
+                              } catch (err) {
+                                alert('Error renaming batch: ' + err.message);
+                              } finally {
+                                setLoading(false);
+                              }
+                            }}
+                            style={{ display: 'flex', gap: '0.75rem', flex: 1, flexWrap: 'wrap', alignItems: 'center' }}
+                          >
+                            <div style={{ flex: 1, minWidth: '180px' }}>
+                              <input
+                                type="text"
+                                value={editingBatchName}
+                                onChange={(e) => setEditingBatchName(e.target.value)}
+                                required
+                                style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)' }}
+                              />
+                              <span style={{ fontSize: '0.75rem', color: '#f59e0b', display: 'block', marginTop: '4px' }}>
+                                ⚠️ Renaming will update {studentCount} associated student(s).
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                              <button type="submit" style={{ padding: '0.45rem 1rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>Save</button>
+                              <button type="button" onClick={() => setEditingBatchId(null)} style={{ padding: '0.45rem 1rem', background: 'transparent', border: '1px solid var(--text-muted)', color: 'var(--text-main)', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Cancel</button>
+                            </div>
+                          </form>
+                        ) : (
+                          <>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                              <span style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--text-main)' }}>{batch.name}</span>
+                              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                Assigned Students: <strong style={{ color: 'var(--primary-color)' }}>{studentCount}</strong>
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.75rem' }}>
+                              <button
+                                onClick={() => {
+                                  setEditingBatchId(batch._id);
+                                  setEditingBatchName(batch.name);
+                                }}
+                                style={{ padding: '0.45rem 1rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}
+                              >
+                                ✏️ Rename
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  const confirmMsg = `Are you sure you want to delete the batch "${batch.name}"?\n` +
+                                    `This will disassociate all ${studentCount} student(s) currently in this batch.`;
+                                  if (!window.confirm(confirmMsg)) return;
+                                  try {
+                                    setLoading(true);
+                                    const res = await fetch(`/admin/batches/${batch._id}`, {
+                                      method: 'DELETE',
+                                      headers: { 'Authorization': `Bearer ${user.token}` }
+                                    });
+                                    const d = await res.json();
+                                    if (!res.ok) throw new Error(d.message || 'Failed to delete batch');
+                                    alert('Batch deleted successfully!');
+                                    fetchBatches();
+                                    fetchStudentsData();
+                                  } catch (err) {
+                                    alert('Error deleting batch: ' + err.message);
+                                  } finally {
+                                    setLoading(false);
+                                  }
+                                }}
+                                style={{ padding: '0.45rem 1rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}
+                              >
+                                🗑️ Delete
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </>
         ) : (
           /* STUDENTS TAB (Admin Only) */
           <>
@@ -6977,9 +7230,16 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                   </div>
                   <div style={{ flex: 1, minWidth: '150px' }}>
                     <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Batch</label>
-                    <select value={newStudent.batch || 'September 2026'} onChange={e => setNewStudent({ ...newStudent, batch: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'rgba(255, 255, 255, 0.8)', color: 'var(--text-main)', outline: 'none' }}>
-                      <option value="September 2026">September 2026</option>
-                      <option value="November 2026">November 2026</option>
+                    <select value={newStudent.batch || (batches.length > 0 ? batches[0].name : '')} onChange={e => setNewStudent({ ...newStudent, batch: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'rgba(255, 255, 255, 0.8)', color: 'var(--text-main)', outline: 'none' }}>
+                      {batches.map(b => (
+                        <option key={b._id} value={b.name}>{b.name}</option>
+                      ))}
+                      {batches.length === 0 && (
+                        <>
+                          <option value="September 2026">September 2026</option>
+                          <option value="November 2026">November 2026</option>
+                        </>
+                      )}
                     </select>
                   </div>
                   <div style={{ alignSelf: 'flex-end' }}>
@@ -7325,8 +7585,15 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                       <div>
                         <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem', marginBottom: '0.2rem' }}>Batch</span>
                         <select value={editProfileData.batch} onChange={(e) => setEditProfileData({ ...editProfileData, batch: e.target.value })} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'white', color: 'var(--text-main)' }}>
-                          <option value="September 2026">September 2026</option>
-                          <option value="November 2026">November 2026</option>
+                          {batches.map(b => (
+                            <option key={b._id} value={b.name}>{b.name}</option>
+                          ))}
+                          {batches.length === 0 && (
+                            <>
+                              <option value="September 2026">September 2026</option>
+                              <option value="November 2026">November 2026</option>
+                            </>
+                          )}
                         </select>
                       </div>
                       <div>

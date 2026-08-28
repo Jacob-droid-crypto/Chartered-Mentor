@@ -8,7 +8,7 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
-const { loginAdmin, addStudent, getAttendance, getDailySummary, getStudents, deleteStudent, resetPassword, getProfile, uploadQuestionPaper, getAdminPapers, deletePaper, downloadAnswerPaper, getPaymentConfig, updatePaymentConfig, updateStudentFees, addStudentPayment, approveStudentPayment, rejectStudentPayment, editStudentPayment, revertStudentPayment, updateStudentProfileByAdmin, getGoalConfig, updateGoalConfig, deleteGoalConfig, manualCheckout, manualCheckin, createSchedule, getAdminSchedules, deleteSchedule, downloadScheduleFileAdmin, getExamSchedules, createExamSchedule, updateExamSchedule, deleteExamSchedule, getCampusQR, refreshCampusQR, resetStudentDevice, triggerAutoLogout, applyFine, deleteFine, payFine } = require("../controllers/adminController");
+const { loginAdmin, addStudent, getAttendance, getDailySummary, getStudents, deleteStudent, resetPassword, getProfile, uploadQuestionPaper, getAdminPapers, deletePaper, downloadAnswerPaper, getPaymentConfig, updatePaymentConfig, updateStudentFees, addStudentPayment, approveStudentPayment, rejectStudentPayment, editStudentPayment, revertStudentPayment, updateStudentProfileByAdmin, getGoalConfig, updateGoalConfig, deleteGoalConfig, manualCheckout, manualCheckin, createSchedule, getAdminSchedules, deleteSchedule, downloadScheduleFileAdmin, getExamSchedules, createExamSchedule, updateExamSchedule, deleteExamSchedule, getCampusQR, refreshCampusQR, resetStudentDevice, triggerAutoLogout, applyFine, deleteFine, payFine, rejectFine, getBatches, addBatch, updateBatch, deleteBatch } = require("../controllers/adminController");
 const { updateProfile } = require("../controllers/studentController");
 const { protect, adminOnly, adminRoleRequired } = require("../middleware/authMiddleware");
 
@@ -67,6 +67,12 @@ router.post("/student/:studentId/payment/:paymentId/revert", protect, adminRoleR
 router.post("/student/:studentId/fine", protect, adminOnly, applyFine);
 router.post("/student/:studentId/fine/:fineId/pay", protect, adminOnly, payFine);
 router.delete("/student/:studentId/fine/:fineId", protect, adminOnly, deleteFine);
+
+// Batches
+router.get("/batches", protect, adminOnly, getBatches);
+router.post("/batches", protect, adminOnly, addBatch);
+router.put("/batches/:id", protect, adminOnly, updateBatch);
+router.delete("/batches/:id", protect, adminOnly, deleteBatch);
 
 module.exports = router;
 

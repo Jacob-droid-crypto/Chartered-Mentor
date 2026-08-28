@@ -20,7 +20,8 @@ export default function StudentsTab({
   handleResetDevice,
   setFeeSetupStudent,
   setActiveTab,
-  handleDelete
+  handleDelete,
+  batches = []
 }) {
   return (
     <>
@@ -137,9 +138,16 @@ export default function StudentsTab({
             </div>
             <div style={{ flex: 1, minWidth: '150px' }}>
               <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Batch</label>
-              <select value={newStudent.batch || 'September 2026'} onChange={e => setNewStudent({ ...newStudent, batch: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'rgba(255, 255, 255, 0.8)', color: 'var(--text-main)', outline: 'none' }}>
-                <option value="September 2026">September 2026</option>
-                <option value="November 2026">November 2026</option>
+              <select value={newStudent.batch || (batches.length > 0 ? batches[0].name : '')} onChange={e => setNewStudent({ ...newStudent, batch: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'rgba(255, 255, 255, 0.8)', color: 'var(--text-main)', outline: 'none' }}>
+                {batches.map(b => (
+                  <option key={b._id} value={b.name}>{b.name}</option>
+                ))}
+                {batches.length === 0 && (
+                  <>
+                    <option value="September 2026">September 2026</option>
+                    <option value="November 2026">November 2026</option>
+                  </>
+                )}
               </select>
             </div>
             <div style={{ alignSelf: 'flex-end' }}>

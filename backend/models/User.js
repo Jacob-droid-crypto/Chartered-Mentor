@@ -83,7 +83,6 @@ const userSchema = new mongoose.Schema({
   },
   batch: {
     type: String,
-    enum: ["September 2026", "November 2026"],
   },
   dob: {
     type: Date,
