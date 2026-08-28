@@ -8,6 +8,7 @@ const GoalConfig = require("../models/GoalConfig");
 const Schedule = require("../models/Schedule");
 const ExamSchedule = require("../models/ExamSchedule");
 const CampusQR = require("../models/CampusQR");
+const Batch = require("../models/Batch");
 const { executeAutoLogout } = require("../utils/cronJobs");
 
 const generateToken = (userId, role) => {
@@ -1435,8 +1436,8 @@ const applyFine = async (req, res) => {
     if (!amount || isNaN(amount) || Number(amount) <= 0) {
       return res.status(400).json({ message: "A valid positive amount is required" });
     }
-    if (!reason || !["Study Hours Deficit", "Excess Leaves"].includes(reason)) {
-      return res.status(400).json({ message: "Reason must be 'Study Hours Deficit' or 'Excess Leaves'" });
+    if (!reason || !["Study Hours Deficit", "Over Leaves"].includes(reason)) {
+      return res.status(400).json({ message: "Reason must be 'Study Hours Deficit' or 'Over Leaves'" });
     }
 
     const student = await User.findOne({ userId: studentId.trim().toUpperCase(), role: "student" });
@@ -1498,7 +1499,7 @@ const deleteFine = async (req, res) => {
   }
 };
 
-/* ================= MARK FINE AS PAID / APPROVE ================= */
+/* ================= MARK FINE AS PAID ================= */
 const payFine = async (req, res) => {
   try {
     const { studentId, fineId } = req.params;
@@ -1523,7 +1524,7 @@ const payFine = async (req, res) => {
     const studentObj = student.toObject();
     delete studentObj.password;
 
-    res.json({ message: "Fine payment approved successfully", student: studentObj });
+    res.json({ message: "Fine marked as Paid successfully", student: studentObj });
   } catch (err) {
     console.error("Pay fine error:", err);
     res.status(500).json({ message: "Server error: " + err.message });
@@ -1562,6 +1563,98 @@ const rejectFine = async (req, res) => {
   }
 };
 
+// @desc    Get all batches
+// @route   GET /admin/batches
+// @access  Private (Admin/Staff)
+const getBatches = async (req, res) => {
+  try {
+    const batches = await Batch.find().sort({ createdAt: -1 });
+    res.json(batches);
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// @desc    Add new batch
+// @route   POST /admin/batches
+// @access  Private (Admin/Staff)
+const addBatch = async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ message: "Batch name is required" });
+    }
+    const cleanName = name.trim();
+    const exists = await Batch.findOne({ name: { $regex: new RegExp(`^${cleanName}$`, "i") } });
+    if (exists) {
+      return res.status(400).json({ message: "Batch already exists" });
+    }
+    const batch = await Batch.create({ name: cleanName });
+    res.status(201).json(batch);
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// @desc    Update batch name
+// @route   PUT /admin/batches/:id
+// @access  Private (Admin/Staff)
+const updateBatch = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ message: "Batch name is required" });
+    }
+    const cleanName = name.trim();
+    const batch = await Batch.findById(id);
+    if (!batch) {
+      return res.status(404).json({ message: "Batch not found" });
+    }
+    
+    // Check if new name exists already in other batch
+    const exists = await Batch.findOne({ _id: { $ne: id }, name: { $regex: new RegExp(`^${cleanName}$`, "i") } });
+    if (exists) {
+      return res.status(400).json({ message: "Another batch with this name already exists" });
+    }
+    
+    const oldName = batch.name;
+    batch.name = cleanName;
+    await batch.save();
+    
+    // Update all users who belong to this batch
+    await User.updateMany({ batch: oldName, role: "student" }, { batch: cleanName });
+    
+    res.json(batch);
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// @desc    Delete batch
+// @route   DELETE /admin/batches/:id
+// @access  Private (Admin/Staff)
+const deleteBatch = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const batch = await Batch.findById(id);
+    if (!batch) {
+      return res.status(404).json({ message: "Batch not found" });
+    }
+    
+    const batchName = batch.name;
+    await Batch.findByIdAndDelete(id);
+    
+    // Disassociate all users who belong to this batch
+    await User.updateMany({ batch: batchName, role: "student" }, { $unset: { batch: "" } });
+    
+    res.json({ message: "Batch deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+>>>>>>> Stashed changes
 module.exports = {
   loginAdmin,
   addStudent,
@@ -1604,5 +1697,9 @@ module.exports = {
   applyFine,
   deleteFine,
   payFine,
-  rejectFine
+  rejectFine,
+  getBatches,
+  addBatch,
+  updateBatch,
+  deleteBatch
 };
