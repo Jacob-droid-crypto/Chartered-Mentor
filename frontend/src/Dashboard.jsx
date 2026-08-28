@@ -7211,7 +7211,7 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
               )}
             </div>
           </>
-        ) : (
+        ) : isAdminOrStaff ? (
           /* STUDENTS TAB (Admin Only) */
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
@@ -7475,6 +7475,11 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
               </div>
             </section>
           </>
+        ) : (
+          <div style={{ padding: '3rem 2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+            <h3>Access Restricted</h3>
+            <p>This panel is only accessible by administrators and coordinators.</p>
+          </div>
         )}
       </main>
 
