@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 
 export default function StudentFinesView({ user, data, fetchDashboardData }) {
-  const [payingFine, setPayingFine] = useState(null);
+  const [selectedFineId, setSelectedFineId] = useState('');
+  const [activeMethodTab, setActiveMethodTab] = useState('UPI'); // 'UPI' | 'Bank' | 'Cash'
   const [paymentMethod, setPaymentMethod] = useState('UPI');
   const [transactionId, setTransactionId] = useState('');
   const [paidDate, setPaidDate] = useState(() => {
@@ -15,7 +16,7 @@ export default function StudentFinesView({ user, data, fetchDashboardData }) {
   const [successMsg, setSuccessMsg] = useState('');
   const [copyToast, setCopyToast] = useState('');
   
-  // Payment Config from admin/institute
+  // Payment Config from institute
   const [paymentConfig, setPaymentConfig] = useState(null);
 
   useEffect(() => {
@@ -38,18 +39,30 @@ export default function StudentFinesView({ user, data, fetchDashboardData }) {
   }, [user]);
 
   const fines = data?.fines || [];
-  const unpaidFines = fines.filter(f => f.status !== 'Paid');
+  const unpaidFines = fines.filter(f => f.status !== 'Paid' && f.status !== 'Pending Approval');
+  const pendingFines = fines.filter(f => f.status === 'Pending Approval');
   const paidFines = fines.filter(f => f.status === 'Paid');
 
   const totalUnpaidAmount = unpaidFines.reduce((sum, f) => sum + (f.amount || 0), 0);
+  const totalPendingAmount = pendingFines.reduce((sum, f) => sum + (f.amount || 0), 0);
   const totalPaidAmount = paidFines.reduce((sum, f) => sum + (f.amount || 0), 0);
 
+  // Auto-select first unpaid fine if none selected
+  useEffect(() => {
+    if (unpaidFines.length > 0 && !selectedFineId) {
+      setSelectedFineId(unpaidFines[0]._id);
+    }
+  }, [unpaidFines, selectedFineId]);
+
+  const currentSelectedFine = fines.find(f => f._id === selectedFineId) || unpaidFines[0] || null;
+
   const formatFinePeriod = (fine) => {
+    if (!fine) return '';
     if (fine.startDate && fine.endDate) {
       const start = new Date(fine.startDate).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
       const end = new Date(fine.endDate).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
       if (start === end) return start;
-      return `${start} - ${end}`;
+      return `${start} – ${end}`;
     }
     return new Date(fine.date || Date.now()).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
   };
@@ -61,19 +74,22 @@ export default function StudentFinesView({ user, data, fetchDashboardData }) {
     setTimeout(() => setCopyToast(''), 2500);
   };
 
-  const handleOpenPaymentModal = (fine) => {
-    setPayingFine(fine);
+  const handleSelectFineToPay = (fine) => {
+    setSelectedFineId(fine._id);
     setPaymentMethod('UPI');
-    setTransactionId('');
-    setNotes('');
-    const d = new Date();
-    setPaidDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+    setActiveMethodTab('UPI');
     setErrorMsg('');
+    // Smooth scroll to payment section
+    const el = document.getElementById('fine-payment-section');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
 
   const handleSubmitFinePayment = async (e) => {
     e.preventDefault();
-    if (!payingFine) return;
+    if (!selectedFineId) {
+      setErrorMsg('Please select a fine record to settle.');
+      return;
+    }
 
     if (paymentMethod !== 'Cash' && !transactionId.trim()) {
       setErrorMsg('Please enter your UPI / Bank Transaction ID or Reference Number.');
@@ -85,7 +101,7 @@ export default function StudentFinesView({ user, data, fetchDashboardData }) {
       setErrorMsg('');
       setSuccessMsg('');
 
-      const res = await fetch(`/student/fine/${payingFine._id}/pay`, {
+      const res = await fetch(`/student/fine/${selectedFineId}/pay`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${user.token}`,
@@ -105,7 +121,8 @@ export default function StudentFinesView({ user, data, fetchDashboardData }) {
       }
 
       setSuccessMsg(result.message || 'Fine payment details submitted! Admin will verify and approve shortly.');
-      setPayingFine(null);
+      setTransactionId('');
+      setNotes('');
       if (typeof fetchDashboardData === 'function') {
         await fetchDashboardData();
       }
@@ -116,16 +133,18 @@ export default function StudentFinesView({ user, data, fetchDashboardData }) {
     }
   };
 
-  // UPI Payment Link
+  // UPI Link Details
   const upiId = paymentConfig?.upiId || 'charteredmentor@upi';
   const accountName = paymentConfig?.accountName || 'Chartered Mentor';
-  const fineAmount = payingFine?.amount || 0;
-  const upiPayUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(accountName)}&am=${fineAmount}&cu=INR&tn=${encodeURIComponent(`Fine-${payingFine?.reason || 'Settlement'}`)}`;
+  const fineAmount = currentSelectedFine?.amount || totalUnpaidAmount || 0;
+  const upiPayUrl = fineAmount > 0
+    ? `upi://pay?pa=${upiId}&pn=${encodeURIComponent(accountName)}&am=${fineAmount}&cu=INR&tn=${encodeURIComponent(`Fine-${currentSelectedFine?.reason || 'Payment'}`)}`
+    : `upi://pay?pa=${upiId}&pn=${encodeURIComponent(accountName)}&cu=INR`;
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '1rem 0' }}>
+    <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '0.5rem 0' }}>
       
-      {/* Alert Banners */}
+      {/* Toast Notification */}
       {copyToast && (
         <div style={{
           position: 'fixed',
@@ -147,24 +166,29 @@ export default function StudentFinesView({ user, data, fetchDashboardData }) {
         </div>
       )}
 
+      {/* Alert Banners */}
       {errorMsg && (
         <div style={{
           padding: '1rem 1.25rem',
-          borderRadius: '10px',
+          borderRadius: '12px',
           marginBottom: '1.5rem',
           fontWeight: '600',
           background: 'rgba(239, 68, 68, 0.12)',
           color: '#ef4444',
-          border: '1px solid #ef4444'
+          border: '1px solid #ef4444',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
         }}>
-          ⚠️ {errorMsg}
+          <span>⚠️ {errorMsg}</span>
+          <button onClick={() => setErrorMsg('')} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
         </div>
       )}
 
       {successMsg && (
         <div style={{
           padding: '1rem 1.25rem',
-          borderRadius: '10px',
+          borderRadius: '12px',
           marginBottom: '1.5rem',
           fontWeight: '600',
           background: 'rgba(16, 185, 129, 0.12)',
@@ -179,7 +203,7 @@ export default function StudentFinesView({ user, data, fetchDashboardData }) {
         </div>
       )}
 
-      {/* Summary Statistics */}
+      {/* Summary Header Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
         <div className="card" style={{ padding: '1.25rem', borderLeft: '4px solid #ef4444' }}>
           <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
@@ -188,14 +212,20 @@ export default function StudentFinesView({ user, data, fetchDashboardData }) {
           <div style={{ fontSize: '2rem', fontWeight: '800', color: '#ef4444', marginTop: '0.4rem' }}>
             {unpaidFines.length}
           </div>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+            Due: ₹{totalUnpaidAmount}
+          </div>
         </div>
 
-        <div className="card" style={{ padding: '1.25rem', borderLeft: '4px solid #ef4444' }}>
+        <div className="card" style={{ padding: '1.25rem', borderLeft: '4px solid #f59e0b' }}>
           <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Outstanding Balance
+            Pending Verification
           </span>
-          <div style={{ fontSize: '2rem', fontWeight: '800', color: '#ef4444', marginTop: '0.4rem' }}>
-            ₹{totalUnpaidAmount}
+          <div style={{ fontSize: '2rem', fontWeight: '800', color: '#d97706', marginTop: '0.4rem' }}>
+            {pendingFines.length}
+          </div>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+            Amount: ₹{totalPendingAmount}
           </div>
         </div>
 
@@ -206,20 +236,441 @@ export default function StudentFinesView({ user, data, fetchDashboardData }) {
           <div style={{ fontSize: '2rem', fontWeight: '800', color: '#10b981', marginTop: '0.4rem' }}>
             ₹{totalPaidAmount}
           </div>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+            {paidFines.length} record(s) completed
+          </div>
         </div>
       </div>
 
-      {/* Fines Ledger Card */}
-      <div className="card" style={{ padding: '1.5rem 2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
-          <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            📋 Fine Statement & Payment History
-          </h3>
+      {/* PAYMENT METHODS & REMITTANCE SECTION (Always Visible) */}
+      <div id="fine-payment-section" className="card" style={{
+        padding: '1.75rem',
+        borderRadius: '16px',
+        marginBottom: '2.5rem',
+        background: 'var(--surface-color, #ffffff)',
+        border: '1px solid var(--glass-border, rgba(0, 0, 0, 0.1))',
+        boxShadow: '0 8px 32px var(--shadow-color, rgba(0, 0, 0, 0.05))'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div>
+            <h3 style={{ fontSize: '1.35rem', fontWeight: '800', color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              💳 Fine Payment Methods & Remittance
+            </h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: '0.3rem 0 0 0' }}>
+              Scan the QR code, use UPI ID, or transfer to the institute bank account to settle your fines.
+            </p>
+          </div>
+
+          {unpaidFines.length > 0 && (
+            <div style={{ background: 'rgba(239, 68, 68, 0.1)', padding: '6px 14px', borderRadius: '20px', border: '1px solid rgba(239, 68, 68, 0.25)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '0.85rem', color: '#ef4444', fontWeight: 'bold' }}>
+                Outstanding: ₹{totalUnpaidAmount}
+              </span>
+            </div>
+          )}
         </div>
+
+        {/* Method Toggle Buttons */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveMethodTab('UPI');
+              setPaymentMethod('UPI');
+            }}
+            style={{
+              padding: '0.85rem 1rem',
+              borderRadius: '12px',
+              border: activeMethodTab === 'UPI' ? '2px solid #10b981' : '1px solid var(--glass-border, #cbd5e1)',
+              background: activeMethodTab === 'UPI' ? 'rgba(16, 185, 129, 0.12)' : 'var(--card-bg, #ffffff)',
+              color: activeMethodTab === 'UPI' ? '#10b981' : 'var(--text-main)',
+              fontWeight: 'bold',
+              fontSize: '0.95rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              transition: 'all 0.2s'
+            }}
+          >
+            <span style={{ fontSize: '1.3rem' }}>📱</span>
+            <span>UPI / QR Code</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveMethodTab('Bank');
+              setPaymentMethod('Bank Transfer');
+            }}
+            style={{
+              padding: '0.85rem 1rem',
+              borderRadius: '12px',
+              border: activeMethodTab === 'Bank' ? '2px solid #3b82f6' : '1px solid var(--glass-border, #cbd5e1)',
+              background: activeMethodTab === 'Bank' ? 'rgba(59, 130, 246, 0.12)' : 'var(--card-bg, #ffffff)',
+              color: activeMethodTab === 'Bank' ? '#3b82f6' : 'var(--text-main)',
+              fontWeight: 'bold',
+              fontSize: '0.95rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              transition: 'all 0.2s'
+            }}
+          >
+            <span style={{ fontSize: '1.3rem' }}>🏦</span>
+            <span>Bank Transfer</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveMethodTab('Cash');
+              setPaymentMethod('Cash');
+            }}
+            style={{
+              padding: '0.85rem 1rem',
+              borderRadius: '12px',
+              border: activeMethodTab === 'Cash' ? '2px solid #f59e0b' : '1px solid var(--glass-border, #cbd5e1)',
+              background: activeMethodTab === 'Cash' ? 'rgba(245, 158, 11, 0.12)' : 'var(--card-bg, #ffffff)',
+              color: activeMethodTab === 'Cash' ? '#f59e0b' : 'var(--text-main)',
+              fontWeight: 'bold',
+              fontSize: '0.95rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              transition: 'all 0.2s'
+            }}
+          >
+            <span style={{ fontSize: '1.3rem' }}>💵</span>
+            <span>Cash Desk</span>
+          </button>
+        </div>
+
+        {/* Selected Method Details Box */}
+        <div style={{
+          background: 'var(--card-bg, #f8fafc)',
+          borderRadius: '14px',
+          border: '1px solid var(--glass-border, #e2e8f0)',
+          padding: '1.5rem',
+          marginBottom: '2rem'
+        }}>
+          {activeMethodTab === 'UPI' && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2rem', alignItems: 'center', justifyContent: 'center' }}>
+              {/* Dynamic QR Code Card */}
+              <div style={{
+                background: '#ffffff',
+                padding: '1rem',
+                borderRadius: '16px',
+                boxShadow: '0 6px 20px rgba(0,0,0,0.08)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center'
+              }}>
+                <QRCodeSVG value={upiPayUrl} size={170} />
+                <span style={{ fontSize: '0.8rem', color: '#10b981', marginTop: '8px', fontWeight: 'bold' }}>
+                  {fineAmount > 0 ? `Pay exact ₹${fineAmount}` : 'Scan with any UPI App'}
+                </span>
+                <span style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '2px' }}>
+                  GPay • PhonePe • Paytm • BHIM
+                </span>
+              </div>
+
+              {/* UPI ID and Copy Details */}
+              <div style={{ flex: 1, minWidth: '260px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+                    Institute Official UPI ID
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
+                    <strong style={{ fontSize: '1.2rem', color: '#10b981', letterSpacing: '0.5px' }}>{upiId}</strong>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(upiId, 'UPI ID')}
+                      style={{
+                        padding: '5px 12px',
+                        background: 'rgba(16, 185, 129, 0.15)',
+                        color: '#10b981',
+                        border: '1px solid rgba(16, 185, 129, 0.3)',
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      📋 Copy UPI ID
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+                    Payee Name / Account Holder
+                  </span>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: 'var(--text-main)', marginTop: '2px' }}>
+                    {accountName}
+                  </div>
+                </div>
+
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '10px 12px', borderRadius: '8px' }}>
+                  💡 <strong>How to Pay:</strong> Open Google Pay, PhonePe, or Paytm, scan the QR code above or send money to <strong>{upiId}</strong>, then enter the 12-digit UTR / Reference ID in the verification form below.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeMethodTab === 'Bank' && (
+            <div>
+              <h4 style={{ margin: '0 0 1rem 0', color: 'var(--text-main)', fontSize: '1.05rem' }}>
+                Bank Account Remittance Details (IMPS / NEFT / RTGS)
+              </h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem' }}>
+                <div style={{ background: 'var(--surface-color, #ffffff)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--glass-border)' }}>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 'bold' }}>Account Name</span>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px' }}>
+                    <strong style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>{paymentConfig?.accountName || 'Chartered Mentor'}</strong>
+                    <button type="button" onClick={() => handleCopy(paymentConfig?.accountName || 'Chartered Mentor', 'Account Name')} style={{ padding: '3px 8px', background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', border: 'none', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer' }}>📋</button>
+                  </div>
+                </div>
+
+                <div style={{ background: 'var(--surface-color, #ffffff)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--glass-border)' }}>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 'bold' }}>Account Number</span>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px' }}>
+                    <strong style={{ color: 'var(--text-main)', fontSize: '1.05rem', letterSpacing: '1px' }}>{paymentConfig?.accountNumber || '000000000000'}</strong>
+                    <button type="button" onClick={() => handleCopy(paymentConfig?.accountNumber || '', 'Account Number')} style={{ padding: '3px 8px', background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', border: 'none', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer' }}>📋</button>
+                  </div>
+                </div>
+
+                <div style={{ background: 'var(--surface-color, #ffffff)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--glass-border)' }}>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 'bold' }}>Bank Name</span>
+                  <div style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.95rem', marginTop: '4px' }}>
+                    {paymentConfig?.bankName || 'State Bank of India'}
+                  </div>
+                </div>
+
+                <div style={{ background: 'var(--surface-color, #ffffff)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--glass-border)' }}>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 'bold' }}>IFSC Code</span>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px' }}>
+                    <strong style={{ color: 'var(--text-main)', fontSize: '1rem' }}>{paymentConfig?.ifscCode || 'SBIN0000000'}</strong>
+                    <button type="button" onClick={() => handleCopy(paymentConfig?.ifscCode || '', 'IFSC Code')} style={{ padding: '3px 8px', background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', border: 'none', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer' }}>📋</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeMethodTab === 'Cash' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '3rem' }}>🏢</span>
+              <div style={{ flex: 1, minWidth: '240px' }}>
+                <h4 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.1rem' }}>Campus Accounts Office Desk Settlement</h4>
+                <p style={{ margin: '6px 0 0 0', color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: '1.5' }}>
+                  You can walk up to the campus administrative accounts desk to pay your fine in cash. Receive your printed cash receipt and enter the receipt number below to mark your record as paid.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* PROOF SUBMISSION FORM */}
+        <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: '1.5rem' }}>
+          <h4 style={{ margin: '0 0 1rem 0', color: 'var(--text-main)', fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            ✍️ Report & Verify Your Fine Payment
+          </h4>
+
+          <form onSubmit={handleSubmitFinePayment}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem', marginBottom: '1.25rem' }}>
+              {/* Select Fine Record */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-main)', marginBottom: '6px' }}>
+                  Select Fine Record to Settle <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                {unpaidFines.length === 0 ? (
+                  <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'var(--card-bg)', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                    {fines.length === 0 ? 'No fines on record' : 'All current fines are already settled or pending approval!'}
+                  </div>
+                ) : (
+                  <select
+                    value={selectedFineId}
+                    onChange={(e) => setSelectedFineId(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem 1rem',
+                      borderRadius: '8px',
+                      border: '1px solid var(--glass-border, #cbd5e1)',
+                      background: 'var(--card-bg, #ffffff)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.95rem',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    {unpaidFines.map(f => (
+                      <option key={f._id} value={f._id}>
+                        {f.reason === 'Study Hours Deficit' ? '⏰ Hours Deficit' : '🏖️ Excess Leaves'} — ₹{f.amount} ({formatFinePeriod(f)})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* Payment Method Used */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-main)', marginBottom: '6px' }}>
+                  Payment Method Used <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => {
+                    setPaymentMethod(e.target.value);
+                    if (e.target.value === 'UPI') setActiveMethodTab('UPI');
+                    else if (e.target.value === 'Bank Transfer') setActiveMethodTab('Bank');
+                    else if (e.target.value === 'Cash') setActiveMethodTab('Cash');
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem 1rem',
+                    borderRadius: '8px',
+                    border: '1px solid var(--glass-border, #cbd5e1)',
+                    background: 'var(--card-bg, #ffffff)',
+                    color: 'var(--text-main)',
+                    fontSize: '0.95rem',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  <option value="UPI">📱 UPI / QR Code</option>
+                  <option value="Bank Transfer">🏦 Bank Transfer (IMPS/NEFT)</option>
+                  <option value="Cash">💵 Cash at Office Desk</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem', marginBottom: '1.25rem' }}>
+              {/* Transaction ID */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-main)', marginBottom: '6px' }}>
+                  {paymentMethod === 'UPI' ? 'UPI 12-Digit Reference / UTR Number' : paymentMethod === 'Bank Transfer' ? 'Bank Transfer UTR / Ref No' : 'Cash Receipt No'} <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder={paymentMethod === 'UPI' ? 'e.g. 423987123456' : paymentMethod === 'Bank Transfer' ? 'e.g. IMPS/NEFT Ref Number' : 'e.g. RCP-2026-001'}
+                  value={transactionId}
+                  onChange={(e) => setTransactionId(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem 1rem',
+                    borderRadius: '8px',
+                    border: '1px solid var(--glass-border, #cbd5e1)',
+                    background: 'var(--card-bg, #ffffff)',
+                    color: 'var(--text-main)',
+                    fontSize: '0.95rem',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              {/* Payment Date */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-main)', marginBottom: '6px' }}>
+                  Payment Date <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={paidDate}
+                  onChange={(e) => setPaidDate(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem 1rem',
+                    borderRadius: '8px',
+                    border: '1px solid var(--glass-border, #cbd5e1)',
+                    background: 'var(--card-bg, #ffffff)',
+                    color: 'var(--text-main)',
+                    fontSize: '0.95rem',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Remarks */}
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-main)', marginBottom: '6px' }}>
+                Remarks / Sender Details (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Paid from Google Pay (John Doe)"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem 1rem',
+                  borderRadius: '8px',
+                  border: '1px solid var(--glass-border, #cbd5e1)',
+                  background: 'var(--card-bg, #ffffff)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.95rem',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            {/* Submit Button */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                type="submit"
+                disabled={isSubmitting || unpaidFines.length === 0}
+                style={{
+                  padding: '0.85rem 2.2rem',
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontWeight: 'bold',
+                  fontSize: '1rem',
+                  cursor: (isSubmitting || unpaidFines.length === 0) ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  opacity: (isSubmitting || unpaidFines.length === 0) ? 0.6 : 1,
+                  transition: 'all 0.2s'
+                }}
+              >
+                {isSubmitting ? 'Submitting Payment Proof...' : '✓ Submit Fine Payment Proof'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      {/* FINES STATEMENT & HISTORY TABLE */}
+      <div className="card" style={{
+        padding: '1.75rem',
+        borderRadius: '16px',
+        background: 'var(--surface-color, #ffffff)',
+        border: '1px solid var(--glass-border, rgba(0, 0, 0, 0.1))',
+        boxShadow: '0 8px 32px var(--shadow-color, rgba(0, 0, 0, 0.05))'
+      }}>
+        <h3 style={{ margin: '0 0 1.25rem 0', fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          📋 Fine Statement & Payment History
+        </h3>
 
         {fines.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
-            🎉 No fine records found for your account. Keep up the good work!
+            🎉 No fine history found for your account. You have zero fines!
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
@@ -229,7 +680,7 @@ export default function StudentFinesView({ user, data, fetchDashboardData }) {
                   <th style={{ padding: '0.75rem 1rem' }}>Fine Date / Period</th>
                   <th style={{ padding: '0.75rem 1rem' }}>Reason</th>
                   <th style={{ padding: '0.75rem 1rem' }}>Amount</th>
-                  <th style={{ padding: '0.75rem 1rem' }}>Payment Method</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>Payment Method & Ref</th>
                   <th style={{ padding: '0.75rem 1rem' }}>Status</th>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Action</th>
                 </tr>
@@ -254,7 +705,7 @@ export default function StudentFinesView({ user, data, fetchDashboardData }) {
                         {fine.reason === 'Study Hours Deficit' ? '⏰ Study Hours Deficit' : '🏖️ Excess Leaves'}
                       </span>
                     </td>
-                    <td style={{ padding: '0.85rem 1rem', fontWeight: 'bold', color: 'var(--text-main)', fontSize: '1rem' }}>
+                    <td style={{ padding: '0.85rem 1rem', fontWeight: 'bold', color: 'var(--text-main)', fontSize: '1.05rem' }}>
                       ₹{fine.amount}
                     </td>
                     <td style={{ padding: '0.85rem 1rem' }}>
@@ -277,7 +728,7 @@ export default function StudentFinesView({ user, data, fetchDashboardData }) {
                           )}
                         </div>
                       ) : (
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>—</span>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Unsettled</span>
                       )}
                     </td>
                     <td style={{ padding: '0.85rem 1rem' }}>
@@ -305,12 +756,12 @@ export default function StudentFinesView({ user, data, fetchDashboardData }) {
                           Settled ✓
                         </span>
                       ) : fine.status === 'Pending Approval' ? (
-                        <span style={{ color: '#d97706', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '3px', justifyContent: 'flex-end' }}>
+                        <span style={{ color: '#d97706', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
                           🕒 Pending Approval
                         </span>
                       ) : (
                         <button
-                          onClick={() => handleOpenPaymentModal(fine)}
+                          onClick={() => handleSelectFineToPay(fine)}
                           style={{
                             padding: '0.45rem 1rem',
                             background: 'linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%)',
@@ -327,7 +778,7 @@ export default function StudentFinesView({ user, data, fetchDashboardData }) {
                             gap: '4px'
                           }}
                         >
-                          💳 Pay Fine
+                          💳 Settle Fine
                         </button>
                       )}
                     </td>
@@ -338,400 +789,6 @@ export default function StudentFinesView({ user, data, fetchDashboardData }) {
           </div>
         )}
       </div>
-
-      {/* FINE PAYMENT PORTAL MODAL */}
-      {payingFine && (
-        <div className="modal-overlay" onClick={() => !isSubmitting && setPayingFine(null)} style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(15, 23, 42, 0.75)',
-          backdropFilter: 'blur(6px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
-          padding: '1rem'
-        }}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{
-            maxWidth: '650px',
-            width: '100%',
-            background: 'var(--surface-color, #ffffff)',
-            borderRadius: '20px',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-            maxHeight: '90vh',
-            overflowY: 'auto',
-            padding: '2rem',
-            border: '1px solid var(--glass-border, rgba(0,0,0,0.1))'
-          }}>
-            {/* Modal Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '1rem' }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.4rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  💳 Fine Payment Portal
-                </h3>
-                <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                  Select your preferred payment method and submit verification reference.
-                </p>
-              </div>
-              <button onClick={() => !isSubmitting && setPayingFine(null)} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-muted)' }}>
-                ✕
-              </button>
-            </div>
-
-            {/* Fine Summary Highlight */}
-            <div style={{
-              background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(245, 158, 11, 0.08) 100%)',
-              border: '1px solid rgba(239, 68, 68, 0.25)',
-              borderRadius: '12px',
-              padding: '1rem 1.25rem',
-              marginBottom: '1.5rem',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: '0.75rem'
-            }}>
-              <div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '0.5px' }}>
-                  Fine Reason & Period
-                </div>
-                <div style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '1rem', marginTop: '2px' }}>
-                  {payingFine.reason === 'Study Hours Deficit' ? '⏰ Study Hours Deficit' : '🏖️ Excess Leaves'}
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  {formatFinePeriod(payingFine)}
-                </div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 'bold' }}>
-                  Payable Amount
-                </div>
-                <div style={{ fontSize: '1.8rem', fontWeight: '800', color: '#ef4444' }}>
-                  ₹{payingFine.amount}
-                </div>
-              </div>
-            </div>
-
-            {/* Payment Method Selector Tabs */}
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.6rem', color: 'var(--text-main)', fontSize: '0.9rem' }}>
-                1. Choose Payment Method
-              </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('UPI')}
-                  style={{
-                    padding: '0.85rem 0.5rem',
-                    borderRadius: '10px',
-                    border: paymentMethod === 'UPI' ? '2px solid #10b981' : '1px solid var(--glass-border, #cbd5e1)',
-                    background: paymentMethod === 'UPI' ? 'rgba(16, 185, 129, 0.12)' : 'var(--card-bg, #ffffff)',
-                    color: paymentMethod === 'UPI' ? '#10b981' : 'var(--text-main)',
-                    fontWeight: 'bold',
-                    fontSize: '0.9rem',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '4px',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <span style={{ fontSize: '1.3rem' }}>📱</span>
-                  <span>UPI / QR Code</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('Bank Transfer')}
-                  style={{
-                    padding: '0.85rem 0.5rem',
-                    borderRadius: '10px',
-                    border: paymentMethod === 'Bank Transfer' ? '2px solid #3b82f6' : '1px solid var(--glass-border, #cbd5e1)',
-                    background: paymentMethod === 'Bank Transfer' ? 'rgba(59, 130, 246, 0.12)' : 'var(--card-bg, #ffffff)',
-                    color: paymentMethod === 'Bank Transfer' ? '#3b82f6' : 'var(--text-main)',
-                    fontWeight: 'bold',
-                    fontSize: '0.9rem',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '4px',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <span style={{ fontSize: '1.3rem' }}>🏦</span>
-                  <span>Bank Transfer</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('Cash')}
-                  style={{
-                    padding: '0.85rem 0.5rem',
-                    borderRadius: '10px',
-                    border: paymentMethod === 'Cash' ? '2px solid #f59e0b' : '1px solid var(--glass-border, #cbd5e1)',
-                    background: paymentMethod === 'Cash' ? 'rgba(245, 158, 11, 0.12)' : 'var(--card-bg, #ffffff)',
-                    color: paymentMethod === 'Cash' ? '#f59e0b' : 'var(--text-main)',
-                    fontWeight: 'bold',
-                    fontSize: '0.9rem',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '4px',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <span style={{ fontSize: '1.3rem' }}>💵</span>
-                  <span>Cash Payment</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Method Details Box */}
-            <div style={{
-              background: 'var(--card-bg, #f8fafc)',
-              borderRadius: '12px',
-              border: '1px solid var(--glass-border, #e2e8f0)',
-              padding: '1.25rem',
-              marginBottom: '1.5rem'
-            }}>
-              {paymentMethod === 'UPI' && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', alignItems: 'center', justifyContent: 'center' }}>
-                  {/* Dynamic QR Code */}
-                  <div style={{
-                    background: '#ffffff',
-                    padding: '0.85rem',
-                    borderRadius: '12px',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center'
-                  }}>
-                    <QRCodeSVG value={upiPayUrl} size={150} />
-                    <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '6px', fontWeight: '600' }}>
-                      Scan with any UPI App
-                    </span>
-                  </div>
-
-                  {/* UPI Details & Copy */}
-                  <div style={{ flex: 1, minWidth: '220px', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    <div>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '600' }}>
-                        Institute UPI ID
-                      </span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
-                        <strong style={{ fontSize: '1.05rem', color: '#10b981' }}>{upiId}</strong>
-                        <button
-                          type="button"
-                          onClick={() => handleCopy(upiId, 'UPI ID')}
-                          style={{
-                            padding: '4px 10px',
-                            background: 'rgba(16, 185, 129, 0.15)',
-                            color: '#10b981',
-                            border: 'none',
-                            borderRadius: '6px',
-                            fontSize: '0.75rem',
-                            fontWeight: 'bold',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          📋 Copy
-                        </button>
-                      </div>
-                    </div>
-
-                    <div>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '600' }}>
-                        Payee Name
-                      </span>
-                      <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
-                        {accountName}
-                      </div>
-                    </div>
-
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', background: 'rgba(16, 185, 129, 0.08)', padding: '8px', borderRadius: '6px' }}>
-                      💡 <strong>Note:</strong> Scanning this QR code will automatically pre-fill the exact fine amount of <strong>₹{payingFine.amount}</strong>.
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {paymentMethod === 'Bank Transfer' && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-                  <div>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '600' }}>Account Name</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                      <strong style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>{paymentConfig?.accountName || 'Chartered Mentor'}</strong>
-                      <button type="button" onClick={() => handleCopy(paymentConfig?.accountName || 'Chartered Mentor', 'Account Name')} style={{ padding: '2px 6px', background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', border: 'none', borderRadius: '4px', fontSize: '0.7rem', cursor: 'pointer' }}>📋</button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '600' }}>Account Number</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                      <strong style={{ color: 'var(--text-main)', fontSize: '1rem', letterSpacing: '1px' }}>{paymentConfig?.accountNumber || '000000000000'}</strong>
-                      <button type="button" onClick={() => handleCopy(paymentConfig?.accountNumber || '', 'Account Number')} style={{ padding: '2px 6px', background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', border: 'none', borderRadius: '4px', fontSize: '0.7rem', cursor: 'pointer' }}>📋</button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '600' }}>Bank Name</span>
-                    <div style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.95rem', marginTop: '2px' }}>
-                      {paymentConfig?.bankName || 'State Bank'}
-                    </div>
-                  </div>
-
-                  <div>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '600' }}>IFSC Code</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                      <strong style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>{paymentConfig?.ifscCode || 'IFSC0000'}</strong>
-                      <button type="button" onClick={() => handleCopy(paymentConfig?.ifscCode || '', 'IFSC Code')} style={{ padding: '2px 6px', background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', border: 'none', borderRadius: '4px', fontSize: '0.7rem', cursor: 'pointer' }}>📋</button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {paymentMethod === 'Cash' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <span style={{ fontSize: '2.5rem' }}>🏢</span>
-                  <div>
-                    <h4 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1rem' }}>Campus Accounts Office</h4>
-                    <p style={{ margin: '4px 0 0 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                      You can pay the fine amount of <strong>₹{payingFine.amount}</strong> directly in cash at the accounts counter and enter your receipt number below for instant record matching.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Step 2: Payment Verification Form */}
-            <form onSubmit={handleSubmitFinePayment}>
-              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.6rem', color: 'var(--text-main)', fontSize: '0.9rem' }}>
-                2. Enter Payment Verification Details
-              </label>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                    {paymentMethod === 'UPI' ? 'UPI Reference / UTR Number' : paymentMethod === 'Bank Transfer' ? 'Bank Transfer UTR / Ref No' : 'Cash Receipt No'} <span style={{ color: '#ef4444' }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder={paymentMethod === 'UPI' ? 'e.g. 423987123456 (12-digit UTR)' : paymentMethod === 'Bank Transfer' ? 'e.g. IMPS/NEFT Ref Number' : 'e.g. RCP-2026-001'}
-                    value={transactionId}
-                    onChange={(e) => setTransactionId(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem 1rem',
-                      borderRadius: '8px',
-                      border: '1px solid var(--glass-border, #cbd5e1)',
-                      background: 'var(--card-bg, #ffffff)',
-                      color: 'var(--text-main)',
-                      fontSize: '0.95rem',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                    Payment Date <span style={{ color: '#ef4444' }}>*</span>
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={paidDate}
-                    onChange={(e) => setPaidDate(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem 1rem',
-                      borderRadius: '8px',
-                      border: '1px solid var(--glass-border, #cbd5e1)',
-                      background: 'var(--card-bg, #ffffff)',
-                      color: 'var(--text-main)',
-                      fontSize: '0.95rem',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '1.5rem' }}>
-                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                  Remarks / Notes (Optional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Paid via Google Pay from John's Account"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem 1rem',
-                    borderRadius: '8px',
-                    border: '1px solid var(--glass-border, #cbd5e1)',
-                    background: 'var(--card-bg, #ffffff)',
-                    color: 'var(--text-main)',
-                    fontSize: '0.95rem',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-
-              {/* Form Buttons */}
-              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                <button
-                  type="button"
-                  disabled={isSubmitting}
-                  onClick={() => setPayingFine(null)}
-                  style={{
-                    padding: '0.75rem 1.5rem',
-                    background: 'transparent',
-                    border: '1px solid var(--glass-border, #cbd5e1)',
-                    color: 'var(--text-muted)',
-                    borderRadius: '8px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  style={{
-                    padding: '0.75rem 1.75rem',
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontWeight: 'bold',
-                    fontSize: '0.95rem',
-                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    opacity: isSubmitting ? 0.7 : 1
-                  }}
-                >
-                  {isSubmitting ? 'Submitting Payment Proof...' : '✓ Submit Payment Proof'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
     </div>
   );
