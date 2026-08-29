@@ -646,6 +646,8 @@ function StudentPaperCard({ paper, user, onRefresh, showConfirm }) {
 }
 
 function Dashboard({ user, onLogout, theme, setTheme }) {
+  const isAdminOrStaff = user.role === 'admin' || user.role === 'staff';
+
   // Helper to parse tab from hash
   const getTabFromHash = () => {
     const hash = window.location.hash; // e.g. "#/attendance"
@@ -1331,7 +1333,6 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
   };
 
   useEffect(() => {
-    const isAdminOrStaff = user.role === 'admin' || user.role === 'staff';
     if (activeTab === 'dashboard') {
       fetchDashboardData();
       if (isAdminOrStaff) {
