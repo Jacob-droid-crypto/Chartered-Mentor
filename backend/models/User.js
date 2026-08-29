@@ -127,7 +127,11 @@ const userSchema = new mongoose.Schema({
     date: { type: Date, default: Date.now },
     startDate: { type: Date },
     endDate: { type: Date },
-    status: { type: String, enum: ["Unpaid", "Pending Approval", "Paid"], default: "Unpaid" }
+    status: { type: String, enum: ["Unpaid", "Pending Approval", "Paid"], default: "Unpaid" },
+    paymentMethod: { type: String, default: null },
+    transactionId: { type: String, default: null },
+    paidDate: { type: Date, default: null },
+    notes: { type: String, default: null }
   }]
 });
 

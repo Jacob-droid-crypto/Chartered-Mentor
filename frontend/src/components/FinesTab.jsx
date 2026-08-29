@@ -15,6 +15,11 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
   const [startDate, setStartDate] = useState(getTodayStr());
   const [endDate, setEndDate] = useState(getTodayStr());
   
+  // Direct settlement state when creating fine
+  const [initialStatus, setInitialStatus] = useState('Unpaid'); // 'Unpaid' or 'Paid'
+  const [applyPaymentMethod, setApplyPaymentMethod] = useState('Cash');
+  const [applyTransactionId, setApplyTransactionId] = useState('');
+
   const [loading, setLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
   
@@ -26,6 +31,14 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [reasonFilter, setReasonFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [methodFilter, setMethodFilter] = useState('All');
+
+  // Admin Quick Settle Modal State
+  const [settlingFine, setSettlingFine] = useState(null); // { studentId, fineId, studentName, amount }
+  const [settleMethod, setSettleMethod] = useState('Cash');
+  const [settleTransactionId, setSettleTransactionId] = useState('');
+  const [settleDate, setSettleDate] = useState(getTodayStr());
+  const [settleNotes, setSettleNotes] = useState('');
 
   // Handle fine submission
   const handleApplyFine = async (e) => {
@@ -57,7 +70,10 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
           amount: Number(amount),
           reason,
           startDate,
-          endDate
+          endDate,
+          status: initialStatus,
+          paymentMethod: initialStatus === 'Paid' ? applyPaymentMethod : null,
+          transactionId: initialStatus === 'Paid' ? (applyTransactionId.trim() || 'DIRECT_SETTLEMENT') : null
         })
       });
 
@@ -77,10 +93,15 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
         throw new Error(data.message || 'Failed to apply fine');
       }
 
-      setStatusMsg({ type: 'success', text: `Fine of ₹${amount} for '${reason}' applied successfully!` });
+      setStatusMsg({
+        type: 'success',
+        text: `Fine of ₹${amount} for '${reason}' ${initialStatus === 'Paid' ? 'applied and marked as Paid' : 'applied'} successfully!`
+      });
       setAmount('');
       setStartDate(getTodayStr());
       setEndDate(getTodayStr());
+      setInitialStatus('Unpaid');
+      setApplyTransactionId('');
       if (fetchStudentsData) fetchStudentsData();
     } catch (err) {
       setStatusMsg({ type: 'error', text: err.message });
@@ -121,16 +142,25 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
     }
   };
 
-  // Handle fine payment status update
-  const handlePayFine = async (studentId, fineId) => {
-    if (!window.confirm('Mark this fine as paid?')) return;
+  // Handle fine payment approval or manual settlement
+  const handleConfirmSettleFine = async (e) => {
+    if (e) e.preventDefault();
+    if (!settlingFine) return;
+
     setLoading(true);
     try {
-      const res = await fetch(`/admin/student/${studentId}/fine/${fineId}/pay`, {
+      const res = await fetch(`/admin/student/${settlingFine.studentId}/fine/${settlingFine.fineId}/pay`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${user.token}`
-        }
+          'Authorization': `Bearer ${user.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          paymentMethod: settleMethod,
+          transactionId: settleTransactionId.trim() || 'ADMIN_SETTLEMENT',
+          paidDate: settleDate,
+          notes: settleNotes.trim()
+        })
       });
       const contentTypePay = res.headers.get('content-type');
       let dataPay = {};
@@ -147,7 +177,49 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
       if (!res.ok) {
         throw new Error(dataPay.message || 'Failed to mark fine as paid');
       }
-      setStatusMsg({ type: 'success', text: 'Fine marked as Paid successfully.' });
+      setStatusMsg({ type: 'success', text: `Fine payment settled successfully (${settleMethod}).` });
+      setSettlingFine(null);
+      if (fetchStudentsData) fetchStudentsData();
+    } catch (err) {
+      setStatusMsg({ type: 'error', text: err.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle direct approval for Pending Approval fine
+  const handleApprovePendingFine = async (fine) => {
+    if (!window.confirm(`Approve payment of ₹${fine.amount} for ${fine.studentName} via ${fine.paymentMethod || 'reported method'}?`)) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/admin/student/${fine.studentId}/fine/${fine._id}/pay`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${user.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          paymentMethod: fine.paymentMethod || 'UPI',
+          transactionId: fine.transactionId || null,
+          paidDate: fine.paidDate || new Date()
+        })
+      });
+      const contentTypePay = res.headers.get('content-type');
+      let dataPay = {};
+      if (contentTypePay && contentTypePay.includes('application/json')) {
+        dataPay = await res.json();
+      } else {
+        const text = await res.text();
+        if (res.status === 404 || text.includes('Cannot POST') || text.includes('<!DOCTYPE')) {
+          throw new Error('Backend deployment in progress on Vercel. Please wait 1 minute for Vercel to finish updating the server.');
+        }
+        throw new Error('Server error: Non-JSON response received.');
+      }
+
+      if (!res.ok) {
+        throw new Error(dataPay.message || 'Failed to approve fine payment');
+      }
+      setStatusMsg({ type: 'success', text: 'Fine payment approved and marked as Paid.' });
       if (fetchStudentsData) fetchStudentsData();
     } catch (err) {
       setStatusMsg({ type: 'error', text: err.message });
@@ -228,9 +300,13 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
   const filteredFines = allFines.filter((f) => {
     const matchesReason = reasonFilter === 'All' || f.reason === reasonFilter;
     const matchesStatus = statusFilter === 'All' || f.status === statusFilter;
+    const matchesMethod = methodFilter === 'All' || f.paymentMethod === methodFilter;
     const q = searchQuery.toLowerCase();
-    const matchesQuery = !q || f.studentName.toLowerCase().includes(q) || f.studentId.toLowerCase().includes(q);
-    return matchesReason && matchesStatus && matchesQuery;
+    const matchesQuery = !q ||
+      f.studentName.toLowerCase().includes(q) ||
+      f.studentId.toLowerCase().includes(q) ||
+      (f.transactionId && f.transactionId.toLowerCase().includes(q));
+    return matchesReason && matchesStatus && matchesMethod && matchesQuery;
   });
 
   const selectedStudent = Array.isArray(students) ? students.find(s => s.userId === selectedStudentId) : null;
@@ -247,7 +323,7 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
       {/* Header Banner */}
       <div style={{
         display: 'flex',
-        justify: 'space-between',
+        justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: '1.5rem',
         flexWrap: 'wrap',
@@ -258,7 +334,7 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
             💸 Student Fine Management
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '0.3rem' }}>
-            Apply fines to students for Study Hours Deficit or Excess Leaves with date range selection.
+            Issue fines, review student payment proofs (UPI / Bank / Cash), and track fine settlements.
           </p>
         </div>
       </div>
@@ -274,7 +350,7 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
           color: statusMsg.type === 'error' ? '#ef4444' : '#10b981',
           border: `1px solid ${statusMsg.type === 'error' ? '#ef4444' : '#10b981'}`,
           display: 'flex',
-          justify: 'space-between',
+          justifyContent: 'space-between',
           alignItems: 'center'
         }}>
           <span>{statusMsg.type === 'error' ? '⚠️ ' : '✅ '}{statusMsg.text}</span>
@@ -309,7 +385,7 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                   value={isStudentDropdownOpen ? searchStudentTerm : (selectedStudent ? `${selectedStudent.name} (${selectedStudent.userId})` : '')}
                   onFocus={() => {
                     setIsStudentDropdownOpen(true);
-                    setSearchStudentTerm(''); // Clear term to show all on focus
+                    setSearchStudentTerm('');
                   }}
                   onChange={(e) => setSearchStudentTerm(e.target.value)}
                   style={{
@@ -452,10 +528,10 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                     name="reason"
                     value="Study Hours Deficit"
                     checked={reason === 'Study Hours Deficit'}
-                    onChange={() => setReason('Study Hours Deficit')}
+                    onChange={(e) => setReason(e.target.value)}
                     style={{ accentColor: '#f59e0b' }}
                   />
-                  ⏰ Study Hours Deficit
+                  <span>⏰ Study Hours Deficit</span>
                 </label>
 
                 <label style={{
@@ -477,15 +553,17 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                     name="reason"
                     value="Excess Leaves"
                     checked={reason === 'Excess Leaves'}
-                    onChange={() => setReason('Excess Leaves')}
+                    onChange={(e) => setReason(e.target.value)}
                     style={{ accentColor: '#8b5cf6' }}
                   />
-                  🏖️ Excess Leaves
+                  <span>🏖️ Excess Leaves</span>
                 </label>
               </div>
             </div>
+          </div>
 
-            {/* Fine Amount Input */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
+            {/* Amount */}
             <div>
               <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--text-main)', fontSize: '0.9rem' }}>
                 Fine Amount (₹) <span style={{ color: '#ef4444' }}>*</span>
@@ -507,94 +585,168 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                   outline: 'none',
                   boxSizing: 'border-box'
                 }}
-                required
               />
             </div>
 
-            {/* Date Range Selection (Calendar Pickers) */}
-            <div style={{ gridColumn: '1 / -1' }}>
+            {/* Start Date */}
+            <div>
               <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--text-main)', fontSize: '0.9rem' }}>
-                📅 Fine Period / Date Range <span style={{ color: '#ef4444' }}>*</span>
+                Applicable From Date
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-                <div>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>
-                    Start Date
-                  </span>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => {
-                      setStartDate(e.target.value);
-                      if (new Date(endDate) < new Date(e.target.value)) {
-                        setEndDate(e.target.value);
-                      }
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem 1rem',
-                      borderRadius: '10px',
-                      border: '1px solid var(--glass-border, #cbd5e1)',
-                      background: 'var(--card-bg, #ffffff)',
-                      color: 'var(--text-main, #0f172a)',
-                      fontSize: '0.95rem',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                    required
-                  />
-                </div>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem 1rem',
+                  borderRadius: '10px',
+                  border: '1px solid var(--glass-border, #cbd5e1)',
+                  background: 'var(--card-bg, #ffffff)',
+                  color: 'var(--text-main, #0f172a)',
+                  fontSize: '0.95rem',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
 
-                <div>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>
-                    End Date
-                  </span>
-                  <input
-                    type="date"
-                    value={endDate}
-                    min={startDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem 1rem',
-                      borderRadius: '10px',
-                      border: '1px solid var(--glass-border, #cbd5e1)',
-                      background: 'var(--card-bg, #ffffff)',
-                      color: 'var(--text-main, #0f172a)',
-                      fontSize: '0.95rem',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                    required
-                  />
-                </div>
-              </div>
+            {/* End Date */}
+            <div>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--text-main)', fontSize: '0.9rem' }}>
+                Applicable To Date
+              </label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem 1rem',
+                  borderRadius: '10px',
+                  border: '1px solid var(--glass-border, #cbd5e1)',
+                  background: 'var(--card-bg, #ffffff)',
+                  color: 'var(--text-main, #0f172a)',
+                  fontSize: '0.95rem',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              padding: '0.8rem 2rem',
-              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '10px',
-              fontWeight: 'bold',
-              fontSize: '1rem',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              boxShadow: '0 4px 14px rgba(239, 68, 68, 0.3)',
-              transition: 'all 0.2s ease',
-              opacity: loading ? 0.7 : 1
-            }}
-          >
-            {loading ? 'Processing...' : '🚨 Apply Fine'}
-          </button>
+          {/* Payment Method Direct Entry */}
+          <div style={{
+            background: 'var(--card-bg, #f8fafc)',
+            padding: '1rem 1.25rem',
+            borderRadius: '12px',
+            border: '1px solid var(--glass-border, #e2e8f0)',
+            marginBottom: '1.5rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+              <span style={{ fontWeight: 'bold', fontSize: '0.9rem', color: 'var(--text-main)' }}>
+                Payment Status:
+              </span>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.9rem', color: 'var(--text-main)' }}>
+                <input
+                  type="radio"
+                  name="initialStatus"
+                  value="Unpaid"
+                  checked={initialStatus === 'Unpaid'}
+                  onChange={() => setInitialStatus('Unpaid')}
+                />
+                <span>Unpaid (Student will settle)</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.9rem', color: 'var(--text-main)' }}>
+                <input
+                  type="radio"
+                  name="initialStatus"
+                  value="Paid"
+                  checked={initialStatus === 'Paid'}
+                  onChange={() => setInitialStatus('Paid')}
+                />
+                <span>Already Paid (Direct Cash / UPI Desk Settlement)</span>
+              </label>
+            </div>
+
+            {initialStatus === 'Paid' && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px dashed var(--glass-border)' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                    Payment Method
+                  </label>
+                  <select
+                    value={applyPaymentMethod}
+                    onChange={(e) => setApplyPaymentMethod(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.65rem 0.85rem',
+                      borderRadius: '8px',
+                      border: '1px solid var(--glass-border, #cbd5e1)',
+                      background: 'var(--surface-color, #ffffff)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.9rem'
+                    }}
+                  >
+                    <option value="Cash">💵 Cash</option>
+                    <option value="UPI">📱 UPI / QR Code</option>
+                    <option value="Bank Transfer">🏦 Bank Transfer</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                    Receipt / Transaction Reference (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. RCP-001 or UTR No"
+                    value={applyTransactionId}
+                    onChange={(e) => setApplyTransactionId(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.65rem 0.85rem',
+                      borderRadius: '8px',
+                      border: '1px solid var(--glass-border, #cbd5e1)',
+                      background: 'var(--surface-color, #ffffff)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.9rem',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                padding: '0.8rem 2rem',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, var(--primary-color, #4f46e5) 0%, #3b82f6 100%)',
+                color: '#ffffff',
+                border: 'none',
+                fontWeight: 'bold',
+                fontSize: '1rem',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                boxShadow: '0 4px 14px rgba(79, 70, 229, 0.35)',
+                opacity: loading ? 0.7 : 1,
+                transition: 'all 0.2s',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              {loading ? 'Processing...' : '✓ Issue & Save Fine'}
+            </button>
+          </div>
         </form>
       </div>
 
-      {/* Applied Fines History Table */}
+      {/* Fines Ledger Section */}
       <div className="card" style={{
         padding: '1.75rem',
         borderRadius: '16px',
@@ -604,7 +756,7 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
       }}>
         <div style={{
           display: 'flex',
-          justify: 'space-between',
+          justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: '1.25rem',
           flexWrap: 'wrap',
@@ -618,7 +770,7 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             <input
               type="text"
-              placeholder="Search student or ID..."
+              placeholder="Search student, ID or Ref..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{
@@ -643,9 +795,9 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                 fontSize: '0.85rem'
               }}
             >
-              <option value="All" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>All Reasons</option>
-              <option value="Study Hours Deficit" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>Study Hours Deficit</option>
-              <option value="Excess Leaves" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>Excess Leaves</option>
+              <option value="All">All Reasons</option>
+              <option value="Study Hours Deficit">Study Hours Deficit</option>
+              <option value="Excess Leaves">Excess Leaves</option>
             </select>
 
             <select
@@ -660,10 +812,28 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                 fontSize: '0.85rem'
               }}
             >
-              <option value="All" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>All Statuses</option>
-              <option value="Paid" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>Paid</option>
-              <option value="Unpaid" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>Unpaid</option>
-              <option value="Pending Approval" style={{ background: 'var(--card-bg, #ffffff)', color: 'var(--text-main, #0f172a)' }}>Pending Approval</option>
+              <option value="All">All Statuses</option>
+              <option value="Paid">Paid</option>
+              <option value="Unpaid">Unpaid</option>
+              <option value="Pending Approval">Pending Approval</option>
+            </select>
+
+            <select
+              value={methodFilter}
+              onChange={(e) => setMethodFilter(e.target.value)}
+              style={{
+                padding: '0.5rem 1rem',
+                borderRadius: '8px',
+                border: '1px solid var(--glass-border, #cbd5e1)',
+                background: 'var(--card-bg, #ffffff)',
+                color: 'var(--text-main, #0f172a)',
+                fontSize: '0.85rem'
+              }}
+            >
+              <option value="All">All Methods</option>
+              <option value="UPI">📱 UPI</option>
+              <option value="Bank Transfer">🏦 Bank Transfer</option>
+              <option value="Cash">💵 Cash</option>
             </select>
           </div>
         </div>
@@ -680,7 +850,8 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                   <th style={{ padding: '0.75rem 1rem' }}>Student</th>
                   <th style={{ padding: '0.75rem 1rem' }}>Reason</th>
                   <th style={{ padding: '0.75rem 1rem' }}>Amount</th>
-                  <th style={{ padding: '0.75rem 1rem' }}>Applicable Period</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>Period</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>Payment Method & Ref</th>
                   <th style={{ padding: '0.75rem 1rem' }}>Status</th>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Actions</th>
                 </tr>
@@ -705,11 +876,39 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                         {fine.reason === 'Study Hours Deficit' ? '⏰ Study Hours Deficit' : '🏖️ Excess Leaves'}
                       </span>
                     </td>
-                    <td style={{ padding: '0.85rem 1rem', fontWeight: 'bold', color: '#ef4444' }}>
+                    <td style={{ padding: '0.85rem 1rem', fontWeight: 'bold', color: '#ef4444', fontSize: '1rem' }}>
                       ₹{fine.amount}
                     </td>
                     <td style={{ padding: '0.85rem 1rem', color: 'var(--text-main)', fontSize: '0.85rem', fontWeight: '500' }}>
                       📅 {formatFinePeriod(fine)}
+                    </td>
+                    <td style={{ padding: '0.85rem 1rem' }}>
+                      {fine.paymentMethod ? (
+                        <div>
+                          <span style={{
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            fontSize: '0.75rem',
+                            fontWeight: '600',
+                            background: fine.paymentMethod === 'UPI' ? 'rgba(16, 185, 129, 0.15)' : fine.paymentMethod === 'Bank Transfer' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(100, 116, 139, 0.15)',
+                            color: fine.paymentMethod === 'UPI' ? '#10b981' : fine.paymentMethod === 'Bank Transfer' ? '#3b82f6' : '#64748b'
+                          }}>
+                            {fine.paymentMethod === 'UPI' ? '📱 UPI' : fine.paymentMethod === 'Bank Transfer' ? '🏦 Bank Transfer' : '💵 Cash'}
+                          </span>
+                          {fine.transactionId && (
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '3px' }}>
+                              Ref: <strong style={{ color: 'var(--text-main)' }}>{fine.transactionId}</strong>
+                            </div>
+                          )}
+                          {fine.paidDate && (
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                              Paid: {new Date(fine.paidDate).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Unsettled</span>
+                      )}
                     </td>
                     <td style={{ padding: '0.85rem 1rem' }}>
                       <span style={{
@@ -731,16 +930,16 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                       </span>
                     </td>
                     <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', alignItems: 'center' }}>
                         {fine.status === 'Pending Approval' && (
                           <>
                             <button
-                              onClick={() => handlePayFine(fine.studentId, fine._id)}
+                              onClick={() => handleApprovePendingFine(fine)}
                               style={{
                                 padding: '0.35rem 0.75rem',
-                                background: 'rgba(16, 185, 129, 0.1)',
+                                background: 'rgba(16, 185, 129, 0.12)',
                                 color: '#10b981',
-                                border: '1px solid rgba(16, 185, 129, 0.3)',
+                                border: '1px solid rgba(16, 185, 129, 0.35)',
                                 borderRadius: '6px',
                                 cursor: 'pointer',
                                 fontWeight: 'bold',
@@ -755,9 +954,9 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                               onClick={() => handleRejectFine(fine.studentId, fine._id)}
                               style={{
                                 padding: '0.35rem 0.75rem',
-                                background: 'rgba(245, 158, 11, 0.1)',
+                                background: 'rgba(245, 158, 11, 0.12)',
                                 color: '#d97706',
-                                border: '1px solid rgba(245, 158, 11, 0.3)',
+                                border: '1px solid rgba(245, 158, 11, 0.35)',
                                 borderRadius: '6px',
                                 cursor: 'pointer',
                                 fontWeight: 'bold',
@@ -772,21 +971,32 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                         )}
                         {fine.status === 'Unpaid' && (
                           <button
-                            onClick={() => handlePayFine(fine.studentId, fine._id)}
+                            onClick={() => {
+                              setSettlingFine({
+                                studentId: fine.studentId,
+                                fineId: fine._id,
+                                studentName: fine.studentName,
+                                amount: fine.amount
+                              });
+                              setSettleMethod('Cash');
+                              setSettleTransactionId('');
+                              setSettleDate(getTodayStr());
+                              setSettleNotes('');
+                            }}
                             style={{
                               padding: '0.35rem 0.75rem',
-                              background: 'rgba(16, 185, 129, 0.1)',
+                              background: 'rgba(16, 185, 129, 0.12)',
                               color: '#10b981',
-                              border: '1px solid rgba(16, 185, 129, 0.3)',
+                              border: '1px solid rgba(16, 185, 129, 0.35)',
                               borderRadius: '6px',
                               cursor: 'pointer',
                               fontWeight: 'bold',
                               fontSize: '0.8rem',
                               transition: 'all 0.2s'
                             }}
-                            title="Mark as Paid"
+                            title="Settle & Mark as Paid"
                           >
-                            ✓ Mark Paid
+                            ✓ Settle Fine
                           </button>
                         )}
                         <button
@@ -804,7 +1014,7 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
                           }}
                           title="Delete Fine"
                         >
-                          🗑️ Delete
+                          🗑️
                         </button>
                       </div>
                     </td>
@@ -815,6 +1025,155 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
           </div>
         )}
       </div>
+
+      {/* ADMIN QUICK SETTLEMENT MODAL */}
+      {settlingFine && (
+        <div className="modal-overlay" onClick={() => !loading && setSettlingFine(null)} style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(15, 23, 42, 0.75)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '1rem'
+        }}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{
+            maxWidth: '500px',
+            width: '100%',
+            background: 'var(--surface-color, #ffffff)',
+            borderRadius: '20px',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            padding: '2rem',
+            border: '1px solid var(--glass-border, rgba(0,0,0,0.1))'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1.3rem', color: 'var(--text-main)' }}>
+                💰 Settle Fine Payment
+              </h3>
+              <button onClick={() => !loading && setSettlingFine(null)} style={{ background: 'transparent', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                ✕
+              </button>
+            </div>
+
+            <div style={{ background: 'var(--card-bg, #f8fafc)', padding: '0.85rem 1rem', borderRadius: '10px', marginBottom: '1.25rem', border: '1px solid var(--glass-border)' }}>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Student: <strong>{settlingFine.studentName}</strong> ({settlingFine.studentId})</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#ef4444', marginTop: '4px' }}>Amount: ₹{settlingFine.amount}</div>
+            </div>
+
+            <form onSubmit={handleConfirmSettleFine}>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-main)', marginBottom: '6px' }}>
+                  Payment Method Received
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                  {['Cash', 'UPI', 'Bank Transfer'].map(m => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setSettleMethod(m)}
+                      style={{
+                        padding: '0.6rem 0.4rem',
+                        borderRadius: '8px',
+                        border: settleMethod === m ? '2px solid var(--primary-color, #4f46e5)' : '1px solid var(--glass-border)',
+                        background: settleMethod === m ? 'rgba(79, 70, 229, 0.12)' : 'var(--surface-color)',
+                        color: settleMethod === m ? 'var(--primary-color, #4f46e5)' : 'var(--text-main)',
+                        fontWeight: 'bold',
+                        fontSize: '0.85rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {m === 'Cash' ? '💵 Cash' : m === 'UPI' ? '📱 UPI' : '🏦 Bank'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-main)', marginBottom: '4px' }}>
+                  Transaction / Receipt Number (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Cash Receipt #124 or UTR No"
+                  value={settleTransactionId}
+                  onChange={(e) => setSettleTransactionId(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 0.85rem',
+                    borderRadius: '8px',
+                    border: '1px solid var(--glass-border)',
+                    background: 'var(--card-bg, #ffffff)',
+                    color: 'var(--text-main)',
+                    fontSize: '0.9rem',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-main)', marginBottom: '4px' }}>
+                  Payment Date
+                </label>
+                <input
+                  type="date"
+                  value={settleDate}
+                  onChange={(e) => setSettleDate(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 0.85rem',
+                    borderRadius: '8px',
+                    border: '1px solid var(--glass-border)',
+                    background: 'var(--card-bg, #ffffff)',
+                    color: 'var(--text-main)',
+                    fontSize: '0.9rem',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setSettlingFine(null)}
+                  style={{
+                    padding: '0.65rem 1.25rem',
+                    borderRadius: '8px',
+                    border: '1px solid var(--glass-border)',
+                    background: 'transparent',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    fontWeight: '600'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  style={{
+                    padding: '0.65rem 1.5rem',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    color: '#ffffff',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+                  }}
+                >
+                  {loading ? 'Settling...' : '✓ Confirm Settlement'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

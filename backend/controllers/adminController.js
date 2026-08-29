@@ -1431,13 +1431,13 @@ const triggerAutoLogout = async (req, res) => {
 const applyFine = async (req, res) => {
   try {
     const { studentId } = req.params;
-    const { amount, reason, startDate, endDate } = req.body;
+    const { amount, reason, startDate, endDate, paymentMethod, transactionId, status, notes } = req.body;
 
-    if (!amount || isNaN(amount) || Number(amount) <= 0) {
-      return res.status(400).json({ message: "A valid positive amount is required" });
+    if (!amount || Number(amount) <= 0) {
+      return res.status(400).json({ message: "Valid positive amount is required" });
     }
-    if (!reason || !["Study Hours Deficit", "Over Leaves"].includes(reason)) {
-      return res.status(400).json({ message: "Reason must be 'Study Hours Deficit' or 'Over Leaves'" });
+    if (!reason || !["Study Hours Deficit", "Excess Leaves"].includes(reason)) {
+      return res.status(400).json({ message: "Valid fine reason is required (Study Hours Deficit or Excess Leaves)" });
     }
 
     const student = await User.findOne({ userId: studentId.trim().toUpperCase(), role: "student" });
@@ -1451,13 +1451,19 @@ const applyFine = async (req, res) => {
 
     const sDate = startDate ? new Date(startDate) : new Date();
     const eDate = endDate ? new Date(endDate) : sDate;
+    const isPaid = status === "Paid";
 
     student.fines.push({
       amount: Number(amount),
       reason,
       date: new Date(),
       startDate: sDate,
-      endDate: eDate
+      endDate: eDate,
+      status: isPaid ? "Paid" : (status || "Unpaid"),
+      paymentMethod: paymentMethod || null,
+      transactionId: transactionId || null,
+      paidDate: isPaid ? new Date() : null,
+      notes: notes || null
     });
 
     await student.save();
@@ -1503,6 +1509,7 @@ const deleteFine = async (req, res) => {
 const payFine = async (req, res) => {
   try {
     const { studentId, fineId } = req.params;
+    const { paymentMethod, transactionId, paidDate, notes } = req.body || {};
 
     const student = await User.findOne({ userId: studentId.trim().toUpperCase(), role: "student" });
     if (!student) {
@@ -1519,6 +1526,11 @@ const payFine = async (req, res) => {
     }
 
     fine.status = "Paid";
+    if (paymentMethod) fine.paymentMethod = paymentMethod;
+    if (transactionId !== undefined) fine.transactionId = transactionId;
+    fine.paidDate = paidDate ? new Date(paidDate) : (fine.paidDate || new Date());
+    if (notes !== undefined) fine.notes = notes;
+
     await student.save();
 
     const studentObj = student.toObject();

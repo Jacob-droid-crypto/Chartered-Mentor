@@ -1100,6 +1100,8 @@ const markFinePaid = async (req, res) => {
     }
 
     const { fineId } = req.params;
+    const { paymentMethod, transactionId, paidDate, notes } = req.body || {};
+
     const student = await User.findOne({ userId: user.userId, role: "student" });
     if (!student) {
       return res.status(404).json({ message: "Student not found" });
@@ -1115,6 +1117,11 @@ const markFinePaid = async (req, res) => {
     }
 
     fine.status = "Pending Approval";
+    fine.paymentMethod = paymentMethod || "UPI";
+    fine.transactionId = transactionId || null;
+    fine.paidDate = paidDate ? new Date(paidDate) : new Date();
+    fine.notes = notes || null;
+
     await student.save();
 
     const studentObj = student.toObject();
