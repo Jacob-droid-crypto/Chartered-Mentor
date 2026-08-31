@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 
-export default function StudentFinesView({ user, data, fetchDashboardData }) {
+export default function StudentFinesView({ user, data, fetchDashboardData, paymentConfig: propPaymentConfig }) {
   const [selectedFineId, setSelectedFineId] = useState('');
   const [activeMethodTab, setActiveMethodTab] = useState('UPI'); // 'UPI' | 'Bank' | 'Cash'
   const [paymentMethod, setPaymentMethod] = useState('UPI');
@@ -16,10 +16,14 @@ export default function StudentFinesView({ user, data, fetchDashboardData }) {
   const [successMsg, setSuccessMsg] = useState('');
   const [copyToast, setCopyToast] = useState('');
   
-  // Payment Config from institute
-  const [paymentConfig, setPaymentConfig] = useState(null);
+  // Payment Config from institute (Synced with Fees & Fines)
+  const [paymentConfig, setPaymentConfig] = useState(propPaymentConfig || null);
 
   useEffect(() => {
+    if (propPaymentConfig) {
+      setPaymentConfig(propPaymentConfig);
+      return;
+    }
     const fetchPaymentConfig = async () => {
       try {
         const res = await fetch('/student/payment-config', {
@@ -36,7 +40,7 @@ export default function StudentFinesView({ user, data, fetchDashboardData }) {
     if (user?.token) {
       fetchPaymentConfig();
     }
-  }, [user]);
+  }, [user, propPaymentConfig]);
 
   const fines = data?.fines || [];
   const unpaidFines = fines.filter(f => f.status !== 'Paid' && f.status !== 'Pending Approval');

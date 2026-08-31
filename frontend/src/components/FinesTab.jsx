@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 
 const getTodayStr = () => {
   const d = new Date();
@@ -8,12 +9,103 @@ const getTodayStr = () => {
   return `${year}-${month}-${day}`;
 };
 
-export default function FinesTab({ user, students = [], fetchStudentsData }) {
+export default function FinesTab({
+  user,
+  students = [],
+  fetchStudentsData,
+  paymentConfig: propPaymentConfig,
+  fetchPaymentConfig: propFetchPaymentConfig
+}) {
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [reason, setReason] = useState('Study Hours Deficit');
   const [amount, setAmount] = useState('');
   const [startDate, setStartDate] = useState(getTodayStr());
   const [endDate, setEndDate] = useState(getTodayStr());
+  
+  // Payment Config State for Fines & Fees
+  const [paymentConfig, setPaymentConfig] = useState(propPaymentConfig || null);
+  const [isEditingPaymentConfig, setIsEditingPaymentConfig] = useState(false);
+  const [paymentConfigForm, setPaymentConfigForm] = useState({
+    accountName: '',
+    accountNumber: '',
+    bankName: '',
+    ifscCode: '',
+    upiId: ''
+  });
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
+  const [configMsg, setConfigMsg] = useState({ type: '', text: '' });
+  const [copyToast, setCopyToast] = useState('');
+
+  // Fetch payment config if not provided
+  const fetchPaymentDetails = useCallback(async () => {
+    try {
+      const res = await fetch('/admin/payment-config', {
+        headers: { 'Authorization': `Bearer ${user.token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPaymentConfig(data);
+        setPaymentConfigForm({
+          accountName: data.accountName || '',
+          accountNumber: data.accountNumber || '',
+          bankName: data.bankName || '',
+          ifscCode: data.ifscCode || '',
+          upiId: data.upiId || ''
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load payment config in fines tab:', err);
+    }
+  }, [user?.token]);
+
+  useEffect(() => {
+    if (propPaymentConfig) {
+      setPaymentConfig(propPaymentConfig);
+      setPaymentConfigForm({
+        accountName: propPaymentConfig.accountName || '',
+        accountNumber: propPaymentConfig.accountNumber || '',
+        bankName: propPaymentConfig.bankName || '',
+        ifscCode: propPaymentConfig.ifscCode || '',
+        upiId: propPaymentConfig.upiId || ''
+      });
+    } else if (user?.token) {
+      fetchPaymentDetails();
+    }
+  }, [propPaymentConfig, user, fetchPaymentDetails]);
+
+  const handleSavePaymentConfig = async (e) => {
+    e.preventDefault();
+    setIsSavingConfig(true);
+    setConfigMsg({ type: '', text: '' });
+    try {
+      const res = await fetch('/admin/payment-config', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${user.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(paymentConfigForm)
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      const updated = data.config || paymentConfigForm;
+      setPaymentConfig(updated);
+      setConfigMsg({ type: 'success', text: 'Institute payment details saved successfully! Students will now see these updated payment schemes in their Fines and Fees tab.' });
+      setIsEditingPaymentConfig(false);
+      if (propFetchPaymentConfig) propFetchPaymentConfig();
+    } catch (err) {
+      setConfigMsg({ type: 'error', text: 'Failed to save payment details: ' + err.message });
+    } finally {
+      setIsSavingConfig(false);
+    }
+  };
+
+  const handleCopy = (text, label) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopyToast(`Copied ${label}!`);
+    setTimeout(() => setCopyToast(''), 2500);
+  };
   
   // Direct settlement state when creating fine
   const [initialStatus, setInitialStatus] = useState('Unpaid'); // 'Unpaid' or 'Paid'
@@ -339,7 +431,424 @@ export default function FinesTab({ user, students = [], fetchStudentsData }) {
         </div>
       </div>
 
-      {/* Status Messages */}
+      {/* Toast Notification */}
+      {copyToast && (
+        <div style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          zIndex: 10000,
+          padding: '0.75rem 1.25rem',
+          borderRadius: '10px',
+          background: '#0f172a',
+          color: '#ffffff',
+          fontWeight: '600',
+          fontSize: '0.9rem',
+          boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          📋 {copyToast}
+        </div>
+      )}
+
+      {/* Payment Config Status Messages */}
+      {configMsg.text && (
+        <div style={{
+          padding: '1rem 1.25rem',
+          borderRadius: '10px',
+          marginBottom: '1.5rem',
+          fontWeight: '600',
+          background: configMsg.type === 'error' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+          color: configMsg.type === 'error' ? '#ef4444' : '#10b981',
+          border: `1px solid ${configMsg.type === 'error' ? '#ef4444' : '#10b981'}`,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <span>{configMsg.type === 'error' ? '⚠️ ' : '✅ '}{configMsg.text}</span>
+          <button onClick={() => setConfigMsg({ type: '', text: '' })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontWeight: 'bold' }}>✕</button>
+        </div>
+      )}
+
+      {/* Institute Fine & Fee Payment Remittance Details Card */}
+      <div className="card" style={{
+        padding: '1.75rem',
+        borderRadius: '16px',
+        marginBottom: '2rem',
+        background: 'var(--surface-color, #ffffff)',
+        border: '1px solid var(--glass-border, rgba(0, 0, 0, 0.1))',
+        boxShadow: '0 8px 32px var(--shadow-color, rgba(0, 0, 0, 0.05))'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div style={{
+              background: 'rgba(16, 185, 129, 0.12)',
+              color: '#10b981',
+              padding: '0.85rem',
+              borderRadius: '12px',
+              fontSize: '1.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              🏦
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                  Fine & Fee Payment Details
+                </h3>
+                <span style={{
+                  fontSize: '0.75rem',
+                  fontWeight: 'bold',
+                  background: 'rgba(59, 130, 246, 0.1)',
+                  color: '#3b82f6',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(59, 130, 246, 0.2)'
+                }}>
+                  Visible to Students
+                </span>
+              </div>
+              <p style={{ color: 'var(--text-muted)', margin: '0.25rem 0 0 0', fontSize: '0.88rem' }}>
+                Official institute payment scheme details (UPI & Bank Account) configured for student fine and fee remittance.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setIsEditingPaymentConfig(!isEditingPaymentConfig);
+              if (!isEditingPaymentConfig && paymentConfig) {
+                setPaymentConfigForm({
+                  accountName: paymentConfig.accountName || '',
+                  accountNumber: paymentConfig.accountNumber || '',
+                  bankName: paymentConfig.bankName || '',
+                  ifscCode: paymentConfig.ifscCode || '',
+                  upiId: paymentConfig.upiId || ''
+                });
+              }
+            }}
+            style={{
+              padding: '0.6rem 1.1rem',
+              borderRadius: '8px',
+              background: isEditingPaymentConfig ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+              color: isEditingPaymentConfig ? '#ef4444' : '#3b82f6',
+              border: isEditingPaymentConfig ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(59, 130, 246, 0.3)',
+              fontWeight: 'bold',
+              fontSize: '0.88rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.2s'
+            }}
+          >
+            {isEditingPaymentConfig ? '✕ Cancel Editing' : '✏️ Change Payment Details'}
+          </button>
+        </div>
+
+        {/* EDIT PAYMENT CONFIG FORM */}
+        {isEditingPaymentConfig ? (
+          <form onSubmit={handleSavePaymentConfig} style={{ marginTop: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem', marginBottom: '1.25rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.4rem', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                  Institute / Account Name <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Chartered Mentor Pvt Ltd"
+                  value={paymentConfigForm.accountName}
+                  onChange={(e) => setPaymentConfigForm({ ...paymentConfigForm, accountName: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    borderRadius: '8px',
+                    border: '1px solid var(--glass-border)',
+                    background: 'var(--card-bg, #ffffff)',
+                    color: 'var(--text-main)',
+                    fontSize: '0.95rem',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.4rem', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                  Account Number <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. 123456789012"
+                  value={paymentConfigForm.accountNumber}
+                  onChange={(e) => setPaymentConfigForm({ ...paymentConfigForm, accountNumber: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    borderRadius: '8px',
+                    border: '1px solid var(--glass-border)',
+                    background: 'var(--card-bg, #ffffff)',
+                    color: 'var(--text-main)',
+                    fontSize: '0.95rem',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.4rem', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                  Bank Name <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. HDFC Bank / SBI"
+                  value={paymentConfigForm.bankName}
+                  onChange={(e) => setPaymentConfigForm({ ...paymentConfigForm, bankName: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    borderRadius: '8px',
+                    border: '1px solid var(--glass-border)',
+                    background: 'var(--card-bg, #ffffff)',
+                    color: 'var(--text-main)',
+                    fontSize: '0.95rem',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.4rem', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                  IFSC Code <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. HDFC0001234"
+                  value={paymentConfigForm.ifscCode}
+                  onChange={(e) => setPaymentConfigForm({ ...paymentConfigForm, ifscCode: e.target.value.toUpperCase() })}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    borderRadius: '8px',
+                    border: '1px solid var(--glass-border)',
+                    background: 'var(--card-bg, #ffffff)',
+                    color: 'var(--text-main)',
+                    fontSize: '0.95rem',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{
+              padding: '1.25rem',
+              background: 'rgba(59, 130, 246, 0.05)',
+              borderRadius: '12px',
+              border: '1px dashed rgba(59, 130, 246, 0.3)',
+              marginBottom: '1.5rem',
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: '1.5rem'
+            }}>
+              <div style={{ flex: 1, minWidth: '220px' }}>
+                <label style={{ display: 'block', marginBottom: '0.4rem', color: '#3b82f6', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                  📱 UPI ID (Optional / Recommended)
+                </label>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '0 0 0.8rem 0' }}>
+                  Adding a valid UPI ID automatically renders a scan-and-pay QR code for students across both fines and fee payments.
+                </p>
+                <input
+                  type="text"
+                  placeholder="e.g. institute@upi or mobile@okhdfcbank"
+                  value={paymentConfigForm.upiId}
+                  onChange={(e) => setPaymentConfigForm({ ...paymentConfigForm, upiId: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    borderRadius: '8px',
+                    border: '1px solid var(--glass-border)',
+                    background: 'white',
+                    color: 'var(--text-main)',
+                    fontSize: '0.95rem',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              {paymentConfigForm.upiId && (
+                <div style={{
+                  background: '#ffffff',
+                  padding: '0.75rem',
+                  borderRadius: '12px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
+                  textAlign: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center'
+                }}>
+                  <QRCodeSVG value={`upi://pay?pa=${paymentConfigForm.upiId}&pn=${encodeURIComponent(paymentConfigForm.accountName || 'Institute')}`} size={100} />
+                  <span style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: 'bold', marginTop: '4px' }}>Live QR Preview</span>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setIsEditingPaymentConfig(false)}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  background: 'transparent',
+                  border: '1px solid var(--glass-border)',
+                  color: 'var(--text-main)',
+                  borderRadius: '8px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSavingConfig}
+                style={{
+                  padding: '0.75rem 1.75rem',
+                  background: '#10b981',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontWeight: 'bold',
+                  fontSize: '0.95rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)'
+                }}
+              >
+                {isSavingConfig ? 'Saving...' : '💾 Save Payment Details'}
+              </button>
+            </div>
+          </form>
+        ) : (
+          /* VIEW PAYMENT CONFIG DETAILS */
+          <div>
+            {paymentConfig ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', alignItems: 'center' }}>
+                {/* Bank Details Grid */}
+                <div style={{ flex: 2, minWidth: '280px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                  <div style={{ background: 'var(--card-bg, #f8fafc)', padding: '0.9rem', borderRadius: '10px', border: '1px solid var(--glass-border)' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 'bold' }}>Account Name</span>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px' }}>
+                      <strong style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>{paymentConfig.accountName || 'N/A'}</strong>
+                      {paymentConfig.accountName && (
+                        <button type="button" onClick={() => handleCopy(paymentConfig.accountName, 'Account Name')} style={{ padding: '3px 8px', background: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6', border: 'none', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer' }}>📋</button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'var(--card-bg, #f8fafc)', padding: '0.9rem', borderRadius: '10px', border: '1px solid var(--glass-border)' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 'bold' }}>Account Number</span>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px' }}>
+                      <strong style={{ color: 'var(--text-main)', fontSize: '1rem', letterSpacing: '1px' }}>{paymentConfig.accountNumber || 'N/A'}</strong>
+                      {paymentConfig.accountNumber && (
+                        <button type="button" onClick={() => handleCopy(paymentConfig.accountNumber, 'Account Number')} style={{ padding: '3px 8px', background: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6', border: 'none', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer' }}>📋</button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'var(--card-bg, #f8fafc)', padding: '0.9rem', borderRadius: '10px', border: '1px solid var(--glass-border)' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 'bold' }}>Bank Name</span>
+                    <div style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.95rem', marginTop: '4px' }}>
+                      {paymentConfig.bankName || 'N/A'}
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'var(--card-bg, #f8fafc)', padding: '0.9rem', borderRadius: '10px', border: '1px solid var(--glass-border)' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 'bold' }}>IFSC Code</span>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px' }}>
+                      <strong style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>{paymentConfig.ifscCode || 'N/A'}</strong>
+                      {paymentConfig.ifscCode && (
+                        <button type="button" onClick={() => handleCopy(paymentConfig.ifscCode, 'IFSC Code')} style={{ padding: '3px 8px', background: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6', border: 'none', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer' }}>📋</button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* UPI & QR Code Preview */}
+                {paymentConfig.upiId && (
+                  <div style={{
+                    flex: 1,
+                    minWidth: '220px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '1rem',
+                    background: '#f8fafc',
+                    padding: '0.9rem 1.2rem',
+                    borderRadius: '12px',
+                    border: '1px solid var(--glass-border)'
+                  }}>
+                    <div style={{ background: 'white', padding: '0.5rem', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                      <QRCodeSVG value={`upi://pay?pa=${paymentConfig.upiId}&pn=${encodeURIComponent(paymentConfig.accountName || 'Institute')}`} size={80} />
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 'bold' }}>Active UPI ID</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                        <strong style={{ color: '#10b981', fontSize: '0.95rem' }}>{paymentConfig.upiId}</strong>
+                        <button type="button" onClick={() => handleCopy(paymentConfig.upiId, 'UPI ID')} style={{ padding: '2px 6px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: 'none', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer' }}>📋</button>
+                      </div>
+                      <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', marginTop: '4px' }}>Scan with GPay, PhonePe, Paytm</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '1.5rem', background: 'rgba(0,0,0,0.02)', borderRadius: '10px' }}>
+                <p style={{ color: 'var(--text-muted)', margin: '0 0 0.8rem 0' }}>No payment details configured yet. Configure details so students can remit payments.</p>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingPaymentConfig(true)}
+                  style={{
+                    padding: '0.6rem 1.2rem',
+                    background: '#10b981',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ➕ Add Payment Details
+                </button>
+              </div>
+            )}
+
+            <div style={{
+              marginTop: '1.25rem',
+              padding: '0.75rem 1rem',
+              background: 'rgba(16, 185, 129, 0.06)',
+              borderRadius: '8px',
+              border: '1px solid rgba(16, 185, 129, 0.15)',
+              fontSize: '0.85rem',
+              color: 'var(--text-main)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <span>💡</span>
+              <span><strong>Unified Remittance:</strong> These payment schemes are synced across both student <strong>Fines</strong> and <strong>Course Fees</strong>. When students settle a fine, they will view this exact account & QR code to remit payments.</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Fine Status Alert Messages */}
       {statusMsg.text && (
         <div style={{
           padding: '1rem 1.25rem',

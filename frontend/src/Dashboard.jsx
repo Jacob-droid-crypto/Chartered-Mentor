@@ -645,7 +645,7 @@ function StudentPaperCard({ paper, user, onRefresh, showConfirm }) {
   );
 }
 
-function Dashboard({ user, onLogout, theme, setTheme }) {
+function Dashboard({ user, onLogout }) {
   const isAdminOrStaff = user.role === 'admin' || user.role === 'staff';
 
   // Helper to parse tab from hash
@@ -3184,38 +3184,6 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
                 }}
               />
             </div>
-
-            <button
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              style={{
-                background: 'var(--surface-solid)',
-                border: '1px solid var(--glass-border)',
-                borderRadius: '50%',
-                width: '40px',
-                height: '40px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                fontSize: '1.2rem',
-                boxShadow: '0 4px 15px var(--shadow-color)',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                userSelect: 'none',
-                outline: 'none',
-                padding: 0
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'scale(1.1) rotate(15deg)';
-                e.currentTarget.style.boxShadow = '0 6px 18px rgba(99, 102, 241, 0.2)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'scale(1) rotate(0deg)';
-                e.currentTarget.style.boxShadow = '0 4px 15px var(--shadow-color)';
-              }}
-              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            >
-              {theme === 'dark' ? '☀️' : '🌙'}
-            </button>
 
             <div className="profile-section" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <span>{user.name}</span>
@@ -6712,9 +6680,9 @@ function Dashboard({ user, onLogout, theme, setTheme }) {
           </>
         ) : activeTab === 'fines' ? (
           user.role === 'student' ? (
-            <StudentFinesView user={user} data={data} fetchDashboardData={fetchDashboardData} />
+            <StudentFinesView user={user} data={data} fetchDashboardData={fetchDashboardData} paymentConfig={paymentConfig} />
           ) : (
-            <FinesTab user={user} students={students} fetchStudentsData={fetchStudentsData} />
+            <FinesTab user={user} students={students} fetchStudentsData={fetchStudentsData} paymentConfig={paymentConfig} fetchPaymentConfig={fetchPaymentConfig} />
           )
         ) : (activeTab === 'notifications' || activeTab === 'scan_qr') && user.role === 'student' ? (
           <div style={{ maxWidth: '800px', margin: '0 auto' }}>
