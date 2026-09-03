@@ -3316,8 +3316,106 @@ function Dashboard({ user, onLogout }) {
               const isCurrentlyCheckedIn = lastLog && lastLog.type === 'IN';
               const unpaidFinesList = (data?.fines || []).filter(f => !f.status || f.status === 'Unpaid');
 
+              const recentDeductions = (data?.attendanceAdjustments && data.attendanceAdjustments.length > 0)
+                ? data.attendanceAdjustments
+                : (data?.attendanceSummary || []).filter(a => a.deductionMinutes > 0).sort((a, b) => b.date.localeCompare(a.date));
+
               return (
                 <>
+                  {/* EMERGENCY ATTENDANCE DEDUCTION NOTIFICATION */}
+                  {recentDeductions.length > 0 && (
+                    <div className="card" style={{
+                      marginBottom: '1.5rem',
+                      background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.18) 0%, rgba(185, 28, 28, 0.12) 100%)',
+                      border: '2px solid #ef4444',
+                      borderRadius: '16px',
+                      padding: '1.25rem 1.5rem',
+                      boxShadow: '0 8px 25px rgba(239, 68, 68, 0.25)',
+                      animation: 'pulse-border 2s infinite'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                          <div style={{
+                            background: '#ef4444',
+                            color: 'white',
+                            borderRadius: '50%',
+                            width: '40px',
+                            height: '40px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '1.35rem',
+                            flexShrink: 0,
+                            boxShadow: '0 4px 10px rgba(239, 68, 68, 0.4)'
+                          }}>
+                            🚨
+                          </div>
+                          <div>
+                            <h3 style={{ color: '#ef4444', fontSize: '1.25rem', margin: 0, fontWeight: '800', letterSpacing: '0.5px' }}>
+                              Emergency Alert: Study Hours Deducted ({recentDeductions.length})
+                            </h3>
+                            <p style={{ color: 'var(--text-main)', fontSize: '0.95rem', marginTop: '0.35rem', marginBottom: 0, fontWeight: '500' }}>
+                              Administration has deducted study hours from your attendance due to inactivity, laziness, or policy violations.
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setActiveTab('attendance')}
+                          style={{
+                            padding: '0.55rem 1.1rem',
+                            background: '#ef4444',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            fontSize: '0.85rem',
+                            boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          View Attendance Details 📋
+                        </button>
+                      </div>
+
+                      <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                        {recentDeductions.slice(0, 3).map((adj, idx) => {
+                          const rawHours = adj.rawHours !== undefined ? adj.rawHours : ((adj.totalHours || 0) + (adj.deductionHours || (adj.deductionMinutes / 60)));
+                          const netHours = adj.totalHours !== undefined ? adj.totalHours : Math.max(0, rawHours - (adj.deductionMinutes / 60));
+                          return (
+                            <div key={idx} style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              background: 'var(--surface-color)',
+                              padding: '0.85rem 1.15rem',
+                              borderRadius: '10px',
+                              border: '1px solid rgba(239, 68, 68, 0.3)',
+                              flexWrap: 'wrap',
+                              gap: '0.75rem'
+                            }}>
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  <strong style={{ color: '#ef4444', fontSize: '0.95rem' }}>
+                                    -{formatStudyTime(adj.deductionHours || (adj.deductionMinutes / 60))} Penalty
+                                  </strong>
+                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>• Date: <strong>{adj.date}</strong></span>
+                                </div>
+                                <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', marginTop: '0.25rem' }}>
+                                  <strong>Reason:</strong> {adj.reason || adj.deductionReason || 'Unproductive / Inactivity'}
+                                </div>
+                              </div>
+                              <div style={{ textAlign: 'right', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                <div>Biometric Tracked: {formatStudyTime(rawHours)}</div>
+                                <div style={{ fontWeight: 'bold', color: '#10b981', marginTop: '0.15rem' }}>Updated Net: {formatStudyTime(netHours)}</div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {unpaidFinesList.length > 0 && (
                     <div className="card" style={{
                       marginBottom: '2rem',

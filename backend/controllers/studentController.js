@@ -193,6 +193,17 @@ const getDashboard = async (req, res) => {
       hasOUT: s.hasOUT,
     }));
 
+    const attendanceAdjustments = adjustments
+      .filter(a => a.deductionMinutes > 0)
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .map(a => ({
+        date: a.date,
+        deductionMinutes: a.deductionMinutes,
+        deductionHours: a.deductionMinutes / 60,
+        reason: a.reason,
+        adjustedBy: a.adjustedBy
+      }));
+
     res.json({
       studentId: student.userId,
       name: student.name,
@@ -208,6 +219,7 @@ const getDashboard = async (req, res) => {
       feeHistory: student.feeHistory,
       todayLogs: logs,
       attendanceSummary,
+      attendanceAdjustments,
       address: student.address || "",
       group: student.group || "",
       aadharNumber: student.aadharNumber || "",
