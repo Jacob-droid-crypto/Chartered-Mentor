@@ -216,12 +216,22 @@ export default function StudentsTab({
                     {user.role === 'admin' && (
                       <>
                         <button onClick={() => {
+                          const formatInputDate = (d) => {
+                            if (!d) return '';
+                            const dateObj = new Date(d);
+                            if (isNaN(dateObj.getTime())) return '';
+                            const year = dateObj.getFullYear();
+                            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                            const day = String(dateObj.getDate()).padStart(2, '0');
+                            return `${year}-${month}-${day}`;
+                          };
+
                           const existingInstallments = Array.isArray(student.installments) && student.installments.length > 0
                             ? student.installments.map(inst => ({
                               amount: inst.amount || '',
-                              dueDate: inst.dueDate ? new Date(inst.dueDate).toISOString().split('T')[0] : '',
+                              dueDate: formatInputDate(inst.dueDate),
                               status: inst.status || 'Unpaid',
-                              paidDate: inst.paidDate ? new Date(inst.paidDate).toISOString().split('T')[0] : ''
+                              paidDate: formatInputDate(inst.paidDate)
                             }))
                             : [
                               { amount: student.totalFees ? Math.round(Number(student.totalFees) / 3) : '', dueDate: '', status: 'Unpaid' },
@@ -233,7 +243,7 @@ export default function StudentsTab({
                             userId: student.userId,
                             name: student.name,
                             totalFees: student.totalFees || '',
-                            nextPaymentDueDate: student.nextPaymentDueDate ? new Date(student.nextPaymentDueDate).toISOString().split('T')[0] : '',
+                            nextPaymentDueDate: formatInputDate(student.nextPaymentDueDate),
                             installments: existingInstallments,
                             feeHistory: student.feeHistory || [],
                             feesPaid: student.feesPaid || 0

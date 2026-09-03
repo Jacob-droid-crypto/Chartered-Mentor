@@ -725,30 +725,50 @@ const updateInstallmentStatus = (user) => {
       }
     });
 
-    // Sum unlinked payments
-    const totalUnlinkedPaid = unlinkedPayments.reduce((sum, p) => sum + p.amount, 0);
-    const sumInstallments = user.installments.reduce((sum, inst) => sum + inst.amount, 0);
-    const implicitInitialFee = Math.max(0, (user.totalFees || 0) - sumInstallments);
+    // Distribute unlinked payments to unpaid installments chronologically
+    const unlinkedPool = unlinkedPayments.map(p => ({
+      amount: Number(p.amount) || 0,
+      date: p.date ? new Date(p.date) : new Date()
+    }));
 
-    // Remaining unlinked paid amount after paying initial fee
-    let remainingPaid = Math.max(0, totalUnlinkedPaid - implicitInitialFee);
+    const sumInstallments = user.installments.reduce((sum, inst) => sum + Number(inst.amount || 0), 0);
+    let implicitInitialFee = Math.max(0, Number(user.totalFees || 0) - sumInstallments);
 
-    // Distribute remaining unlinked payments to unpaid installments chronologically
+    // Deduct implicit initial fee from unlinked pool
+    for (const p of unlinkedPool) {
+      if (implicitInitialFee <= 0) break;
+      const deduct = Math.min(p.amount, implicitInitialFee);
+      p.amount -= deduct;
+      implicitInitialFee -= deduct;
+    }
+
+    // Allocate remaining unlinked payments to unpaid installments
     user.installments.forEach((inst) => {
       if (inst.status === "Paid") {
-        // Already paid via explicit linkage
-        return;
+        return; // Already paid via explicit linkage
       }
-      if (remainingPaid >= inst.amount) {
+
+      let needed = Number(inst.amount || 0);
+      let paymentDateForInst = null;
+
+      for (const p of unlinkedPool) {
+        if (needed <= 0) break;
+        if (p.amount > 0) {
+          const cover = Math.min(p.amount, needed);
+          p.amount -= cover;
+          needed -= cover;
+          paymentDateForInst = p.date;
+        }
+      }
+
+      if (needed <= 0) {
         inst.status = "Paid";
-        inst.paidDate = unlinkedPayments.length > 0 ? unlinkedPayments[unlinkedPayments.length - 1].date : new Date();
+        inst.paidDate = paymentDateForInst || new Date();
         inst.adjustedAmount = 0;
-        remainingPaid -= inst.amount;
       } else {
         inst.status = "Unpaid";
         inst.paidDate = null;
-        inst.adjustedAmount = inst.amount - remainingPaid;
-        remainingPaid = 0;
+        inst.adjustedAmount = needed;
       }
     });
 
@@ -769,46 +789,55 @@ const updateStudentFees = async (req, res) => {
     const user = await User.findOne({ userId: cleanId, role: "student" });
     if (!user) return res.status(404).json({ message: "Student not found" });
     
-    user.totalFees = totalFees;
+    user.totalFees = Number(totalFees);
     if (installments && Array.isArray(installments)) {
+      // Clean up any legacy single lump-sum auto-generated records
+      user.feeHistory = (user.feeHistory || []).filter(
+        p => p.receiptNo !== "Manually Verified (Set Fee Structure)"
+      );
+
       user.installments = installments.map(inst => ({
         amount: Number(inst.amount),
         dueDate: new Date(inst.dueDate),
         status: inst.status || "Unpaid",
         paidDate: inst.status === "Paid" ? (inst.paidDate ? new Date(inst.paidDate) : new Date()) : null
       }));
-    }
-    
-    const sumInstallments = user.installments.reduce((sum, inst) => sum + inst.amount, 0);
-    const implicitInitialFee = Math.max(0, (user.totalFees || 0) - sumInstallments);
-    const sumPaidInstallments = user.installments
-      .filter(inst => inst.status === "Paid")
-      .reduce((sum, inst) => sum + inst.amount, 0);
-    
-    const requiredPaid = implicitInitialFee + sumPaidInstallments;
-    
-    const payments = (user.feeHistory || [])
-      .filter(p => p.status === 'Verified' || p.status === 'Paid' || p.status === 'Received');
-    const currentVerifiedPaid = payments.reduce((sum, p) => sum + p.amount, 0);
-    
-    if (currentVerifiedPaid < requiredPaid) {
-      const diff = requiredPaid - currentVerifiedPaid;
-      const paidInst = user.installments.find(inst => inst.status === "Paid" && inst.paidDate);
-      const paymentDate = paidInst ? paidInst.paidDate : new Date();
-      
-      user.feeHistory.push({
-        amount: diff,
-        date: paymentDate,
-        receiptNo: "Manually Verified (Set Fee Structure)",
-        status: "Verified"
+
+      // Synchronize linked payments in user.feeHistory for each installment
+      installments.forEach((inst, index) => {
+        const instNum = index + 1;
+        const existingPayment = (user.feeHistory || []).find(p => p.installmentNumber === instNum);
+
+        if (inst.status === "Paid") {
+          const pDate = inst.paidDate ? new Date(inst.paidDate) : new Date();
+          const pAmt = Number(inst.amount);
+
+          if (existingPayment) {
+            existingPayment.amount = pAmt;
+            existingPayment.date = pDate;
+            existingPayment.status = "Verified";
+          } else {
+            user.feeHistory.push({
+              amount: pAmt,
+              date: pDate,
+              receiptNo: `Verified (Installment ${instNum})`,
+              status: "Verified",
+              installmentNumber: instNum
+            });
+          }
+        } else {
+          // If installment is marked Unpaid and was auto-created from manual installment setup, remove it
+          if (existingPayment && existingPayment.receiptNo && existingPayment.receiptNo.startsWith("Verified (Installment")) {
+            user.feeHistory = user.feeHistory.filter(p => p._id && p._id.toString() !== existingPayment._id.toString());
+          }
+        }
       });
-      
-      user.feesPaid = (user.feesPaid || 0) + diff;
-    } else {
-      user.feesPaid = user.feeHistory
-        .filter(p => p.status === "Verified" || p.status === "Paid" || p.status === "Received")
-        .reduce((sum, p) => sum + Number(p.amount), 0);
     }
+    
+    // Recalculate total feesPaid from all Verified, Paid, or Received payments
+    user.feesPaid = (user.feeHistory || [])
+      .filter(p => p.status === "Verified" || p.status === "Paid" || p.status === "Received")
+      .reduce((sum, p) => sum + Number(p.amount || 0), 0);
     
     updateInstallmentStatus(user);
     
