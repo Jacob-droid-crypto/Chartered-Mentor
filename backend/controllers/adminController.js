@@ -2,6 +2,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Attendance = require("../models/Attendance");
+const AttendanceAdjustment = require("../models/AttendanceAdjustment");
 const PaymentConfig = require("../models/PaymentConfig");
 const QuestionPaper = require("../models/QuestionPaper");
 const GoalConfig = require("../models/GoalConfig");
@@ -266,6 +267,13 @@ const getDailySummary = async (req, res) => {
       studentMap[s.userId] = s.name;
     });
 
+    // Fetch all adjustments
+    const adjustments = await AttendanceAdjustment.find({});
+    const adjMap = {};
+    adjustments.forEach((a) => {
+      adjMap[`${a.studentId}_${a.date}`] = a;
+    });
+
     const groupedRecords = {};
     records.forEach((r) => {
       const key = `${r.studentId}_${r.date}`;
@@ -315,6 +323,13 @@ const getDailySummary = async (req, res) => {
         }
       }
 
+      const adj = adjMap[key];
+      const deductionMinutes = adj ? adj.deductionMinutes : 0;
+      const deductionHours = deductionMinutes / 60;
+      const deductionReason = adj ? adj.reason : "";
+      const rawHours = totalMs / (1000 * 60 * 60);
+      const netHours = Math.max(0, rawHours - deductionHours);
+
       summary[key] = {
         studentId,
         studentName: studentMap[studentId] || "Unknown Student",
@@ -323,6 +338,11 @@ const getDailySummary = async (req, res) => {
         hasIN: !!firstInLog,
         hasOUT: dayLogs[dayLogs.length - 1].type === "OUT",
         totalMs,
+        rawHours,
+        deductionMinutes,
+        deductionHours,
+        deductionReason,
+        totalHours: netHours,
         firstIn
       };
     }
@@ -332,7 +352,11 @@ const getDailySummary = async (req, res) => {
       studentName: s.studentName,
       course: s.course,
       date: s.date,
-      totalHours: s.totalMs / (1000 * 60 * 60),
+      rawHours: s.rawHours,
+      deductionMinutes: s.deductionMinutes,
+      deductionHours: s.deductionHours,
+      deductionReason: s.deductionReason,
+      totalHours: s.totalHours,
       status: s.hasIN ? "Present" : "Absent",
       firstIn: s.firstIn ? new Date(s.firstIn).toISOString() : null,
       hasOUT: s.hasOUT,
@@ -1695,6 +1719,72 @@ const deleteBatch = async (req, res) => {
   }
 };
 
+/* ================= ATTENDANCE STUDY HOURS ADJUSTMENTS ================= */
+const adjustAttendanceHours = async (req, res) => {
+  try {
+    const { studentId, date, deductionMinutes, reason } = req.body;
+    if (!studentId || !date || deductionMinutes === undefined || !reason) {
+      return res.status(400).json({ message: "studentId, date, deductionMinutes, and reason are required" });
+    }
+    const cleanId = studentId.trim().toUpperCase();
+    const minutes = Number(deductionMinutes);
+    if (isNaN(minutes) || minutes < 0) {
+      return res.status(400).json({ message: "deductionMinutes must be a non-negative number" });
+    }
+
+    if (minutes === 0) {
+      await AttendanceAdjustment.findOneAndDelete({ studentId: cleanId, date });
+      return res.json({ message: "Adjustment removed", adjustment: null });
+    }
+
+    const adjustment = await AttendanceAdjustment.findOneAndUpdate(
+      { studentId: cleanId, date },
+      {
+        studentId: cleanId,
+        date,
+        deductionMinutes: minutes,
+        reason: reason.trim(),
+        adjustedBy: req.user?.username || req.user?.name || "admin"
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    res.json({ message: "Attendance hours adjusted successfully", adjustment });
+  } catch (err) {
+    console.error("Adjust attendance hours error:", err);
+    res.status(500).json({ message: "Server error adjusting attendance hours" });
+  }
+};
+
+const deleteAttendanceAdjustment = async (req, res) => {
+  try {
+    const { studentId, date } = req.body;
+    if (!studentId || !date) {
+      return res.status(400).json({ message: "studentId and date are required" });
+    }
+    const cleanId = studentId.trim().toUpperCase();
+    await AttendanceAdjustment.findOneAndDelete({ studentId: cleanId, date });
+    res.json({ message: "Adjustment removed successfully" });
+  } catch (err) {
+    console.error("Delete attendance adjustment error:", err);
+    res.status(500).json({ message: "Server error removing adjustment" });
+  }
+};
+
+const getAttendanceAdjustments = async (req, res) => {
+  try {
+    const { studentId, date } = req.query;
+    const query = {};
+    if (studentId) query.studentId = studentId.trim().toUpperCase();
+    if (date) query.date = date;
+    const adjustments = await AttendanceAdjustment.find(query);
+    res.json(adjustments);
+  } catch (err) {
+    console.error("Get attendance adjustments error:", err);
+    res.status(500).json({ message: "Server error fetching adjustments" });
+  }
+};
+
 module.exports = {
   loginAdmin,
   addStudent,
@@ -1741,5 +1831,8 @@ module.exports = {
   getBatches,
   addBatch,
   updateBatch,
-  deleteBatch
+  deleteBatch,
+  adjustAttendanceHours,
+  deleteAttendanceAdjustment,
+  getAttendanceAdjustments
 };

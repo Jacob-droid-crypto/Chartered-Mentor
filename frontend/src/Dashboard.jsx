@@ -1026,6 +1026,84 @@ function Dashboard({ user, onLogout }) {
     }
   };
 
+  const [adjustingAttendanceRecord, setAdjustingAttendanceRecord] = useState(null);
+  const [deductionHoursInput, setDeductionHoursInput] = useState('');
+  const [deductionMinutesInput, setDeductionMinutesInput] = useState('');
+  const [deductionReasonInput, setDeductionReasonInput] = useState('');
+
+  const handleOpenDeductHours = (record) => {
+    setAdjustingAttendanceRecord(record);
+    const totalDeductionMins = record.deductionMinutes || 0;
+    const h = Math.floor(totalDeductionMins / 60);
+    const m = totalDeductionMins % 60;
+    setDeductionHoursInput(h > 0 ? String(h) : '');
+    setDeductionMinutesInput(m > 0 ? String(m) : '');
+    setDeductionReasonInput(record.deductionReason || '');
+  };
+
+  const handleSaveAdjustment = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!adjustingAttendanceRecord) return;
+    const h = Number(deductionHoursInput) || 0;
+    const m = Number(deductionMinutesInput) || 0;
+    const totalMinutes = h * 60 + m;
+    const reason = deductionReasonInput.trim();
+
+    if (totalMinutes > 0 && !reason) {
+      alert("Please provide a reason for the deduction (e.g. Sleeping in study hall, using phone, etc.)");
+      return;
+    }
+
+    try {
+      const res = await fetch(`/admin/attendance/adjustment`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${user.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          studentId: adjustingAttendanceRecord.studentId,
+          date: adjustingAttendanceRecord.date,
+          deductionMinutes: totalMinutes,
+          reason: reason || 'Adjustment'
+        })
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.message || 'Failed to save adjustment');
+      alert(d.message || 'Attendance adjustment saved!');
+      setAdjustingAttendanceRecord(null);
+      fetchDashboardData();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleRemoveAdjustment = async () => {
+    if (!adjustingAttendanceRecord) return;
+    if (!await showConfirm(`Are you sure you want to remove the penalty deduction for ${adjustingAttendanceRecord.studentName}?`)) return;
+
+    try {
+      const res = await fetch(`/admin/attendance/adjustment`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${user.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          studentId: adjustingAttendanceRecord.studentId,
+          date: adjustingAttendanceRecord.date
+        })
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.message || 'Failed to remove adjustment');
+      alert(d.message || 'Penalty removed!');
+      setAdjustingAttendanceRecord(null);
+      fetchDashboardData();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   const handleOpenManualCheckin = async (record) => {
     let initialCheckinTime = '09:00';
     if (record.firstIn) {
@@ -2142,7 +2220,13 @@ function Dashboard({ user, onLogout }) {
         }
         else aggregatedMap[item.studentId].totalAbsent++;
 
-        aggregatedMap[item.studentId].totalHours += parseFloat(item.totalHours || 0);
+        const itemRaw = parseFloat(item.rawHours !== undefined ? item.rawHours : item.totalHours || 0);
+        const itemDed = parseFloat(item.deductionHours || 0);
+        const itemNet = parseFloat(item.totalHours || 0);
+
+        aggregatedMap[item.studentId].totalRawHours = (aggregatedMap[item.studentId].totalRawHours || 0) + itemRaw;
+        aggregatedMap[item.studentId].totalDeductionHours = (aggregatedMap[item.studentId].totalDeductionHours || 0) + itemDed;
+        aggregatedMap[item.studentId].totalHours += itemNet;
 
         if (item.status === 'Present') {
           aggregatedMap[item.studentId].presentDates.push(item.date);
@@ -2241,6 +2325,10 @@ function Dashboard({ user, onLogout }) {
         const joiningDateStr = studentInfo?.joiningDate || (record.studentId === user.userId ? data?.joiningDate : null);
         const studyMode = studentInfo?.mode || (record.studentId === user.userId ? data?.mode : null);
         const formattedStudyMode = studyMode ? studyMode.charAt(0).toUpperCase() + studyMode.slice(1) : "-";
+        
+        const rawHoursVal = record.rawHours !== undefined ? record.rawHours : record.totalHours;
+        const dedHoursVal = record.deductionHours || 0;
+
         return {
           "Student Name": record.studentName || record.studentId || "-",
           "Course": record.course || "-",
@@ -2248,7 +2336,10 @@ function Dashboard({ user, onLogout }) {
           "DOJ": joiningDateStr ? new Date(joiningDateStr).toLocaleDateString() : "-",
           "Status": record.status,
           "First Log In Time": record.firstIn ? new Date(record.firstIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-",
-          "Total Hours": formatStudyTime(record.totalHours),
+          "Raw Tracked Hours": formatStudyTime(rawHoursVal),
+          "Penalty Deducted": dedHoursVal > 0 ? `-${formatStudyTime(dedHoursVal)}` : "0h 00m",
+          "Penalty Reason": record.deductionReason || "-",
+          "Final Net Study Hours": formatStudyTime(record.totalHours),
           "Date": record.date
         };
       });
@@ -2311,6 +2402,9 @@ function Dashboard({ user, onLogout }) {
         const studyMode = studentInfo?.mode || (record.studentId === user.userId ? data?.mode : null);
         const formattedStudyMode = studyMode ? studyMode.charAt(0).toUpperCase() + studyMode.slice(1) : "-";
 
+        const rawTotalVal = record.totalRawHours !== undefined ? record.totalRawHours : record.totalHours;
+        const dedTotalVal = record.totalDeductionHours || 0;
+
         const row = {
           "Student Name": record.studentName || record.studentId || "-",
           "Course": record.course || "-",
@@ -2324,7 +2418,9 @@ function Dashboard({ user, onLogout }) {
           row["Late Logins"] = record.lateCount || 0;
         }
 
-        row["Total Study Hours"] = formatStudyTime(record.totalHours);
+        row["Raw Tracked Hours"] = formatStudyTime(rawTotalVal);
+        row["Total Penalty Deducted"] = dedTotalVal > 0 ? `-${formatStudyTime(dedTotalVal)}` : "0h 00m";
+        row["Net Study Hours"] = formatStudyTime(record.totalHours);
 
         // Add dynamically generated date columns chronologically
         dateList.forEach(dateStr => {
@@ -2345,7 +2441,11 @@ function Dashboard({ user, onLogout }) {
           if (isBeforeJoining) {
             row[dateStr] = ""; // Keep as blank
           } else if (log && log.status === 'Present') {
-            row[dateStr] = `Present (${formatStudyTime(log.totalHours)})`;
+            if (log.deductionMinutes > 0) {
+              row[dateStr] = `Present (Net: ${formatStudyTime(log.totalHours)} [-${formatStudyTime(log.deductionHours)}: ${log.deductionReason || 'Penalty'}])`;
+            } else {
+              row[dateStr] = `Present (${formatStudyTime(log.totalHours)})`;
+            }
           } else {
             row[dateStr] = "Absent";
           }
@@ -4157,19 +4257,44 @@ function Dashboard({ user, onLogout }) {
                         const resolvedConfig = resolveGoalForStudentOnDate(record.studentId, record.date);
                         const targetHours = resolvedConfig[dayKey] !== undefined ? resolvedConfig[dayKey] : 12;
                         return (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                             <div className="activity-date" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.2rem' }}>
-                              <span style={{ fontWeight: 'bold', color: record.status === 'Present' ? '#10b981' : '#ef4444' }}>
-                                {record.status} ({formatStudyTime(record.totalHours)})
-                              </span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                <span style={{ fontWeight: 'bold', color: record.status === 'Present' ? '#10b981' : '#ef4444' }}>
+                                  {record.status} ({formatStudyTime(record.totalHours)})
+                                </span>
+                                {record.deductionMinutes > 0 && (
+                                  <span style={{ fontSize: '0.75rem', color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.2)', fontWeight: 'bold' }}>
+                                    Penalty: -{formatStudyTime(record.deductionHours)} ({record.deductionReason || 'Deduction'})
+                                  </span>
+                                )}
+                              </div>
                               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>
+                                {record.deductionMinutes > 0 && `Tracked: ${formatStudyTime(record.rawHours)} • `}
                                 {record.firstIn && `First Log In: ${new Date(record.firstIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • `}Target: {targetHours > 0 ? `${targetHours} hrs` : 'Holiday'} • {record.date}
                               </span>
                             </div>
                             {user.role === 'admin' && (
-                              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                                 {record.status === 'Present' ? (
                                   <>
+                                    <button
+                                      onClick={() => handleOpenDeductHours(record)}
+                                      style={{
+                                        padding: '0.45rem 0.9rem',
+                                        background: record.deductionMinutes > 0 ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
+                                        border: '1px solid #ef4444',
+                                        color: '#ef4444',
+                                        borderRadius: '6px',
+                                        fontSize: '0.8rem',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                      }}
+                                      title={record.deductionMinutes > 0 ? "Edit Penalty Deduction" : "Deduct Study Hours"}
+                                    >
+                                      {record.deductionMinutes > 0 ? 'Edit Penalty ✂️' : 'Deduct Hours ✂️'}
+                                    </button>
                                     <button
                                       onClick={() => handleOpenManualCheckin(record)}
                                       style={{
@@ -8196,6 +8321,169 @@ function Dashboard({ user, onLogout }) {
               <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
                 <button type="button" onClick={() => setEditingPayment(null)} style={{ flex: 1, padding: '0.8rem', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-main)', fontWeight: 'bold' }}>Cancel</button>
                 <button type="submit" style={{ flex: 1, padding: '0.8rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Save Changes</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DEDUCT STUDY HOURS MODAL */}
+      {adjustingAttendanceRecord && (
+        <div className="modal-overlay" onClick={() => setAdjustingAttendanceRecord(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px', width: '90%' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h2 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.3rem' }}>✂️ Deduct Study Hours</h2>
+              <button
+                type="button"
+                onClick={() => setAdjustingAttendanceRecord(null)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '1.3rem', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+            <p className="subtitle" style={{ marginBottom: '1.2rem', color: 'var(--text-muted)' }}>
+              Apply a study hours penalty for unproductive, lazy, or non-study activity.
+            </p>
+
+            <div style={{ background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--glass-border)', marginBottom: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Student</span>
+                <strong style={{ color: 'var(--text-main)', fontSize: '0.85rem' }}>{adjustingAttendanceRecord.studentName} ({adjustingAttendanceRecord.studentId})</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Date</span>
+                <strong style={{ color: 'var(--text-main)', fontSize: '0.85rem' }}>{adjustingAttendanceRecord.date}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Tracked Biometric Hours</span>
+                <strong style={{ color: '#3b82f6', fontSize: '0.85rem' }}>{formatStudyTime(adjustingAttendanceRecord.rawHours !== undefined ? adjustingAttendanceRecord.rawHours : adjustingAttendanceRecord.totalHours)}</strong>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveAdjustment} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                  Penalty Deduction Amount
+                </label>
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>Hours</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="24"
+                      value={deductionHoursInput}
+                      onChange={e => setDeductionHoursInput(e.target.value)}
+                      placeholder="0"
+                      style={{ width: '100%', padding: '0.7rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)', fontSize: '1rem' }}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>Minutes</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="59"
+                      step="5"
+                      value={deductionMinutesInput}
+                      onChange={e => setDeductionMinutesInput(e.target.value)}
+                      placeholder="0"
+                      style={{ width: '100%', padding: '0.7rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)', fontSize: '1rem' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Quick Presets */}
+                <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                  {[
+                    { label: '30m', h: 0, m: 30 },
+                    { label: '1h', h: 1, m: 0 },
+                    { label: '1h 30m', h: 1, m: 30 },
+                    { label: '2h', h: 2, m: 0 },
+                    { label: '3h', h: 3, m: 0 }
+                  ].map(p => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => { setDeductionHoursInput(p.h); setDeductionMinutesInput(p.m); }}
+                      style={{ padding: '0.25rem 0.6rem', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 'bold' }}
+                    >
+                      +{p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                  Reason for Deduction
+                </label>
+                <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                  {[
+                    'Sleeping in Study Hall',
+                    'Using Mobile Phone',
+                    'Unproductive / Lazy',
+                    'Left Desk Without Permission',
+                    'Talking / Disturbance'
+                  ].map(r => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setDeductionReasonInput(r)}
+                      style={{ padding: '0.25rem 0.5rem', background: deductionReasonInput === r ? '#3b82f6' : 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)', color: deductionReasonInput === r ? 'white' : 'var(--text-main)', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer' }}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  value={deductionReasonInput}
+                  onChange={e => setDeductionReasonInput(e.target.value)}
+                  placeholder="e.g. Sleeping during study session"
+                  required
+                  style={{ width: '100%', padding: '0.7rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)', fontSize: '0.9rem' }}
+                />
+              </div>
+
+              {/* Net preview */}
+              {(() => {
+                const rawMins = Math.round((adjustingAttendanceRecord.rawHours !== undefined ? adjustingAttendanceRecord.rawHours : adjustingAttendanceRecord.totalHours) * 60);
+                const dedMins = (Number(deductionHoursInput) || 0) * 60 + (Number(deductionMinutesInput) || 0);
+                const netMins = Math.max(0, rawMins - dedMins);
+                const netH = Math.floor(netMins / 60);
+                const netM = netMins % 60;
+                return (
+                  <div style={{ background: 'rgba(16, 185, 129, 0.06)', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px dashed #10b981', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem' }}>
+                    <span style={{ color: 'var(--text-main)', fontWeight: '500' }}>Calculated Net Study Hours:</span>
+                    <strong style={{ color: '#10b981', fontSize: '1.05rem' }}>{netH}h {String(netM).padStart(2, '0')}m</strong>
+                  </div>
+                );
+              })()}
+
+              <div style={{ display: 'flex', gap: '0.8rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                {adjustingAttendanceRecord.deductionMinutes > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveAdjustment}
+                    style={{ padding: '0.8rem 1rem', background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
+                  >
+                    🗑️ Remove
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setAdjustingAttendanceRecord(null)}
+                  style={{ flex: 1, padding: '0.8rem', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-main)', fontWeight: 'bold' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{ flex: 1, padding: '0.8rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(239, 68, 68, 0.2)' }}
+                >
+                  Save Penalty
+                </button>
               </div>
             </form>
           </div>

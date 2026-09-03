@@ -5,6 +5,7 @@ const nodemailer = require("nodemailer");
 const { OAuth2Client } = require("google-auth-library");
 const User = require("../models/User");
 const Attendance = require("../models/Attendance");
+const AttendanceAdjustment = require("../models/AttendanceAdjustment");
 const Schedule = require("../models/Schedule");
 const ExamSchedule = require("../models/ExamSchedule");
 const CampusQR = require("../models/CampusQR");
@@ -101,6 +102,12 @@ const getDashboard = async (req, res) => {
     }).sort({ createdAt: 1 });
 
     const allLogs = await Attendance.find({ studentId: cleanId }).sort({ timestamp: 1 });
+    const adjustments = await AttendanceAdjustment.find({ studentId: cleanId });
+    const adjMap = {};
+    adjustments.forEach(a => {
+      adjMap[a.date] = a;
+    });
+
     const groupedLogs = {};
     allLogs.forEach((r) => {
       const key = r.date;
@@ -149,6 +156,13 @@ const getDashboard = async (req, res) => {
         firstIn = firstInLog.timestamp ? new Date(firstInLog.timestamp).getTime() : (firstInLog.createdAt ? new Date(firstInLog.createdAt).getTime() : 0);
       }
 
+      const adj = adjMap[key];
+      const deductionMinutes = adj ? adj.deductionMinutes : 0;
+      const deductionHours = deductionMinutes / 60;
+      const deductionReason = adj ? adj.reason : "";
+      const rawHours = totalMs / (1000 * 60 * 60);
+      const netHours = Math.max(0, rawHours - deductionHours);
+
       summary[key] = {
         studentId: dayLogs[0].studentId,
         course: dayLogs[0].course,
@@ -156,6 +170,11 @@ const getDashboard = async (req, res) => {
         hasIN,
         hasOUT,
         totalMs,
+        rawHours,
+        deductionMinutes,
+        deductionHours,
+        deductionReason,
+        totalHours: netHours,
         firstIn
       };
     }
@@ -164,7 +183,11 @@ const getDashboard = async (req, res) => {
       studentId: s.studentId,
       course: s.course,
       date: s.date,
-      totalHours: s.totalMs / (1000 * 60 * 60),
+      rawHours: s.rawHours,
+      deductionMinutes: s.deductionMinutes,
+      deductionHours: s.deductionHours,
+      deductionReason: s.deductionReason,
+      totalHours: s.totalHours,
       status: s.hasIN ? "Present" : "Absent",
       firstIn: s.firstIn ? new Date(s.firstIn).toISOString() : null,
       hasOUT: s.hasOUT,

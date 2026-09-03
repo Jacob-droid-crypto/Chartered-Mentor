@@ -22,7 +22,8 @@ export default function AttendanceTab({
   resolveGoalForStudentOnDate,
   formatStudyTime,
   handleOpenManualCheckin,
-  handleOpenManualCheckout
+  handleOpenManualCheckout,
+  handleOpenDeductHours
 }) {
   const [searchStudentTerm, setSearchStudentTerm] = React.useState('');
   const [isStudentDropdownOpen, setIsStudentDropdownOpen] = React.useState(false);
@@ -310,19 +311,46 @@ export default function AttendanceTab({
                   const resolvedConfig = resolveGoalForStudentOnDate(record.studentId, record.date);
                   const targetHours = resolvedConfig[dayKey] !== undefined ? resolvedConfig[dayKey] : 12;
                   return (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                       <div className="activity-date" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.2rem' }}>
-                        <span style={{ fontWeight: 'bold', color: record.status === 'Present' ? '#10b981' : '#ef4444' }}>
-                          {record.status} ({formatStudyTime(record.totalHours)})
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                          <span style={{ fontWeight: 'bold', color: record.status === 'Present' ? '#10b981' : '#ef4444' }}>
+                            {record.status} ({formatStudyTime(record.totalHours)})
+                          </span>
+                          {record.deductionMinutes > 0 && (
+                            <span style={{ fontSize: '0.75rem', color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.2)', fontWeight: 'bold' }}>
+                              Penalty: -{formatStudyTime(record.deductionHours)} ({record.deductionReason || 'Deduction'})
+                            </span>
+                          )}
+                        </div>
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>
+                          {record.deductionMinutes > 0 && `Tracked: ${formatStudyTime(record.rawHours)} • `}
                           {record.firstIn && `First Log In: ${new Date(record.firstIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • `}Target: {targetHours > 0 ? `${targetHours} hrs` : 'Holiday'} • {record.date}
                         </span>
                       </div>
                       {user.role === 'admin' && (
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                           {record.status === 'Present' ? (
                             <>
+                              {handleOpenDeductHours && (
+                                <button
+                                  onClick={() => handleOpenDeductHours(record)}
+                                  style={{
+                                    padding: '0.45rem 0.9rem',
+                                    background: record.deductionMinutes > 0 ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
+                                    border: '1px solid #ef4444',
+                                    color: '#ef4444',
+                                    borderRadius: '6px',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                  }}
+                                  title={record.deductionMinutes > 0 ? "Edit Penalty Deduction" : "Deduct Study Hours"}
+                                >
+                                  {record.deductionMinutes > 0 ? 'Edit Penalty ✂️' : 'Deduct Hours ✂️'}
+                                </button>
+                              )}
                               <button
                                 onClick={() => handleOpenManualCheckin(record)}
                                 style={{

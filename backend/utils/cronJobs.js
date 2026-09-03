@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const User = require('../models/User');
 const Attendance = require('../models/Attendance');
+const AttendanceAdjustment = require('../models/AttendanceAdjustment');
 const GoalConfig = require('../models/GoalConfig');
 const Schedule = require('../models/Schedule');
 const QuestionPaper = require('../models/QuestionPaper');
@@ -54,7 +55,11 @@ const calculateStudyHours = async (studentId, dateStr) => {
     }
   }
 
-  return totalMs / (1000 * 60 * 60);
+  const rawHours = totalMs / (1000 * 60 * 60);
+  const adjustment = await AttendanceAdjustment.findOne({ studentId, date: dateStr });
+  const deductionHours = adjustment ? (adjustment.deductionMinutes / 60) : 0;
+
+  return Math.max(0, rawHours - deductionHours);
 };
 
 // Utility to send email
