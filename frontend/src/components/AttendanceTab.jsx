@@ -317,14 +317,19 @@ export default function AttendanceTab({
                           <span style={{ fontWeight: 'bold', color: record.status === 'Present' ? '#10b981' : '#ef4444' }}>
                             {record.status} ({formatStudyTime(record.totalHours)})
                           </span>
-                          {record.deductionMinutes > 0 && (
+                          {(record.adjustmentType === 'ADD' || (record.addedMinutes && record.addedMinutes > 0)) && (
+                            <span style={{ fontSize: '0.75rem', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(16, 185, 129, 0.2)', fontWeight: 'bold' }}>
+                              +{formatStudyTime(record.addedHours || (record.adjustmentMinutes / 60))} Added ({record.adjustmentReason || record.deductionReason || 'Bonus'})
+                            </span>
+                          )}
+                          {(record.deductionMinutes > 0 || (record.adjustmentType === 'DEDUCT' && record.adjustmentMinutes > 0)) && (
                             <span style={{ fontSize: '0.75rem', color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.2)', fontWeight: 'bold' }}>
-                              Penalty: -{formatStudyTime(record.deductionHours)} ({record.deductionReason || 'Deduction'})
+                              Penalty: -{formatStudyTime(record.deductionHours || (record.adjustmentMinutes / 60))} ({record.deductionReason || record.adjustmentReason || 'Deduction'})
                             </span>
                           )}
                         </div>
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>
-                          {record.deductionMinutes > 0 && `Tracked: ${formatStudyTime(record.rawHours)} • `}
+                          {(record.deductionMinutes > 0 || record.addedMinutes > 0 || record.adjustmentMinutes > 0) && `Tracked: ${formatStudyTime(record.rawHours)} • `}
                           {record.firstIn && `First Log In: ${new Date(record.firstIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • `}Target: {targetHours > 0 ? `${targetHours} hrs` : 'Holiday'} • {record.date}
                         </span>
                       </div>
@@ -332,25 +337,29 @@ export default function AttendanceTab({
                         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                           {record.status === 'Present' ? (
                             <>
-                              {handleOpenDeductHours && (
-                                <button
-                                  onClick={() => handleOpenDeductHours(record)}
-                                  style={{
-                                    padding: '0.45rem 0.9rem',
-                                    background: record.deductionMinutes > 0 ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
-                                    border: '1px solid #ef4444',
-                                    color: '#ef4444',
-                                    borderRadius: '6px',
-                                    fontSize: '0.8rem',
-                                    fontWeight: 'bold',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s'
-                                  }}
-                                  title={record.deductionMinutes > 0 ? "Edit Penalty Deduction" : "Deduct Study Hours"}
-                                >
-                                  {record.deductionMinutes > 0 ? 'Edit Penalty ✂️' : 'Deduct Hours ✂️'}
-                                </button>
-                              )}
+                              {handleOpenDeductHours && (() => {
+                                const isAdjusted = (record.deductionMinutes > 0 || record.addedMinutes > 0 || record.adjustmentMinutes > 0);
+                                const isAdd = record.adjustmentType === 'ADD' || (record.addedMinutes && record.addedMinutes > 0);
+                                return (
+                                  <button
+                                    onClick={() => handleOpenDeductHours(record)}
+                                    style={{
+                                      padding: '0.45rem 0.9rem',
+                                      background: isAdjusted ? (isAdd ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)') : 'transparent',
+                                      border: isAdjusted ? (isAdd ? '1px solid #10b981' : '1px solid #ef4444') : '1px solid var(--glass-border)',
+                                      color: isAdjusted ? (isAdd ? '#10b981' : '#ef4444') : 'var(--text-main)',
+                                      borderRadius: '6px',
+                                      fontSize: '0.8rem',
+                                      fontWeight: 'bold',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s'
+                                    }}
+                                    title={isAdjusted ? "Edit Time Adjustment" : "Adjust Study Hours (Add / Deduct)"}
+                                  >
+                                    {isAdjusted ? (isAdd ? 'Edit Bonus ⏰' : 'Edit Penalty ✂️') : 'Adjust Hours ⏰'}
+                                  </button>
+                                );
+                              })()}
                               <button
                                 onClick={() => handleOpenManualCheckin(record)}
                                 style={{

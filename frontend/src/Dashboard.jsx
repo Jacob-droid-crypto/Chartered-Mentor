@@ -1027,18 +1027,25 @@ function Dashboard({ user, onLogout }) {
   };
 
   const [adjustingAttendanceRecord, setAdjustingAttendanceRecord] = useState(null);
+  const [adjustmentTypeInput, setAdjustmentTypeInput] = useState('DEDUCT');
   const [deductionHoursInput, setDeductionHoursInput] = useState('');
   const [deductionMinutesInput, setDeductionMinutesInput] = useState('');
   const [deductionReasonInput, setDeductionReasonInput] = useState('');
 
   const handleOpenDeductHours = (record) => {
     setAdjustingAttendanceRecord(record);
-    const totalDeductionMins = record.deductionMinutes || 0;
-    const h = Math.floor(totalDeductionMins / 60);
-    const m = totalDeductionMins % 60;
+    const hasAdd = record.adjustmentType === 'ADD' || (record.addedMinutes && record.addedMinutes > 0);
+    const totalAdjMins = hasAdd
+      ? (record.addedMinutes || record.adjustmentMinutes || 0)
+      : (record.deductionMinutes || record.adjustmentMinutes || 0);
+    const currentType = hasAdd ? 'ADD' : 'DEDUCT';
+    setAdjustmentTypeInput(currentType);
+
+    const h = Math.floor(totalAdjMins / 60);
+    const m = totalAdjMins % 60;
     setDeductionHoursInput(h > 0 ? String(h) : '');
     setDeductionMinutesInput(m > 0 ? String(m) : '');
-    setDeductionReasonInput(record.deductionReason || '');
+    setDeductionReasonInput(record.adjustmentReason || record.deductionReason || '');
   };
 
   const handleSaveAdjustment = async (e) => {
@@ -1050,7 +1057,7 @@ function Dashboard({ user, onLogout }) {
     const reason = deductionReasonInput.trim();
 
     if (totalMinutes > 0 && !reason) {
-      alert("Please provide a reason for the deduction (e.g. Sleeping in study hall, using phone, etc.)");
+      alert(`Please provide a reason for the ${adjustmentTypeInput === 'ADD' ? 'added study hours' : 'deduction'}`);
       return;
     }
 
@@ -1064,7 +1071,9 @@ function Dashboard({ user, onLogout }) {
         body: JSON.stringify({
           studentId: adjustingAttendanceRecord.studentId,
           date: adjustingAttendanceRecord.date,
-          deductionMinutes: totalMinutes,
+          type: adjustmentTypeInput,
+          minutes: totalMinutes,
+          deductionMinutes: adjustmentTypeInput === 'DEDUCT' ? totalMinutes : 0,
           reason: reason || 'Adjustment'
         })
       });
@@ -1080,7 +1089,7 @@ function Dashboard({ user, onLogout }) {
 
   const handleRemoveAdjustment = async () => {
     if (!adjustingAttendanceRecord) return;
-    if (!await showConfirm(`Are you sure you want to remove the penalty deduction for ${adjustingAttendanceRecord.studentName}?`)) return;
+    if (!await showConfirm(`Are you sure you want to remove the study hours adjustment for ${adjustingAttendanceRecord.studentName}?`)) return;
 
     try {
       const res = await fetch(`/admin/attendance/adjustment`, {
@@ -1096,7 +1105,7 @@ function Dashboard({ user, onLogout }) {
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.message || 'Failed to remove adjustment');
-      alert(d.message || 'Penalty removed!');
+      alert(d.message || 'Adjustment removed!');
       setAdjustingAttendanceRecord(null);
       fetchDashboardData();
     } catch (err) {
@@ -2441,8 +2450,10 @@ function Dashboard({ user, onLogout }) {
           if (isBeforeJoining) {
             row[dateStr] = ""; // Keep as blank
           } else if (log && log.status === 'Present') {
-            if (log.deductionMinutes > 0) {
-              row[dateStr] = `Present (Net: ${formatStudyTime(log.totalHours)} [-${formatStudyTime(log.deductionHours)}: ${log.deductionReason || 'Penalty'}])`;
+            if (log.adjustmentType === 'ADD' || (log.addedMinutes && log.addedMinutes > 0)) {
+              row[dateStr] = `Present (Net: ${formatStudyTime(log.totalHours)} [+${formatStudyTime(log.addedHours || (log.adjustmentMinutes / 60))}: ${log.adjustmentReason || log.deductionReason || 'Bonus'}])`;
+            } else if (log.deductionMinutes > 0 || (log.adjustmentType === 'DEDUCT' && log.adjustmentMinutes > 0)) {
+              row[dateStr] = `Present (Net: ${formatStudyTime(log.totalHours)} [-${formatStudyTime(log.deductionHours || (log.adjustmentMinutes / 60))}: ${log.deductionReason || log.adjustmentReason || 'Penalty'}])`;
             } else {
               row[dateStr] = `Present (${formatStudyTime(log.totalHours)})`;
             }
@@ -3316,12 +3327,103 @@ function Dashboard({ user, onLogout }) {
               const isCurrentlyCheckedIn = lastLog && lastLog.type === 'IN';
               const unpaidFinesList = (data?.fines || []).filter(f => !f.status || f.status === 'Unpaid');
 
-              const recentDeductions = (data?.attendanceAdjustments && data.attendanceAdjustments.length > 0)
+              const recentAdjustments = (data?.attendanceAdjustments && data.attendanceAdjustments.length > 0)
                 ? data.attendanceAdjustments
-                : (data?.attendanceSummary || []).filter(a => a.deductionMinutes > 0).sort((a, b) => b.date.localeCompare(a.date));
+                : (data?.attendanceSummary || []).filter(a => (a.deductionMinutes > 0 || a.addedMinutes > 0 || a.adjustmentMinutes > 0)).sort((a, b) => b.date.localeCompare(a.date));
+
+              const recentDeductions = recentAdjustments.filter(a => (a.type === 'DEDUCT' || (!a.type && a.deductionMinutes > 0)));
+              const recentAdditions = recentAdjustments.filter(a => (a.type === 'ADD' || (!a.type && a.addedMinutes > 0)));
 
               return (
                 <>
+                  {/* ATTENDANCE BONUS ADDED NOTIFICATION */}
+                  {recentAdditions.length > 0 && (
+                    <div className="card" style={{
+                      marginBottom: '1.5rem',
+                      background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.14) 0%, rgba(5, 150, 105, 0.08) 100%)',
+                      border: '2px solid #10b981',
+                      borderRadius: '16px',
+                      padding: '1.25rem 1.5rem',
+                      boxShadow: '0 8px 25px rgba(16, 185, 129, 0.18)'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                          <div style={{
+                            background: '#10b981',
+                            color: 'white',
+                            borderRadius: '50%',
+                            width: '40px',
+                            height: '40px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '1.35rem',
+                            flexShrink: 0,
+                            boxShadow: '0 4px 10px rgba(16, 185, 129, 0.3)'
+                          }}>
+                            ✨
+                          </div>
+                          <div>
+                            <h3 style={{ color: '#10b981', fontSize: '1.25rem', margin: 0, fontWeight: '800', letterSpacing: '0.5px' }}>
+                              Study Hours Credited / Bonus ({recentAdditions.length})
+                            </h3>
+                            <p style={{ color: 'var(--text-main)', fontSize: '0.95rem', marginTop: '0.35rem', marginBottom: 0, fontWeight: '500' }}>
+                              Administration has credited extra study hours to your attendance record.
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setActiveTab('attendance')}
+                          style={{
+                            padding: '0.55rem 1.1rem',
+                            background: '#10b981',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            fontSize: '0.85rem',
+                            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          View Attendance 📋
+                        </button>
+                      </div>
+
+                      <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                        {recentAdditions.slice(0, 3).map((adj, idx) => {
+                          const addHrs = adj.addedHours || adj.hours || (adj.minutes ? adj.minutes / 60 : (adj.addedMinutes ? adj.addedMinutes / 60 : 0));
+                          return (
+                            <div key={idx} style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              background: 'var(--surface-color)',
+                              padding: '0.85rem 1.15rem',
+                              borderRadius: '10px',
+                              border: '1px solid rgba(16, 185, 129, 0.3)',
+                              flexWrap: 'wrap',
+                              gap: '0.75rem'
+                            }}>
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  <strong style={{ color: '#10b981', fontSize: '0.95rem' }}>
+                                    +{formatStudyTime(addHrs)} Extra Time Added
+                                  </strong>
+                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>• Date: <strong>{adj.date}</strong></span>
+                                </div>
+                                <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', marginTop: '0.25rem' }}>
+                                  <strong>Reason:</strong> {adj.reason || adj.adjustmentReason || 'Offline Study / Bonus'}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {/* EMERGENCY ATTENDANCE DEDUCTION NOTIFICATION */}
                   {recentDeductions.length > 0 && (
                     <div className="card" style={{
@@ -3380,8 +3482,9 @@ function Dashboard({ user, onLogout }) {
 
                       <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                         {recentDeductions.slice(0, 3).map((adj, idx) => {
-                          const rawHours = adj.rawHours !== undefined ? adj.rawHours : ((adj.totalHours || 0) + (adj.deductionHours || (adj.deductionMinutes / 60)));
-                          const netHours = adj.totalHours !== undefined ? adj.totalHours : Math.max(0, rawHours - (adj.deductionMinutes / 60));
+                          const dedHrs = adj.deductionHours || adj.hours || (adj.minutes ? adj.minutes / 60 : (adj.deductionMinutes ? adj.deductionMinutes / 60 : 0));
+                          const rawHours = adj.rawHours !== undefined ? adj.rawHours : ((adj.totalHours || 0) + dedHrs);
+                          const netHours = adj.totalHours !== undefined ? adj.totalHours : Math.max(0, rawHours - dedHrs);
                           return (
                             <div key={idx} style={{
                               display: 'flex',
@@ -3397,7 +3500,7 @@ function Dashboard({ user, onLogout }) {
                               <div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                   <strong style={{ color: '#ef4444', fontSize: '0.95rem' }}>
-                                    -{formatStudyTime(adj.deductionHours || (adj.deductionMinutes / 60))} Penalty
+                                    -{formatStudyTime(dedHrs)} Penalty
                                   </strong>
                                   <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>• Date: <strong>{adj.date}</strong></span>
                                 </div>
@@ -4361,14 +4464,19 @@ function Dashboard({ user, onLogout }) {
                                 <span style={{ fontWeight: 'bold', color: record.status === 'Present' ? '#10b981' : '#ef4444' }}>
                                   {record.status} ({formatStudyTime(record.totalHours)})
                                 </span>
-                                {record.deductionMinutes > 0 && (
+                                {(record.adjustmentType === 'ADD' || (record.addedMinutes && record.addedMinutes > 0)) && (
+                                  <span style={{ fontSize: '0.75rem', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(16, 185, 129, 0.2)', fontWeight: 'bold' }}>
+                                    +{formatStudyTime(record.addedHours || (record.adjustmentMinutes / 60))} Added ({record.adjustmentReason || record.deductionReason || 'Bonus'})
+                                  </span>
+                                )}
+                                {(record.deductionMinutes > 0 || (record.adjustmentType === 'DEDUCT' && record.adjustmentMinutes > 0)) && (
                                   <span style={{ fontSize: '0.75rem', color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.2)', fontWeight: 'bold' }}>
-                                    Penalty: -{formatStudyTime(record.deductionHours)} ({record.deductionReason || 'Deduction'})
+                                    Penalty: -{formatStudyTime(record.deductionHours || (record.adjustmentMinutes / 60))} ({record.deductionReason || record.adjustmentReason || 'Deduction'})
                                   </span>
                                 )}
                               </div>
                               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>
-                                {record.deductionMinutes > 0 && `Tracked: ${formatStudyTime(record.rawHours)} • `}
+                                {(record.deductionMinutes > 0 || record.addedMinutes > 0 || record.adjustmentMinutes > 0) && `Tracked: ${formatStudyTime(record.rawHours)} • `}
                                 {record.firstIn && `First Log In: ${new Date(record.firstIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • `}Target: {targetHours > 0 ? `${targetHours} hrs` : 'Holiday'} • {record.date}
                               </span>
                             </div>
@@ -4376,23 +4484,29 @@ function Dashboard({ user, onLogout }) {
                               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                                 {record.status === 'Present' ? (
                                   <>
-                                    <button
-                                      onClick={() => handleOpenDeductHours(record)}
-                                      style={{
-                                        padding: '0.45rem 0.9rem',
-                                        background: record.deductionMinutes > 0 ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
-                                        border: '1px solid #ef4444',
-                                        color: '#ef4444',
-                                        borderRadius: '6px',
-                                        fontSize: '0.8rem',
-                                        fontWeight: 'bold',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s'
-                                      }}
-                                      title={record.deductionMinutes > 0 ? "Edit Penalty Deduction" : "Deduct Study Hours"}
-                                    >
-                                      {record.deductionMinutes > 0 ? 'Edit Penalty ✂️' : 'Deduct Hours ✂️'}
-                                    </button>
+                                    {(() => {
+                                      const isAdjusted = (record.deductionMinutes > 0 || record.addedMinutes > 0 || record.adjustmentMinutes > 0);
+                                      const isAdd = record.adjustmentType === 'ADD' || (record.addedMinutes && record.addedMinutes > 0);
+                                      return (
+                                        <button
+                                          onClick={() => handleOpenDeductHours(record)}
+                                          style={{
+                                            padding: '0.45rem 0.9rem',
+                                            background: isAdjusted ? (isAdd ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)') : 'transparent',
+                                            border: isAdjusted ? (isAdd ? '1px solid #10b981' : '1px solid #ef4444') : '1px solid var(--glass-border)',
+                                            color: isAdjusted ? (isAdd ? '#10b981' : '#ef4444') : 'var(--text-main)',
+                                            borderRadius: '6px',
+                                            fontSize: '0.8rem',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s'
+                                          }}
+                                          title={isAdjusted ? "Edit Time Adjustment" : "Adjust Study Hours (Add / Deduct)"}
+                                        >
+                                          {isAdjusted ? (isAdd ? 'Edit Bonus ⏰' : 'Edit Penalty ✂️') : 'Adjust Hours ⏰'}
+                                        </button>
+                                      );
+                                    })()}
                                     <button
                                       onClick={() => handleOpenManualCheckin(record)}
                                       style={{
@@ -8425,12 +8539,14 @@ function Dashboard({ user, onLogout }) {
         </div>
       )}
 
-      {/* DEDUCT STUDY HOURS MODAL */}
+      {/* ADJUST STUDY HOURS (ADD / DEDUCT) MODAL */}
       {adjustingAttendanceRecord && (
         <div className="modal-overlay" onClick={() => setAdjustingAttendanceRecord(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px', width: '90%' }}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px', width: '90%' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h2 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.3rem' }}>✂️ Deduct Study Hours</h2>
+              <h2 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.3rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span>⏰</span> Adjust Study Hours
+              </h2>
               <button
                 type="button"
                 onClick={() => setAdjustingAttendanceRecord(null)}
@@ -8440,8 +8556,65 @@ function Dashboard({ user, onLogout }) {
               </button>
             </div>
             <p className="subtitle" style={{ marginBottom: '1.2rem', color: 'var(--text-muted)' }}>
-              Apply a study hours penalty for unproductive, lazy, or non-study activity.
+              Add bonus/offline study hours or deduct time penalties for this student.
             </p>
+
+            {/* Mode Switcher: ADD vs DEDUCT */}
+            <div style={{
+              display: 'flex',
+              background: 'rgba(0,0,0,0.04)',
+              padding: '4px',
+              borderRadius: '10px',
+              marginBottom: '1.2rem',
+              border: '1px solid var(--glass-border)'
+            }}>
+              <button
+                type="button"
+                onClick={() => setAdjustmentTypeInput('ADD')}
+                style={{
+                  flex: 1,
+                  padding: '0.65rem 0.5rem',
+                  border: 'none',
+                  borderRadius: '8px',
+                  background: adjustmentTypeInput === 'ADD' ? '#10b981' : 'transparent',
+                  color: adjustmentTypeInput === 'ADD' ? 'white' : 'var(--text-main)',
+                  fontWeight: 'bold',
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.4rem',
+                  transition: 'all 0.2s',
+                  boxShadow: adjustmentTypeInput === 'ADD' ? '0 2px 8px rgba(16, 185, 129, 0.3)' : 'none'
+                }}
+              >
+                <span>➕</span> Add Time (Credit / Bonus)
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdjustmentTypeInput('DEDUCT')}
+                style={{
+                  flex: 1,
+                  padding: '0.65rem 0.5rem',
+                  border: 'none',
+                  borderRadius: '8px',
+                  background: adjustmentTypeInput === 'DEDUCT' ? '#ef4444' : 'transparent',
+                  color: adjustmentTypeInput === 'DEDUCT' ? 'white' : 'var(--text-main)',
+                  fontWeight: 'bold',
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.4rem',
+                  transition: 'all 0.2s',
+                  boxShadow: adjustmentTypeInput === 'DEDUCT' ? '0 2px 8px rgba(239, 68, 68, 0.3)' : 'none'
+                }}
+              >
+                <span>✂️</span> Deduct Time (Penalty)
+              </button>
+            </div>
 
             <div style={{ background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--glass-border)', marginBottom: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -8461,7 +8634,7 @@ function Dashboard({ user, onLogout }) {
             <form onSubmit={handleSaveAdjustment} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-                  Penalty Deduction Amount
+                  {adjustmentTypeInput === 'ADD' ? 'Amount to Add (+)' : 'Penalty Deduction Amount (-)'}
                 </label>
                 <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                   <div style={{ flex: 1 }}>
@@ -8504,9 +8677,18 @@ function Dashboard({ user, onLogout }) {
                       key={p.label}
                       type="button"
                       onClick={() => { setDeductionHoursInput(p.h); setDeductionMinutesInput(p.m); }}
-                      style={{ padding: '0.25rem 0.6rem', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 'bold' }}
+                      style={{
+                        padding: '0.25rem 0.6rem',
+                        background: adjustmentTypeInput === 'ADD' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+                        border: adjustmentTypeInput === 'ADD' ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)',
+                        color: adjustmentTypeInput === 'ADD' ? '#10b981' : '#ef4444',
+                        borderRadius: '4px',
+                        fontSize: '0.75rem',
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                      }}
                     >
-                      +{p.label}
+                      {adjustmentTypeInput === 'ADD' ? `+${p.label}` : `-${p.label}`}
                     </button>
                   ))}
                 </div>
@@ -8514,21 +8696,35 @@ function Dashboard({ user, onLogout }) {
 
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-                  Reason for Deduction
+                  Reason for {adjustmentTypeInput === 'ADD' ? 'Adding Time' : 'Deduction'}
                 </label>
                 <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
-                  {[
+                  {(adjustmentTypeInput === 'ADD' ? [
+                    'Offline Study Session',
+                    'Biometric Glitch Compensation',
+                    'Special Academic Event',
+                    'Approved Extra Study',
+                    'Library / Discussion'
+                  ] : [
                     'Sleeping in Study Hall',
                     'Using Mobile Phone',
                     'Unproductive / Lazy',
                     'Left Desk Without Permission',
                     'Talking / Disturbance'
-                  ].map(r => (
+                  ]).map(r => (
                     <button
                       key={r}
                       type="button"
                       onClick={() => setDeductionReasonInput(r)}
-                      style={{ padding: '0.25rem 0.5rem', background: deductionReasonInput === r ? '#3b82f6' : 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)', color: deductionReasonInput === r ? 'white' : 'var(--text-main)', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer' }}
+                      style={{
+                        padding: '0.25rem 0.5rem',
+                        background: deductionReasonInput === r ? (adjustmentTypeInput === 'ADD' ? '#10b981' : '#ef4444') : 'rgba(59, 130, 246, 0.08)',
+                        border: '1px solid rgba(59, 130, 246, 0.2)',
+                        color: deductionReasonInput === r ? 'white' : 'var(--text-main)',
+                        borderRadius: '4px',
+                        fontSize: '0.75rem',
+                        cursor: 'pointer'
+                      }}
                     >
                       {r}
                     </button>
@@ -8538,7 +8734,7 @@ function Dashboard({ user, onLogout }) {
                   type="text"
                   value={deductionReasonInput}
                   onChange={e => setDeductionReasonInput(e.target.value)}
-                  placeholder="e.g. Sleeping during study session"
+                  placeholder={adjustmentTypeInput === 'ADD' ? "e.g. Offline library study session" : "e.g. Sleeping during study session"}
                   required
                   style={{ width: '100%', padding: '0.7rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)', fontSize: '0.9rem' }}
                 />
@@ -8547,20 +8743,30 @@ function Dashboard({ user, onLogout }) {
               {/* Net preview */}
               {(() => {
                 const rawMins = Math.round((adjustingAttendanceRecord.rawHours !== undefined ? adjustingAttendanceRecord.rawHours : adjustingAttendanceRecord.totalHours) * 60);
-                const dedMins = (Number(deductionHoursInput) || 0) * 60 + (Number(deductionMinutesInput) || 0);
-                const netMins = Math.max(0, rawMins - dedMins);
+                const inputMins = (Number(deductionHoursInput) || 0) * 60 + (Number(deductionMinutesInput) || 0);
+                const isAdd = adjustmentTypeInput === 'ADD';
+                const netMins = isAdd ? (rawMins + inputMins) : Math.max(0, rawMins - inputMins);
                 const netH = Math.floor(netMins / 60);
                 const netM = netMins % 60;
                 return (
-                  <div style={{ background: 'rgba(16, 185, 129, 0.06)', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px dashed #10b981', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem' }}>
+                  <div style={{
+                    background: isAdd ? 'rgba(16, 185, 129, 0.06)' : 'rgba(239, 68, 68, 0.06)',
+                    padding: '0.75rem 1rem',
+                    borderRadius: '8px',
+                    border: isAdd ? '1px dashed #10b981' : '1px dashed #ef4444',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    fontSize: '0.9rem'
+                  }}>
                     <span style={{ color: 'var(--text-main)', fontWeight: '500' }}>Calculated Net Study Hours:</span>
-                    <strong style={{ color: '#10b981', fontSize: '1.05rem' }}>{netH}h {String(netM).padStart(2, '0')}m</strong>
+                    <strong style={{ color: isAdd ? '#10b981' : '#ef4444', fontSize: '1.05rem' }}>{netH}h {String(netM).padStart(2, '0')}m</strong>
                   </div>
                 );
               })()}
 
               <div style={{ display: 'flex', gap: '0.8rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
-                {adjustingAttendanceRecord.deductionMinutes > 0 && (
+                {(adjustingAttendanceRecord.deductionMinutes > 0 || adjustingAttendanceRecord.addedMinutes > 0 || adjustingAttendanceRecord.adjustmentMinutes > 0) && (
                   <button
                     type="button"
                     onClick={handleRemoveAdjustment}
@@ -8578,9 +8784,19 @@ function Dashboard({ user, onLogout }) {
                 </button>
                 <button
                   type="submit"
-                  style={{ flex: 1, padding: '0.8rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(239, 68, 68, 0.2)' }}
+                  style={{
+                    flex: 1,
+                    padding: '0.8rem',
+                    background: adjustmentTypeInput === 'ADD' ? '#10b981' : '#ef4444',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    boxShadow: adjustmentTypeInput === 'ADD' ? '0 4px 10px rgba(16, 185, 129, 0.25)' : '0 4px 10px rgba(239, 68, 68, 0.25)'
+                  }}
                 >
-                  Save Penalty
+                  {adjustmentTypeInput === 'ADD' ? 'Save Added Hours ⏱️' : 'Save Penalty ✂️'}
                 </button>
               </div>
             </form>

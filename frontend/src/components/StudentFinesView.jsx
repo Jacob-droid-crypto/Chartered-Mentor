@@ -697,17 +697,42 @@ export default function StudentFinesView({ user, data, fetchDashboardData, payme
                       <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Period: {formatFinePeriod(fine)}</div>
                     </td>
                     <td style={{ padding: '0.85rem 1rem' }}>
-                      <span style={{
-                        padding: '4px 10px',
-                        borderRadius: '6px',
-                        fontSize: '0.8rem',
-                        fontWeight: 'bold',
-                        background: fine.reason === 'Study Hours Deficit' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(139, 92, 246, 0.15)',
-                        color: fine.reason === 'Study Hours Deficit' ? '#d97706' : '#7c3aed',
-                        border: `1px solid ${fine.reason === 'Study Hours Deficit' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(139, 92, 246, 0.3)'}`
-                      }}>
-                        {fine.reason === 'Study Hours Deficit' ? '⏰ Study Hours Deficit' : '🏖️ Excess Leaves'}
-                      </span>
+                      {(() => {
+                        let icon = '📝';
+                        let bg = 'rgba(99, 102, 241, 0.15)';
+                        let color = '#4f46e5';
+                        let border = 'rgba(99, 102, 241, 0.3)';
+
+                        if (fine.reason === 'Study Hours Deficit') {
+                          icon = '⏰'; bg = 'rgba(245, 158, 11, 0.15)'; color = '#d97706'; border = 'rgba(245, 158, 11, 0.3)';
+                        } else if (fine.reason === 'Excess Leaves') {
+                          icon = '🏖️'; bg = 'rgba(139, 92, 246, 0.15)'; color = '#7c3aed'; border = 'rgba(139, 92, 246, 0.3)';
+                        } else if (fine.reason === 'Mobile Phone Violation') {
+                          icon = '📱'; bg = 'rgba(244, 63, 94, 0.15)'; color = '#e11d48'; border = 'rgba(244, 63, 94, 0.3)';
+                        } else if (fine.reason && (fine.reason.includes('Indiscipline') || fine.reason.includes('Noise'))) {
+                          icon = '🤫'; bg = 'rgba(234, 88, 12, 0.15)'; color = '#ea580c'; border = 'rgba(234, 88, 12, 0.3)';
+                        } else if (fine.reason && (fine.reason.includes('Late') || fine.reason.includes('Attendance') || fine.reason.includes('Checkout'))) {
+                          icon = '🚪'; bg = 'rgba(14, 165, 233, 0.15)'; color = '#0284c7'; border = 'rgba(14, 165, 233, 0.3)';
+                        }
+
+                        return (
+                          <span style={{
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            fontSize: '0.8rem',
+                            fontWeight: 'bold',
+                            background: bg,
+                            color: color,
+                            border: `1px solid ${border}`,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            <span>{icon}</span>
+                            <span>{fine.reason}</span>
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td style={{ padding: '0.85rem 1rem', fontWeight: 'bold', color: 'var(--text-main)', fontSize: '1.05rem' }}>
                       ₹{fine.amount}

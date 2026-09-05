@@ -18,6 +18,7 @@ export default function FinesTab({
 }) {
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [reason, setReason] = useState('Study Hours Deficit');
+  const [customReason, setCustomReason] = useState('');
   const [amount, setAmount] = useState('');
   const [startDate, setStartDate] = useState(getTodayStr());
   const [endDate, setEndDate] = useState(getTodayStr());
@@ -141,6 +142,13 @@ export default function FinesTab({
       setStatusMsg({ type: 'error', text: 'Please select a student from the dropdown.' });
       return;
     }
+    
+    const effectiveReason = reason === 'Custom Reason' ? customReason.trim() : reason;
+    if (!effectiveReason) {
+      setStatusMsg({ type: 'error', text: 'Please select or enter a valid fine reason.' });
+      return;
+    }
+
     if (!amount || Number(amount) <= 0) {
       setStatusMsg({ type: 'error', text: 'Please enter a valid positive fine amount.' });
       return;
@@ -160,7 +168,7 @@ export default function FinesTab({
         },
         body: JSON.stringify({
           amount: Number(amount),
-          reason,
+          reason: effectiveReason,
           startDate,
           endDate,
           status: initialStatus,
@@ -187,9 +195,10 @@ export default function FinesTab({
 
       setStatusMsg({
         type: 'success',
-        text: `Fine of ₹${amount} for '${reason}' ${initialStatus === 'Paid' ? 'applied and marked as Paid' : 'applied'} successfully!`
+        text: `Fine of ₹${amount} for '${effectiveReason}' ${initialStatus === 'Paid' ? 'applied and marked as Paid' : 'applied'} successfully!`
       });
       setAmount('');
+      setCustomReason('');
       setStartDate(getTodayStr());
       setEndDate(getTodayStr());
       setInitialStatus('Unpaid');
@@ -388,6 +397,29 @@ export default function FinesTab({
   // Sort fines newest first
   allFines.sort((a, b) => new Date(b.date) - new Date(a.date));
 
+  // Helper for fine reason badges
+  const getFineReasonBadge = (reasonText) => {
+    if (!reasonText) return null;
+    if (reasonText === 'Study Hours Deficit') {
+      return { icon: '⏰', bg: 'rgba(245, 158, 11, 0.15)', color: '#d97706', border: 'rgba(245, 158, 11, 0.3)' };
+    }
+    if (reasonText === 'Excess Leaves') {
+      return { icon: '🏖️', bg: 'rgba(139, 92, 246, 0.15)', color: '#7c3aed', border: 'rgba(139, 92, 246, 0.3)' };
+    }
+    if (reasonText === 'Mobile Phone Violation') {
+      return { icon: '📱', bg: 'rgba(244, 63, 94, 0.15)', color: '#e11d48', border: 'rgba(244, 63, 94, 0.3)' };
+    }
+    if (reasonText.includes('Indiscipline') || reasonText.includes('Noise')) {
+      return { icon: '🤫', bg: 'rgba(234, 88, 12, 0.15)', color: '#ea580c', border: 'rgba(234, 88, 12, 0.3)' };
+    }
+    if (reasonText.includes('Late') || reasonText.includes('Attendance') || reasonText.includes('Checkout')) {
+      return { icon: '🚪', bg: 'rgba(14, 165, 233, 0.15)', color: '#0284c7', border: 'rgba(14, 165, 233, 0.3)' };
+    }
+    return { icon: '📝', bg: 'rgba(99, 102, 241, 0.15)', color: '#4f46e5', border: 'rgba(99, 102, 241, 0.3)' };
+  };
+
+  const uniqueReasons = Array.from(new Set(allFines.map(f => f.reason).filter(Boolean)));
+
   // Filter fines
   const filteredFines = allFines.filter((f) => {
     const matchesReason = reasonFilter === 'All' || f.reason === reasonFilter;
@@ -397,7 +429,8 @@ export default function FinesTab({
     const matchesQuery = !q ||
       f.studentName.toLowerCase().includes(q) ||
       f.studentId.toLowerCase().includes(q) ||
-      (f.transactionId && f.transactionId.toLowerCase().includes(q));
+      (f.transactionId && f.transactionId.toLowerCase().includes(q)) ||
+      (f.reason && f.reason.toLowerCase().includes(q));
     return matchesReason && matchesStatus && matchesMethod && matchesQuery;
   });
 
@@ -1017,57 +1050,68 @@ export default function FinesTab({
               <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--text-main)', fontSize: '0.9rem' }}>
                 Reason for Fine <span style={{ color: '#ef4444' }}>*</span>
               </label>
-              <div style={{ display: 'flex', gap: '1rem', marginTop: '0.4rem' }}>
-                <label style={{
-                  flex: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  padding: '0.75rem 1rem',
-                  borderRadius: '10px',
-                  border: `2px solid ${reason === 'Study Hours Deficit' ? '#f59e0b' : 'var(--glass-border, #cbd5e1)'}`,
-                  background: reason === 'Study Hours Deficit' ? 'rgba(245, 158, 11, 0.12)' : 'var(--card-bg, #ffffff)',
-                  cursor: 'pointer',
-                  fontWeight: '600',
-                  color: 'var(--text-main, #0f172a)',
-                  transition: 'all 0.2s'
-                }}>
-                  <input
-                    type="radio"
-                    name="reason"
-                    value="Study Hours Deficit"
-                    checked={reason === 'Study Hours Deficit'}
-                    onChange={(e) => setReason(e.target.value)}
-                    style={{ accentColor: '#f59e0b' }}
-                  />
-                  <span>⏰ Study Hours Deficit</span>
-                </label>
-
-                <label style={{
-                  flex: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  padding: '0.75rem 1rem',
-                  borderRadius: '10px',
-                  border: `2px solid ${reason === 'Excess Leaves' ? '#8b5cf6' : 'var(--glass-border, #cbd5e1)'}`,
-                  background: reason === 'Excess Leaves' ? 'rgba(139, 92, 246, 0.12)' : 'var(--card-bg, #ffffff)',
-                  cursor: 'pointer',
-                  fontWeight: '600',
-                  color: 'var(--text-main, #0f172a)',
-                  transition: 'all 0.2s'
-                }}>
-                  <input
-                    type="radio"
-                    name="reason"
-                    value="Excess Leaves"
-                    checked={reason === 'Excess Leaves'}
-                    onChange={(e) => setReason(e.target.value)}
-                    style={{ accentColor: '#8b5cf6' }}
-                  />
-                  <span>🏖️ Excess Leaves</span>
-                </label>
+              <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.4rem', flexWrap: 'wrap' }}>
+                {[
+                  { value: 'Study Hours Deficit', label: '⏰ Study Hours Deficit', activeColor: '#f59e0b' },
+                  { value: 'Excess Leaves', label: '🏖️ Excess Leaves', activeColor: '#8b5cf6' },
+                  { value: 'Mobile Phone Violation', label: '📱 Phone Violation', activeColor: '#f43f5e' },
+                  { value: 'Study Hall Indiscipline / Noise', label: '🤫 Indiscipline / Noise', activeColor: '#ea580c' },
+                  { value: 'Late Attendance / Checkout Violation', label: '🚪 Late / Checkout Issue', activeColor: '#0284c7' },
+                  { value: 'Custom Reason', label: '✏️ Other / Custom Reason', activeColor: '#4f46e5' }
+                ].map(opt => (
+                  <label
+                    key={opt.value}
+                    style={{
+                      padding: '0.55rem 0.9rem',
+                      borderRadius: '8px',
+                      border: `2px solid ${reason === opt.value ? opt.activeColor : 'var(--glass-border, #cbd5e1)'}`,
+                      background: reason === opt.value ? `${opt.activeColor}18` : 'var(--card-bg, #ffffff)',
+                      cursor: 'pointer',
+                      fontWeight: '600',
+                      fontSize: '0.85rem',
+                      color: 'var(--text-main, #0f172a)',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="reason"
+                      value={opt.value}
+                      checked={reason === opt.value}
+                      onChange={(e) => setReason(e.target.value)}
+                      style={{ accentColor: opt.activeColor }}
+                    />
+                    <span>{opt.label}</span>
+                  </label>
+                ))}
               </div>
+
+              {/* Custom Reason Input Box */}
+              {reason === 'Custom Reason' && (
+                <div style={{ marginTop: '0.75rem' }}>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Enter custom reason (e.g. Damaged study desk, unauthorized hostel absence, etc.)"
+                    value={customReason}
+                    onChange={(e) => setCustomReason(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem 1rem',
+                      borderRadius: '10px',
+                      border: '2px solid #4f46e5',
+                      background: 'var(--card-bg, #ffffff)',
+                      color: 'var(--text-main, #0f172a)',
+                      fontSize: '0.92rem',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+              )}
             </div>
           </div>
 
@@ -1305,8 +1349,9 @@ export default function FinesTab({
               }}
             >
               <option value="All">All Reasons</option>
-              <option value="Study Hours Deficit">Study Hours Deficit</option>
-              <option value="Excess Leaves">Excess Leaves</option>
+              {uniqueReasons.map(r => (
+                <option key={r} value={r}>{r}</option>
+              ))}
             </select>
 
             <select
@@ -1373,17 +1418,26 @@ export default function FinesTab({
                       <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>ID: {fine.studentId}</div>
                     </td>
                     <td style={{ padding: '0.85rem 1rem' }}>
-                      <span style={{
-                        padding: '4px 10px',
-                        borderRadius: '6px',
-                        fontSize: '0.8rem',
-                        fontWeight: 'bold',
-                        background: fine.reason === 'Study Hours Deficit' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(139, 92, 246, 0.15)',
-                        color: fine.reason === 'Study Hours Deficit' ? '#d97706' : '#7c3aed',
-                        border: `1px solid ${fine.reason === 'Study Hours Deficit' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(139, 92, 246, 0.3)'}`
-                      }}>
-                        {fine.reason === 'Study Hours Deficit' ? '⏰ Study Hours Deficit' : '🏖️ Excess Leaves'}
-                      </span>
+                      {(() => {
+                        const badge = getFineReasonBadge(fine.reason);
+                        return (
+                          <span style={{
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            fontSize: '0.8rem',
+                            fontWeight: 'bold',
+                            background: badge?.bg || 'rgba(99, 102, 241, 0.15)',
+                            color: badge?.color || '#4f46e5',
+                            border: `1px solid ${badge?.border || 'rgba(99, 102, 241, 0.3)'}`,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            <span>{badge?.icon || '📝'}</span>
+                            <span>{fine.reason}</span>
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td style={{ padding: '0.85rem 1rem', fontWeight: 'bold', color: '#ef4444', fontSize: '1rem' }}>
                       ₹{fine.amount}

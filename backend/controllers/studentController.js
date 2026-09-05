@@ -157,11 +157,22 @@ const getDashboard = async (req, res) => {
       }
 
       const adj = adjMap[key];
-      const deductionMinutes = adj ? adj.deductionMinutes : 0;
+      const adjType = adj?.type || (adj?.deductionMinutes > 0 ? "DEDUCT" : (adj?.minutes > 0 ? "ADD" : "NONE"));
+      const adjMinutes = adj ? (adj.minutes !== undefined ? adj.minutes : (adj.deductionMinutes || 0)) : 0;
+      const adjHours = adjMinutes / 60;
+      const deductionMinutes = adjType === "DEDUCT" ? adjMinutes : 0;
       const deductionHours = deductionMinutes / 60;
+      const addedMinutes = adjType === "ADD" ? adjMinutes : 0;
+      const addedHours = addedMinutes / 60;
       const deductionReason = adj ? adj.reason : "";
+      const adjustmentReason = adj ? adj.reason : "";
       const rawHours = totalMs / (1000 * 60 * 60);
-      const netHours = Math.max(0, rawHours - deductionHours);
+      let netHours = rawHours;
+      if (adjType === "ADD") {
+        netHours = rawHours + addedHours;
+      } else if (adjType === "DEDUCT") {
+        netHours = Math.max(0, rawHours - deductionHours);
+      }
 
       summary[key] = {
         studentId: dayLogs[0].studentId,
@@ -171,9 +182,15 @@ const getDashboard = async (req, res) => {
         hasOUT,
         totalMs,
         rawHours,
+        adjustmentType: adj ? adjType : null,
+        adjustmentMinutes: adjMinutes,
+        adjustmentHours: adjHours,
         deductionMinutes,
         deductionHours,
+        addedMinutes,
+        addedHours,
         deductionReason,
+        adjustmentReason,
         totalHours: netHours,
         firstIn
       };
@@ -184,9 +201,15 @@ const getDashboard = async (req, res) => {
       course: s.course,
       date: s.date,
       rawHours: s.rawHours,
+      adjustmentType: s.adjustmentType,
+      adjustmentMinutes: s.adjustmentMinutes,
+      adjustmentHours: s.adjustmentHours,
       deductionMinutes: s.deductionMinutes,
       deductionHours: s.deductionHours,
+      addedMinutes: s.addedMinutes,
+      addedHours: s.addedHours,
       deductionReason: s.deductionReason,
+      adjustmentReason: s.adjustmentReason,
       totalHours: s.totalHours,
       status: s.hasIN ? "Present" : "Absent",
       firstIn: s.firstIn ? new Date(s.firstIn).toISOString() : null,
@@ -194,15 +217,24 @@ const getDashboard = async (req, res) => {
     }));
 
     const attendanceAdjustments = adjustments
-      .filter(a => a.deductionMinutes > 0)
+      .filter(a => (a.minutes > 0 || a.deductionMinutes > 0))
       .sort((a, b) => b.date.localeCompare(a.date))
-      .map(a => ({
-        date: a.date,
-        deductionMinutes: a.deductionMinutes,
-        deductionHours: a.deductionMinutes / 60,
-        reason: a.reason,
-        adjustedBy: a.adjustedBy
-      }));
+      .map(a => {
+        const type = a.type || (a.deductionMinutes > 0 ? "DEDUCT" : "ADD");
+        const mins = a.minutes !== undefined ? a.minutes : (a.deductionMinutes || 0);
+        return {
+          date: a.date,
+          type,
+          minutes: mins,
+          hours: mins / 60,
+          deductionMinutes: type === "DEDUCT" ? mins : 0,
+          deductionHours: type === "DEDUCT" ? mins / 60 : 0,
+          addedMinutes: type === "ADD" ? mins : 0,
+          addedHours: type === "ADD" ? mins / 60 : 0,
+          reason: a.reason,
+          adjustedBy: a.adjustedBy
+        };
+      });
 
     res.json({
       studentId: student.userId,

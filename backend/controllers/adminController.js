@@ -324,11 +324,22 @@ const getDailySummary = async (req, res) => {
       }
 
       const adj = adjMap[key];
-      const deductionMinutes = adj ? adj.deductionMinutes : 0;
+      const adjType = adj?.type || (adj?.deductionMinutes > 0 ? "DEDUCT" : (adj?.minutes > 0 ? "ADD" : "NONE"));
+      const adjMinutes = adj ? (adj.minutes !== undefined ? adj.minutes : (adj.deductionMinutes || 0)) : 0;
+      const adjHours = adjMinutes / 60;
+      const deductionMinutes = adjType === "DEDUCT" ? adjMinutes : 0;
       const deductionHours = deductionMinutes / 60;
+      const addedMinutes = adjType === "ADD" ? adjMinutes : 0;
+      const addedHours = addedMinutes / 60;
       const deductionReason = adj ? adj.reason : "";
+      const adjustmentReason = adj ? adj.reason : "";
       const rawHours = totalMs / (1000 * 60 * 60);
-      const netHours = Math.max(0, rawHours - deductionHours);
+      let netHours = rawHours;
+      if (adjType === "ADD") {
+        netHours = rawHours + addedHours;
+      } else if (adjType === "DEDUCT") {
+        netHours = Math.max(0, rawHours - deductionHours);
+      }
 
       summary[key] = {
         studentId,
@@ -339,9 +350,15 @@ const getDailySummary = async (req, res) => {
         hasOUT: dayLogs[dayLogs.length - 1].type === "OUT",
         totalMs,
         rawHours,
+        adjustmentType: adj ? adjType : null,
+        adjustmentMinutes: adjMinutes,
+        adjustmentHours: adjHours,
         deductionMinutes,
         deductionHours,
+        addedMinutes,
+        addedHours,
         deductionReason,
+        adjustmentReason,
         totalHours: netHours,
         firstIn
       };
@@ -353,9 +370,15 @@ const getDailySummary = async (req, res) => {
       course: s.course,
       date: s.date,
       rawHours: s.rawHours,
+      adjustmentType: s.adjustmentType,
+      adjustmentMinutes: s.adjustmentMinutes,
+      adjustmentHours: s.adjustmentHours,
       deductionMinutes: s.deductionMinutes,
       deductionHours: s.deductionHours,
+      addedMinutes: s.addedMinutes,
+      addedHours: s.addedHours,
       deductionReason: s.deductionReason,
+      adjustmentReason: s.adjustmentReason,
       totalHours: s.totalHours,
       status: s.hasIN ? "Present" : "Absent",
       firstIn: s.firstIn ? new Date(s.firstIn).toISOString() : null,
@@ -1489,8 +1512,8 @@ const applyFine = async (req, res) => {
     if (!amount || Number(amount) <= 0) {
       return res.status(400).json({ message: "Valid positive amount is required" });
     }
-    if (!reason || !["Study Hours Deficit", "Excess Leaves"].includes(reason)) {
-      return res.status(400).json({ message: "Valid fine reason is required (Study Hours Deficit or Excess Leaves)" });
+    if (!reason || typeof reason !== "string" || !reason.trim()) {
+      return res.status(400).json({ message: "Valid fine reason is required" });
     }
 
     const student = await User.findOne({ userId: studentId.trim().toUpperCase(), role: "student" });
@@ -1508,7 +1531,7 @@ const applyFine = async (req, res) => {
 
     student.fines.push({
       amount: Number(amount),
-      reason,
+      reason: reason.trim(),
       date: new Date(),
       startDate: sDate,
       endDate: eDate,
@@ -1722,34 +1745,40 @@ const deleteBatch = async (req, res) => {
 /* ================= ATTENDANCE STUDY HOURS ADJUSTMENTS ================= */
 const adjustAttendanceHours = async (req, res) => {
   try {
-    const { studentId, date, deductionMinutes, reason } = req.body;
-    if (!studentId || !date || deductionMinutes === undefined || !reason) {
-      return res.status(400).json({ message: "studentId, date, deductionMinutes, and reason are required" });
-    }
-    const cleanId = studentId.trim().toUpperCase();
-    const minutes = Number(deductionMinutes);
-    if (isNaN(minutes) || minutes < 0) {
-      return res.status(400).json({ message: "deductionMinutes must be a non-negative number" });
+    const { studentId, date, deductionMinutes, minutes: rawMinutes, type, reason } = req.body;
+    const cleanId = studentId?.trim().toUpperCase();
+    if (!cleanId || !date || (rawMinutes === undefined && deductionMinutes === undefined) || !reason) {
+      return res.status(400).json({ message: "studentId, date, minutes/deductionMinutes, and reason are required" });
     }
 
-    if (minutes === 0) {
-      await AttendanceAdjustment.findOneAndDelete({ studentId: cleanId, date });
-      return res.json({ message: "Adjustment removed", adjustment: null });
+    const minutesVal = rawMinutes !== undefined ? Number(rawMinutes) : Number(deductionMinutes);
+    if (isNaN(minutesVal) || minutesVal < 0) {
+      return res.status(400).json({ message: "Adjustment minutes must be a non-negative number" });
     }
+
+    if (minutesVal === 0) {
+      await AttendanceAdjustment.findOneAndDelete({ studentId: cleanId, date });
+      return res.json({ message: "Adjustment removed successfully", adjustment: null });
+    }
+
+    const adjType = (type && String(type).toUpperCase() === "ADD") ? "ADD" : "DEDUCT";
+    const deductionMinutesVal = adjType === "DEDUCT" ? minutesVal : 0;
 
     const adjustment = await AttendanceAdjustment.findOneAndUpdate(
       { studentId: cleanId, date },
       {
         studentId: cleanId,
         date,
-        deductionMinutes: minutes,
+        type: adjType,
+        minutes: minutesVal,
+        deductionMinutes: deductionMinutesVal,
         reason: reason.trim(),
         adjustedBy: req.user?.username || req.user?.name || "admin"
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    res.json({ message: "Attendance hours adjusted successfully", adjustment });
+    res.json({ message: `Attendance study hours ${adjType === "ADD" ? "added" : "deducted"} successfully`, adjustment });
   } catch (err) {
     console.error("Adjust attendance hours error:", err);
     res.status(500).json({ message: "Server error adjusting attendance hours" });
@@ -1758,7 +1787,8 @@ const adjustAttendanceHours = async (req, res) => {
 
 const deleteAttendanceAdjustment = async (req, res) => {
   try {
-    const { studentId, date } = req.body;
+    const studentId = req.body.studentId || req.query.studentId;
+    const date = req.body.date || req.query.date;
     if (!studentId || !date) {
       return res.status(400).json({ message: "studentId and date are required" });
     }

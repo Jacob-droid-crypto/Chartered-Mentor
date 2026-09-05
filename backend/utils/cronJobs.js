@@ -57,9 +57,18 @@ const calculateStudyHours = async (studentId, dateStr) => {
 
   const rawHours = totalMs / (1000 * 60 * 60);
   const adjustment = await AttendanceAdjustment.findOne({ studentId, date: dateStr });
-  const deductionHours = adjustment ? (adjustment.deductionMinutes / 60) : 0;
+  if (!adjustment) return rawHours;
 
-  return Math.max(0, rawHours - deductionHours);
+  const adjType = adjustment.type || (adjustment.deductionMinutes > 0 ? "DEDUCT" : (adjustment.minutes > 0 ? "ADD" : "NONE"));
+  const mins = adjustment.minutes !== undefined ? adjustment.minutes : (adjustment.deductionMinutes || 0);
+  const adjHours = mins / 60;
+
+  if (adjType === "ADD") {
+    return rawHours + adjHours;
+  } else if (adjType === "DEDUCT") {
+    return Math.max(0, rawHours - adjHours);
+  }
+  return rawHours;
 };
 
 // Utility to send email
