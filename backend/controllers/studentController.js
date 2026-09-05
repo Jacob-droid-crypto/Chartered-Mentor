@@ -196,6 +196,45 @@ const getDashboard = async (req, res) => {
       };
     }
 
+    // Include adjustments for days when the student had no biometric logs
+    adjustments.forEach(adj => {
+      const key = adj.date;
+      if (!summary[key]) {
+        const adjType = adj.type || (adj.deductionMinutes > 0 ? "DEDUCT" : (adj.minutes > 0 ? "ADD" : "NONE"));
+        const adjMinutes = adj.minutes !== undefined ? adj.minutes : (adj.deductionMinutes || 0);
+        const adjHours = adjMinutes / 60;
+        const deductionMinutes = adjType === "DEDUCT" ? adjMinutes : 0;
+        const deductionHours = deductionMinutes / 60;
+        const addedMinutes = adjType === "ADD" ? adjMinutes : 0;
+        const addedHours = addedMinutes / 60;
+        const deductionReason = adj.reason || "";
+        const adjustmentReason = adj.reason || "";
+        const rawHours = 0;
+        const netHours = adjType === "ADD" ? addedHours : 0;
+
+        summary[key] = {
+          studentId: student.userId,
+          course: student.course || "-",
+          date: key,
+          hasIN: false,
+          hasOUT: false,
+          totalMs: 0,
+          rawHours: 0,
+          adjustmentType: adjType,
+          adjustmentMinutes: adjMinutes,
+          adjustmentHours: adjHours,
+          deductionMinutes,
+          deductionHours,
+          addedMinutes,
+          addedHours,
+          deductionReason,
+          adjustmentReason,
+          totalHours: netHours,
+          firstIn: null
+        };
+      }
+    });
+
     const attendanceSummary = Object.values(summary).map((s) => ({
       studentId: s.studentId,
       course: s.course,
@@ -211,7 +250,7 @@ const getDashboard = async (req, res) => {
       deductionReason: s.deductionReason,
       adjustmentReason: s.adjustmentReason,
       totalHours: s.totalHours,
-      status: s.hasIN ? "Present" : "Absent",
+      status: (s.hasIN || (s.adjustmentType === 'ADD' && s.totalHours > 0)) ? "Present" : "Absent",
       firstIn: s.firstIn ? new Date(s.firstIn).toISOString() : null,
       hasOUT: s.hasOUT,
     }));

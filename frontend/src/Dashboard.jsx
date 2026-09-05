@@ -4482,31 +4482,32 @@ function Dashboard({ user, onLogout }) {
                             </div>
                             {user.role === 'admin' && (
                               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                {record.status === 'Present' ? (
+                                {handleOpenDeductHours && (() => {
+                                  const isAdjusted = (record.deductionMinutes > 0 || record.addedMinutes > 0 || record.adjustmentMinutes > 0);
+                                  const isAdd = record.adjustmentType === 'ADD' || (record.addedMinutes && record.addedMinutes > 0);
+                                  return (
+                                    <button
+                                      onClick={() => handleOpenDeductHours(record)}
+                                      style={{
+                                        padding: '0.45rem 0.9rem',
+                                        background: isAdjusted ? (isAdd ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)') : 'transparent',
+                                        border: isAdjusted ? (isAdd ? '1px solid #10b981' : '1px solid #ef4444') : '1px solid var(--glass-border)',
+                                        color: isAdjusted ? (isAdd ? '#10b981' : '#ef4444') : 'var(--text-main)',
+                                        borderRadius: '6px',
+                                        fontSize: '0.8rem',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                      }}
+                                      title={isAdjusted ? "Edit Time Adjustment" : "Adjust Study Hours (Add / Deduct)"}
+                                    >
+                                      {isAdjusted ? (isAdd ? 'Edit Bonus ⏰' : 'Edit Penalty ✂️') : 'Adjust Hours ⏰'}
+                                    </button>
+                                  );
+                                })()}
+
+                                {record.status === 'Present' || record.hasIN ? (
                                   <>
-                                    {(() => {
-                                      const isAdjusted = (record.deductionMinutes > 0 || record.addedMinutes > 0 || record.adjustmentMinutes > 0);
-                                      const isAdd = record.adjustmentType === 'ADD' || (record.addedMinutes && record.addedMinutes > 0);
-                                      return (
-                                        <button
-                                          onClick={() => handleOpenDeductHours(record)}
-                                          style={{
-                                            padding: '0.45rem 0.9rem',
-                                            background: isAdjusted ? (isAdd ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)') : 'transparent',
-                                            border: isAdjusted ? (isAdd ? '1px solid #10b981' : '1px solid #ef4444') : '1px solid var(--glass-border)',
-                                            color: isAdjusted ? (isAdd ? '#10b981' : '#ef4444') : 'var(--text-main)',
-                                            borderRadius: '6px',
-                                            fontSize: '0.8rem',
-                                            fontWeight: 'bold',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s'
-                                          }}
-                                          title={isAdjusted ? "Edit Time Adjustment" : "Adjust Study Hours (Add / Deduct)"}
-                                        >
-                                          {isAdjusted ? (isAdd ? 'Edit Bonus ⏰' : 'Edit Penalty ✂️') : 'Adjust Hours ⏰'}
-                                        </button>
-                                      );
-                                    })()}
                                     <button
                                       onClick={() => handleOpenManualCheckin(record)}
                                       style={{

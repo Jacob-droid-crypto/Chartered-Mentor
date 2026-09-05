@@ -260,11 +260,13 @@ const getDailySummary = async (req, res) => {
   try {
     const records = await Attendance.find().sort({ timestamp: 1 });
     
-    // Fetch names to map to studentName
-    const students = await User.find({ role: "student" }, { userId: 1, name: 1 });
+    // Fetch names and courses to map to studentId
+    const students = await User.find({ role: "student" }, { userId: 1, name: 1, course: 1 });
     const studentMap = {};
+    const studentCourseMap = {};
     students.forEach((s) => {
       studentMap[s.userId] = s.name;
+      studentCourseMap[s.userId] = s.course || "-";
     });
 
     // Fetch all adjustments
@@ -344,7 +346,7 @@ const getDailySummary = async (req, res) => {
       summary[key] = {
         studentId,
         studentName: studentMap[studentId] || "Unknown Student",
-        course,
+        course: course || studentCourseMap[studentId] || "-",
         date,
         hasIN: !!firstInLog,
         hasOUT: dayLogs[dayLogs.length - 1].type === "OUT",
@@ -364,6 +366,46 @@ const getDailySummary = async (req, res) => {
       };
     }
 
+    // Include any adjustments that exist for students who did not check in at all on that date
+    adjustments.forEach(adj => {
+      const key = `${adj.studentId}_${adj.date}`;
+      if (!summary[key]) {
+        const adjType = adj.type || (adj.deductionMinutes > 0 ? "DEDUCT" : (adj.minutes > 0 ? "ADD" : "NONE"));
+        const adjMinutes = adj.minutes !== undefined ? adj.minutes : (adj.deductionMinutes || 0);
+        const adjHours = adjMinutes / 60;
+        const deductionMinutes = adjType === "DEDUCT" ? adjMinutes : 0;
+        const deductionHours = deductionMinutes / 60;
+        const addedMinutes = adjType === "ADD" ? adjMinutes : 0;
+        const addedHours = addedMinutes / 60;
+        const deductionReason = adj.reason || "";
+        const adjustmentReason = adj.reason || "";
+        const rawHours = 0;
+        const netHours = adjType === "ADD" ? addedHours : 0;
+
+        summary[key] = {
+          studentId: adj.studentId,
+          studentName: studentMap[adj.studentId] || "Unknown Student",
+          course: studentCourseMap[adj.studentId] || "-",
+          date: adj.date,
+          hasIN: false,
+          hasOUT: false,
+          totalMs: 0,
+          rawHours: 0,
+          adjustmentType: adjType,
+          adjustmentMinutes: adjMinutes,
+          adjustmentHours: adjHours,
+          deductionMinutes,
+          deductionHours,
+          addedMinutes,
+          addedHours,
+          deductionReason,
+          adjustmentReason,
+          totalHours: netHours,
+          firstIn: null
+        };
+      }
+    });
+
     const result = Object.values(summary).map((s) => ({
       studentId: s.studentId,
       studentName: s.studentName,
@@ -380,7 +422,7 @@ const getDailySummary = async (req, res) => {
       deductionReason: s.deductionReason,
       adjustmentReason: s.adjustmentReason,
       totalHours: s.totalHours,
-      status: s.hasIN ? "Present" : "Absent",
+      status: (s.hasIN || (s.adjustmentType === 'ADD' && s.totalHours > 0)) ? "Present" : "Absent",
       firstIn: s.firstIn ? new Date(s.firstIn).toISOString() : null,
       hasOUT: s.hasOUT,
     }));
