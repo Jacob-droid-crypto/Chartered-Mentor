@@ -7,37 +7,12 @@ require("dotenv").config();
 const connectDB = require("./config/db");
 const adminRoutes = require("./routes/adminRoutes");
 const studentRoutes = require("./routes/studentRoutes");
-const { initCronJobs } = require("./utils/cronJobs");
 
 const app = express();
 
 /* ================= DATABASE CONNECTION ================= */
 connectDB();
 
-// Run a one-time migration to clean up any base64 profile photos to free up DB storage immediately
-const User = require("./models/User");
-User.updateMany({ profilePhoto: { $exists: true } }, { $unset: { profilePhoto: "" } })
-  .then((res) => console.log(`🧹 Cleared profile photos from database to reclaim storage:`, res))
-  .catch((err) => console.error(`Error clearing profile photos:`, err));
-
-// Seed default batches if not present
-const Batch = require("./models/Batch");
-Batch.countDocuments()
-  .then((count) => {
-    if (count === 0) {
-      return Batch.insertMany([
-        { name: "September 2026" },
-        { name: "November 2026" }
-      ]);
-    }
-  })
-  .then((res) => {
-    if (res) console.log("🌱 Seeded default batches:", res.map(b => b.name));
-  })
-  .catch((err) => console.error("Error seeding default batches:", err));
-
-/* ================= BACKGROUND JOBS ================= */
-initCronJobs();
 
 /* ================= MIDDLEWARE ================= */
 app.use(cors());
