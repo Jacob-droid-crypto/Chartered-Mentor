@@ -87,13 +87,16 @@ app.get("/qr/out", (req, res) => {
 
 /* ================= STATIC FRONTEND SUPPORT ================= */
 app.use(express.static(path.join(__dirname, "public")));
-const frontendPath = path.join(__dirname, '..', 'frontend', 'dist');
+const frontendPath = path.join(__dirname, "..", "frontend", "dist");
 app.use(express.static(frontendPath));
 
 app.get(/^(?!\/admin|\/student|\/qr).*/, (req, res) => {
-  const indexPath = path.join(frontendPath, 'index.html');
+  const indexPath = path.join(frontendPath, "index.html");
   if (fs.existsSync(indexPath)) {
-    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate, proxy-revalidate",
+    );
     res.setHeader("Pragma", "no-cache");
     res.setHeader("Expires", "0");
     res.sendFile(indexPath);
