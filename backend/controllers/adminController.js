@@ -10,7 +10,11 @@ const Schedule = require("../models/Schedule");
 const ExamSchedule = require("../models/ExamSchedule");
 const CampusQR = require("../models/CampusQR");
 const Batch = require("../models/Batch");
-const { executeAutoLogout } = require("../utils/cronJobs");
+const {
+  executeAutoLogout,
+  executeFeeReminders,
+  executeCleanup,
+} = require("../utils/cronJobs");
 
 const generateToken = (userId, role) => {
   return jwt.sign({ userId, role }, process.env.JWT_SECRET || "fallback_secret", {
@@ -1534,13 +1538,81 @@ const resetStudentDevice = async (req, res) => {
   }
 };
 
-/* ================= TRIGGER AUTO LOGOUT ================= */
+/* ================= CRON & SCHEDULED TRIGGER HELPERS ================= */
+const verifyCronSecret = (req) => {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return true; // If no secret configured in .env, allow trigger
+  const authHeader = req.headers.authorization;
+  const bearerToken =
+    authHeader && authHeader.startsWith("Bearer ")
+      ? authHeader.substring(7)
+      : null;
+  const queryKey = req.query.key;
+  return bearerToken === secret || queryKey === secret;
+};
+
+/* Trigger Auto Logout on-demand / via scheduler */
 const triggerAutoLogout = async (req, res) => {
+  if (!verifyCronSecret(req)) {
+    return res.status(401).json({ message: "Unauthorized: Invalid CRON_SECRET" });
+  }
   try {
     const stats = await executeAutoLogout();
-    res.json({ message: "Auto logout triggered successfully", stats });
+    res.json({ message: "Auto logout executed successfully", stats });
   } catch (err) {
     console.error("Trigger auto logout error:", err);
+    res.status(500).json({ message: "Server error: " + err.message });
+  }
+};
+
+/* Trigger Fee Payment Reminder emails */
+const triggerFeeReminders = async (req, res) => {
+  if (!verifyCronSecret(req)) {
+    return res.status(401).json({ message: "Unauthorized: Invalid CRON_SECRET" });
+  }
+  try {
+    const stats = await executeFeeReminders();
+    res.json({ message: "Fee reminders executed successfully", stats });
+  } catch (err) {
+    console.error("Trigger fee reminders error:", err);
+    res.status(500).json({ message: "Server error: " + err.message });
+  }
+};
+
+/* Trigger Database Cleanup */
+const triggerCleanup = async (req, res) => {
+  if (!verifyCronSecret(req)) {
+    return res.status(401).json({ message: "Unauthorized: Invalid CRON_SECRET" });
+  }
+  try {
+    const stats = await executeCleanup();
+    res.json({ message: "Cleanup executed successfully", stats });
+  } catch (err) {
+    console.error("Trigger cleanup error:", err);
+    res.status(500).json({ message: "Server error: " + err.message });
+  }
+};
+
+/* Unified Cron Trigger endpoint */
+const triggerCronTasks = async (req, res) => {
+  if (!verifyCronSecret(req)) {
+    return res.status(401).json({ message: "Unauthorized: Invalid CRON_SECRET" });
+  }
+  try {
+    const job = req.query.job || "all";
+    const results = {};
+    if (job === "all" || job === "logout") {
+      results.autoLogout = await executeAutoLogout();
+    }
+    if (job === "all" || job === "fees") {
+      results.feeReminders = await executeFeeReminders();
+    }
+    if (job === "all" || job === "cleanup") {
+      results.cleanup = await executeCleanup();
+    }
+    res.json({ message: "Cron tasks executed successfully", results });
+  } catch (err) {
+    console.error("Trigger cron tasks error:", err);
     res.status(500).json({ message: "Server error: " + err.message });
   }
 };
@@ -1896,6 +1968,9 @@ module.exports = {
   refreshCampusQR,
   resetStudentDevice,
   triggerAutoLogout,
+  triggerFeeReminders,
+  triggerCleanup,
+  triggerCronTasks,
   applyFine,
   deleteFine,
   payFine,

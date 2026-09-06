@@ -8,11 +8,73 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
-const { loginAdmin, addStudent, getAttendance, getDailySummary, getStudents, deleteStudent, resetPassword, getProfile, uploadQuestionPaper, getAdminPapers, deletePaper, downloadAnswerPaper, getPaymentConfig, updatePaymentConfig, updateStudentFees, addStudentPayment, approveStudentPayment, rejectStudentPayment, editStudentPayment, revertStudentPayment, updateStudentProfileByAdmin, getGoalConfig, updateGoalConfig, deleteGoalConfig, manualCheckout, manualCheckin, createSchedule, getAdminSchedules, deleteSchedule, downloadScheduleFileAdmin, getExamSchedules, createExamSchedule, updateExamSchedule, deleteExamSchedule, getCampusQR, refreshCampusQR, resetStudentDevice, triggerAutoLogout, applyFine, deleteFine, payFine, rejectFine, getBatches, addBatch, updateBatch, deleteBatch, adjustAttendanceHours, deleteAttendanceAdjustment, getAttendanceAdjustments } = require("../controllers/adminController");
+const {
+  loginAdmin,
+  addStudent,
+  getAttendance,
+  getDailySummary,
+  getStudents,
+  deleteStudent,
+  resetPassword,
+  getProfile,
+  uploadQuestionPaper,
+  getAdminPapers,
+  deletePaper,
+  downloadAnswerPaper,
+  getPaymentConfig,
+  updatePaymentConfig,
+  updateStudentFees,
+  addStudentPayment,
+  approveStudentPayment,
+  rejectStudentPayment,
+  editStudentPayment,
+  revertStudentPayment,
+  updateStudentProfileByAdmin,
+  getGoalConfig,
+  updateGoalConfig,
+  deleteGoalConfig,
+  manualCheckout,
+  manualCheckin,
+  createSchedule,
+  getAdminSchedules,
+  deleteSchedule,
+  downloadScheduleFileAdmin,
+  getExamSchedules,
+  createExamSchedule,
+  updateExamSchedule,
+  deleteExamSchedule,
+  getCampusQR,
+  refreshCampusQR,
+  resetStudentDevice,
+  triggerAutoLogout,
+  triggerFeeReminders,
+  triggerCleanup,
+  triggerCronTasks,
+  applyFine,
+  deleteFine,
+  payFine,
+  rejectFine,
+  getBatches,
+  addBatch,
+  updateBatch,
+  deleteBatch,
+  adjustAttendanceHours,
+  deleteAttendanceAdjustment,
+  getAttendanceAdjustments,
+} = require("../controllers/adminController");
 const { updateProfile } = require("../controllers/studentController");
-const { protect, adminOnly, adminRoleRequired } = require("../middleware/authMiddleware");
+const {
+  protect,
+  adminOnly,
+  adminRoleRequired,
+} = require("../middleware/authMiddleware");
 
-router.get("/cron-auto-logout", triggerAutoLogout);
+// Cron endpoints (can be called by cron-job.org / external schedulers or Vercel Cron)
+router.all("/cron-auto-logout", triggerAutoLogout);
+router.all("/cron/auto-logout", triggerAutoLogout);
+router.all("/cron/fee-reminders", triggerFeeReminders);
+router.all("/cron/cleanup", triggerCleanup);
+router.all("/cron/trigger", triggerCronTasks);
 router.get("/campus-qr", protect, adminOnly, getCampusQR);
 router.post("/campus-qr/refresh", protect, adminOnly, refreshCampusQR);
 
