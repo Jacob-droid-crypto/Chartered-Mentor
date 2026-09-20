@@ -269,23 +269,35 @@ export default function DashboardOverview({
         const todayStr = getLocalDateString();
         const todayData = Array.isArray(data) ? data.filter(d => d.date === todayStr) : [];
         const totalStudents = Array.isArray(students) ? students.length : 0;
+        const insideCount = Array.isArray(students) ? students.filter(s => s.currentStatus === 'Inside').length : 0;
+        const outsideCount = Math.max(0, totalStudents - insideCount);
         const presentCount = todayData.length;
         const absentCount = Math.max(0, totalStudents - presentCount);
 
         return (
-          <div className="dashboard-cards" style={{ marginBottom: '2rem' }}>
-            <div className="card" style={{ cursor: 'pointer' }} onClick={() => setActiveTab('students')}>
+          <div className="dashboard-cards" style={{ marginBottom: '2rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.25rem' }}>
+            <div className="card" style={{ cursor: 'pointer', border: todayAttendanceFilter === 'all' ? '1.5px solid var(--primary-color)' : undefined }} onClick={() => { setTodayAttendanceFilter('all'); const el = document.getElementById('today-summary-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}>
               <div className="card-icon">👨‍🎓</div>
-              <h3>Total Registered Students</h3>
+              <h3>Total Registered</h3>
               <div className="value">{totalStudents}</div>
             </div>
-            <div className="card" style={{ cursor: 'pointer' }} onClick={() => { setTodayAttendanceFilter('present'); const el = document.getElementById('today-summary-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}>
-              <div className="card-icon" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>📊</div>
-              <h3>Active Check-ins Today</h3>
+            <div className="card" style={{ cursor: 'pointer', border: todayAttendanceFilter === 'inside' ? '2px solid #10b981' : undefined, background: todayAttendanceFilter === 'inside' ? 'rgba(16, 185, 129, 0.04)' : undefined }} onClick={() => { setTodayAttendanceFilter('inside'); const el = document.getElementById('today-summary-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}>
+              <div className="card-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>🟢</div>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>Inside Campus</h3>
+              <div className="value" style={{ color: '#10b981' }}>{insideCount}</div>
+            </div>
+            <div className="card" style={{ cursor: 'pointer', border: todayAttendanceFilter === 'outside' ? '2px solid #ef4444' : undefined, background: todayAttendanceFilter === 'outside' ? 'rgba(239, 68, 68, 0.04)' : undefined }} onClick={() => { setTodayAttendanceFilter('outside'); const el = document.getElementById('today-summary-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}>
+              <div className="card-icon" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444' }}>🔴</div>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>Outside Campus</h3>
+              <div className="value" style={{ color: '#ef4444' }}>{outsideCount}</div>
+            </div>
+            <div className="card" style={{ cursor: 'pointer', border: todayAttendanceFilter === 'present' ? '2px solid #3b82f6' : undefined }} onClick={() => { setTodayAttendanceFilter('present'); const el = document.getElementById('today-summary-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}>
+              <div className="card-icon" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' }}>📊</div>
+              <h3>Active Check-ins</h3>
               <div className="value">{presentCount}</div>
             </div>
-            <div className="card" style={{ cursor: 'pointer' }} onClick={() => { setTodayAttendanceFilter('absent'); const el = document.getElementById('today-summary-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}>
-              <div className="card-icon" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>🚨</div>
+            <div className="card" style={{ cursor: 'pointer', border: todayAttendanceFilter === 'absent' ? '2px solid #f59e0b' : undefined }} onClick={() => { setTodayAttendanceFilter('absent'); const el = document.getElementById('today-summary-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}>
+              <div className="card-icon" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>🚨</div>
               <h3>Absentees Today</h3>
               <div className="value">{absentCount}</div>
             </div>
@@ -436,32 +448,52 @@ export default function DashboardOverview({
       <section className="recent-activity" id="today-summary-section">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
           <h2 style={{ margin: 0 }}>{(user.role === 'admin' || user.role === 'staff') ? 'Today\'s Attendance Summary' : 'Your Check-ins'}</h2>
-          {(user.role === 'admin' || user.role === 'staff') && (
-            <div style={{ display: 'flex', background: 'rgba(0,0,0,0.03)', padding: '4px', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
-              {['all', 'present', 'absent'].map((filterVal) => (
-                <button
-                  key={filterVal}
-                  type="button"
-                  onClick={() => setTodayAttendanceFilter(filterVal)}
-                  style={{
-                    padding: '0.4rem 1rem',
-                    border: 'none',
-                    background: todayAttendanceFilter === filterVal ? 'var(--surface-solid)' : 'transparent',
-                    color: todayAttendanceFilter === filterVal ? 'var(--primary-color)' : 'var(--text-muted)',
-                    borderRadius: '6px',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    fontSize: '0.85rem',
-                    boxShadow: todayAttendanceFilter === filterVal ? '0 2px 6px rgba(0,0,0,0.05)' : 'none',
-                    transition: 'all 0.2s',
-                    textTransform: 'capitalize'
-                  }}
-                >
-                  {filterVal}
-                </button>
-              ))}
-            </div>
-          )}
+          {(user.role === 'admin' || user.role === 'staff') && (() => {
+            const totalStudents = Array.isArray(students) ? students.length : 0;
+            const insideCount = Array.isArray(students) ? students.filter(s => s.currentStatus === 'Inside').length : 0;
+            const outsideCount = Math.max(0, totalStudents - insideCount);
+            const todayStr = getLocalDateString();
+            const todayData = Array.isArray(data) ? data.filter(d => d.date === todayStr) : [];
+            const presentCount = todayData.length;
+            const absentCount = Math.max(0, totalStudents - presentCount);
+
+            return (
+              <div style={{ display: 'flex', background: 'rgba(0,0,0,0.03)', padding: '4px', borderRadius: '10px', border: '1px solid var(--glass-border)', flexWrap: 'wrap', gap: '4px' }}>
+                {[
+                  { id: 'all', label: `All (${totalStudents})` },
+                  { id: 'inside', label: `🟢 Inside (${insideCount})` },
+                  { id: 'outside', label: `🔴 Outside (${outsideCount})` },
+                  { id: 'present', label: `Present (${presentCount})` },
+                  { id: 'absent', label: `Absent (${absentCount})` },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setTodayAttendanceFilter(tab.id)}
+                    style={{
+                      padding: '0.45rem 0.9rem',
+                      border: 'none',
+                      background: todayAttendanceFilter === tab.id ? 'var(--surface-solid, #ffffff)' : 'transparent',
+                      color: todayAttendanceFilter === tab.id 
+                        ? (tab.id === 'inside' ? '#10b981' : tab.id === 'outside' ? '#ef4444' : 'var(--primary-color)') 
+                        : 'var(--text-muted)',
+                      borderRadius: '7px',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      fontSize: '0.85rem',
+                      boxShadow: todayAttendanceFilter === tab.id ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.35rem'
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
         </div>
 
         <div className="activity-list">
@@ -486,7 +518,8 @@ export default function DashboardOverview({
                   ...attendedMap[student.userId],
                   studentName: student.name || attendedMap[student.userId].studentName || studentMap[student.userId] || 'Unknown Student',
                   isAbsent: false,
-                  currentStatus: student.currentStatus
+                  currentStatus: student.currentStatus,
+                  lastActivityTime: student.lastActivityTime
                 };
               } else {
                 return {
@@ -498,12 +531,15 @@ export default function DashboardOverview({
                   totalHours: 0,
                   firstIn: null,
                   isAbsent: true,
-                  currentStatus: student.currentStatus
+                  currentStatus: student.currentStatus,
+                  lastActivityTime: student.lastActivityTime
                 };
               }
             }) : [];
 
             const filteredRecords = mergedRecords.filter(r => {
+              if (todayAttendanceFilter === 'inside') return r.currentStatus === 'Inside';
+              if (todayAttendanceFilter === 'outside') return r.currentStatus !== 'Inside';
               if (todayAttendanceFilter === 'present') return !r.isAbsent;
               if (todayAttendanceFilter === 'absent') return r.isAbsent;
               return true;

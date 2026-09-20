@@ -721,6 +721,7 @@ function Dashboard({ user, onLogout }) {
   const [data, setData] = useState(null);
   const [students, setStudents] = useState([]);
   const [studentSearch, setStudentSearch] = useState('');
+  const [studentCampusFilter, setStudentCampusFilter] = useState('all'); // 'all', 'inside', 'outside'
   const [paymentFilter, setPaymentFilter] = useState('all');
   const [seatSearch, setSeatSearch] = useState('');
   const [showFineAlertModal, setShowFineAlertModal] = useState(false);
@@ -1434,7 +1435,7 @@ function Dashboard({ user, onLogout }) {
         fetchExamSchedules();
       }
     }
-    if ((activeTab === 'students' || activeTab === 'seats' || activeTab === 'fines' || activeTab === 'batches') && isAdminOrStaff) {
+    if ((activeTab === 'students' || activeTab === 'inside' || activeTab === 'outside' || activeTab === 'seats' || activeTab === 'fines' || activeTab === 'batches') && isAdminOrStaff) {
       fetchStudentsData();
       fetchBatches();
     }
@@ -2859,10 +2860,14 @@ function Dashboard({ user, onLogout }) {
           (student.userId && student.userId.toLowerCase().includes(query)) ||
           (student.email && student.email.toLowerCase().includes(query)) ||
           (student.course && student.course.toLowerCase().includes(query)) ||
-          (student.batch && student.batch.toLowerCase().includes(query))
+          (student.batch && student.batch.toLowerCase().includes(query)) ||
+          (student.seatNumber && student.seatNumber.toLowerCase().includes(query))
         );
 
         if (!matchesQuery) return false;
+
+        if (studentCampusFilter === 'inside' && student.currentStatus !== 'Inside') return false;
+        if (studentCampusFilter === 'outside' && student.currentStatus === 'Inside') return false;
 
         if (paymentFilter === 'paid') {
           return (student.totalFees || 0) > 0 && (student.feesPaid || 0) >= (student.totalFees || 0);
@@ -2984,6 +2989,24 @@ function Dashboard({ user, onLogout }) {
                             }}
                           >
                             <span>🎓</span> Students
+                          </li>
+                          <li
+                            className={`nav-dropdown-item ${activeTab === 'inside' ? 'active' : ''}`}
+                            onClick={() => {
+                              setShowNavDropdown(false);
+                              setActiveTab('inside');
+                            }}
+                          >
+                            <span>🟢</span> Inside Campus
+                          </li>
+                          <li
+                            className={`nav-dropdown-item ${activeTab === 'outside' ? 'active' : ''}`}
+                            onClick={() => {
+                              setShowNavDropdown(false);
+                              setActiveTab('outside');
+                            }}
+                          >
+                            <span>🔴</span> Outside Campus
                           </li>
                           <li
                             className={`nav-dropdown-item ${activeTab === 'seats' ? 'active' : ''}`}
@@ -3232,6 +3255,8 @@ function Dashboard({ user, onLogout }) {
               <h1 style={{ fontSize: '1.8rem', margin: 0, fontWeight: '600', color: 'var(--text-main)' }}>
                 {activeTab === 'dashboard' ? `Welcome back, ${user.name} 👋`
                   : activeTab === 'students' ? 'Manage Students'
+                  : activeTab === 'inside' ? '🟢 Inside Campus Students'
+                  : activeTab === 'outside' ? '🔴 Outside Campus Students'
                   : activeTab === 'attendance' ? 'Attendance Records'
                   : activeTab === 'profile' ? 'My Profile'
                   : activeTab === 'papers' ? 'Question Papers'
@@ -3251,6 +3276,8 @@ function Dashboard({ user, onLogout }) {
               <p style={{ margin: '4px 0 0 0', fontSize: '0.95rem', color: 'var(--text-muted)' }}>
                 {activeTab === 'dashboard' ? `Role: ${user.role === 'admin' ? 'Administrator' : user.role === 'staff' ? 'Staff' : 'Student (ID: ' + user.userId + ')' }`
                   : activeTab === 'students' ? 'Add new students or remove existing ones from the system.'
+                  : activeTab === 'inside' ? 'Real-time overview of all students currently checked in and present inside the campus.'
+                  : activeTab === 'outside' ? 'Real-time overview of all students currently checked out or outside the campus.'
                   : activeTab === 'attendance' ? 'View and track your attendance logs.'
                   : activeTab === 'profile' ? 'Update your personal details and photo.'
                   : activeTab === 'papers' ? 'Manage and download scheduled question papers.'
@@ -3841,25 +3868,36 @@ function Dashboard({ user, onLogout }) {
             {(user.role === 'admin' || user.role === 'staff') && (() => {
               const todayStr = getLocalDateString();
               const todayData = Array.isArray(data) ? data.filter(d => d.date === todayStr) : [];
-              const attendedIds = new Set(todayData.map(d => d.studentId));
               const totalStudents = Array.isArray(students) ? students.length : 0;
+              const insideCount = Array.isArray(students) ? students.filter(s => s.currentStatus === 'Inside').length : 0;
+              const outsideCount = Math.max(0, totalStudents - insideCount);
               const presentCount = todayData.length;
               const absentCount = Math.max(0, totalStudents - presentCount);
 
               return (
-                <div className="dashboard-cards" style={{ marginBottom: '2rem' }}>
-                  <div className="card" style={{ cursor: 'pointer' }} onClick={() => setActiveTab('students')}>
+                <div className="dashboard-cards" style={{ marginBottom: '2rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.25rem' }}>
+                  <div className="card" style={{ cursor: 'pointer', border: todayAttendanceFilter === 'all' ? '1.5px solid var(--primary-color)' : undefined }} onClick={() => { setTodayAttendanceFilter('all'); const el = document.getElementById('today-summary-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}>
                     <div className="card-icon">👨‍🎓</div>
-                    <h3>Total Registered Students</h3>
+                    <h3>Total Registered</h3>
                     <div className="value">{totalStudents}</div>
                   </div>
-                  <div className="card" style={{ cursor: 'pointer' }} onClick={() => { setTodayAttendanceFilter('present'); const el = document.getElementById('today-summary-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}>
-                    <div className="card-icon" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>📊</div>
-                    <h3>Active Check-ins Today</h3>
+                  <div className="card" style={{ cursor: 'pointer', border: todayAttendanceFilter === 'inside' ? '2px solid #10b981' : undefined, background: todayAttendanceFilter === 'inside' ? 'rgba(16, 185, 129, 0.04)' : undefined }} onClick={() => { setTodayAttendanceFilter('inside'); const el = document.getElementById('today-summary-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}>
+                    <div className="card-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>🟢</div>
+                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>Inside Campus</h3>
+                    <div className="value" style={{ color: '#10b981' }}>{insideCount}</div>
+                  </div>
+                  <div className="card" style={{ cursor: 'pointer', border: todayAttendanceFilter === 'outside' ? '2px solid #ef4444' : undefined, background: todayAttendanceFilter === 'outside' ? 'rgba(239, 68, 68, 0.04)' : undefined }} onClick={() => { setTodayAttendanceFilter('outside'); const el = document.getElementById('today-summary-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}>
+                    <div className="card-icon" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444' }}>🔴</div>
+                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>Outside Campus</h3>
+                    <div className="value" style={{ color: '#ef4444' }}>{outsideCount}</div>
+                  </div>
+                  <div className="card" style={{ cursor: 'pointer', border: todayAttendanceFilter === 'present' ? '2px solid #3b82f6' : undefined }} onClick={() => { setTodayAttendanceFilter('present'); const el = document.getElementById('today-summary-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}>
+                    <div className="card-icon" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' }}>📊</div>
+                    <h3>Active Check-ins</h3>
                     <div className="value">{presentCount}</div>
                   </div>
-                  <div className="card" style={{ cursor: 'pointer' }} onClick={() => { setTodayAttendanceFilter('absent'); const el = document.getElementById('today-summary-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}>
-                    <div className="card-icon" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>🚨</div>
+                  <div className="card" style={{ cursor: 'pointer', border: todayAttendanceFilter === 'absent' ? '2px solid #f59e0b' : undefined }} onClick={() => { setTodayAttendanceFilter('absent'); const el = document.getElementById('today-summary-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}>
+                    <div className="card-icon" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>🚨</div>
                     <h3>Absentees Today</h3>
                     <div className="value">{absentCount}</div>
                   </div>
@@ -3917,8 +3955,6 @@ function Dashboard({ user, onLogout }) {
               );
             })()}
 
-
-
             {(user.role === 'admin' || user.role === 'staff') && (
               <div className="charts-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
                 <div className="card" style={{ padding: '2rem' }}>
@@ -3959,37 +3995,55 @@ function Dashboard({ user, onLogout }) {
               </div>
             )}
 
-
-
             <section className="recent-activity" id="today-summary-section">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
                 <h2 style={{ margin: 0 }}>{(user.role === 'admin' || user.role === 'staff') ? 'Today\'s Attendance Summary' : 'Your Check-ins'}</h2>
-                {(user.role === 'admin' || user.role === 'staff') && (
-                  <div style={{ display: 'flex', background: 'rgba(0,0,0,0.03)', padding: '4px', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
-                    {['all', 'present', 'absent'].map((filterVal) => (
-                      <button
-                        key={filterVal}
-                        type="button"
-                        onClick={() => setTodayAttendanceFilter(filterVal)}
-                        style={{
-                          padding: '0.4rem 1rem',
-                          border: 'none',
-                          background: todayAttendanceFilter === filterVal ? 'var(--surface-solid)' : 'transparent',
-                          color: todayAttendanceFilter === filterVal ? 'var(--primary-color)' : 'var(--text-muted)',
-                          borderRadius: '6px',
-                          fontWeight: 'bold',
-                          cursor: 'pointer',
-                          fontSize: '0.85rem',
-                          boxShadow: todayAttendanceFilter === filterVal ? '0 2px 6px rgba(0,0,0,0.05)' : 'none',
-                          transition: 'all 0.2s',
-                          textTransform: 'capitalize'
-                        }}
-                      >
-                        {filterVal}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                {(user.role === 'admin' || user.role === 'staff') && (() => {
+                  const totalStudents = Array.isArray(students) ? students.length : 0;
+                  const insideCount = Array.isArray(students) ? students.filter(s => s.currentStatus === 'Inside').length : 0;
+                  const outsideCount = Math.max(0, totalStudents - insideCount);
+                  const todayStr = getLocalDateString();
+                  const todayData = Array.isArray(data) ? data.filter(d => d.date === todayStr) : [];
+                  const presentCount = todayData.length;
+                  const absentCount = Math.max(0, totalStudents - presentCount);
+
+                  return (
+                    <div style={{ display: 'flex', background: 'rgba(0,0,0,0.03)', padding: '4px', borderRadius: '10px', border: '1px solid var(--glass-border)', flexWrap: 'wrap', gap: '4px' }}>
+                      {[
+                        { id: 'all', label: `All (${totalStudents})` },
+                        { id: 'inside', label: `🟢 Inside (${insideCount})` },
+                        { id: 'outside', label: `🔴 Outside (${outsideCount})` },
+                        { id: 'present', label: `Present (${presentCount})` },
+                        { id: 'absent', label: `Absent (${absentCount})` },
+                      ].map((tab) => (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          onClick={() => setTodayAttendanceFilter(tab.id)}
+                          style={{
+                            padding: '0.45rem 0.9rem',
+                            border: 'none',
+                            background: todayAttendanceFilter === tab.id ? 'var(--surface-solid, #ffffff)' : 'transparent',
+                            color: todayAttendanceFilter === tab.id 
+                              ? (tab.id === 'inside' ? '#10b981' : tab.id === 'outside' ? '#ef4444' : 'var(--primary-color)') 
+                              : 'var(--text-muted)',
+                            borderRadius: '7px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            fontSize: '0.85rem',
+                            boxShadow: todayAttendanceFilter === tab.id ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
+                            transition: 'all 0.2s ease',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.35rem'
+                          }}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="activity-list">
@@ -4014,7 +4068,8 @@ function Dashboard({ user, onLogout }) {
                         ...attendedMap[student.userId],
                         studentName: student.name || attendedMap[student.userId].studentName || studentMap[student.userId] || 'Unknown Student',
                         isAbsent: false,
-                        currentStatus: student.currentStatus
+                        currentStatus: student.currentStatus,
+                        lastActivityTime: student.lastActivityTime
                       };
                     } else {
                       return {
@@ -4026,12 +4081,15 @@ function Dashboard({ user, onLogout }) {
                         totalHours: 0,
                         firstIn: null,
                         isAbsent: true,
-                        currentStatus: student.currentStatus
+                        currentStatus: student.currentStatus,
+                        lastActivityTime: student.lastActivityTime
                       };
                     }
                   }) : [];
 
                   const filteredRecords = mergedRecords.filter(r => {
+                    if (todayAttendanceFilter === 'inside') return r.currentStatus === 'Inside';
+                    if (todayAttendanceFilter === 'outside') return r.currentStatus !== 'Inside';
                     if (todayAttendanceFilter === 'present') return !r.isAbsent;
                     if (todayAttendanceFilter === 'absent') return r.isAbsent;
                     return true;
@@ -7518,6 +7576,398 @@ function Dashboard({ user, onLogout }) {
               )}
             </div>
           </>
+        ) : (activeTab === 'inside' || activeTab === 'outside') && isAdminOrStaff ? (
+          /* INSIDE / OUTSIDE CAMPUS DEDICATED REAL-TIME TAB */
+          <>
+            {(() => {
+              const isInsideTab = activeTab === 'inside';
+              const relevantStudents = Array.isArray(students) ? students.filter(s => isInsideTab ? s.currentStatus === 'Inside' : s.currentStatus !== 'Inside') : [];
+              const interCount = relevantStudents.filter(s => s.course === 'INTER').length;
+              const finalCount = relevantStudents.filter(s => s.course === 'FINAL').length;
+
+              const query = studentSearch.toLowerCase().trim();
+              const displayedStudents = relevantStudents.filter(student => {
+                if (!query) return true;
+                return (
+                  (student.name && student.name.toLowerCase().includes(query)) ||
+                  (student.userId && student.userId.toLowerCase().includes(query)) ||
+                  (student.email && student.email.toLowerCase().includes(query)) ||
+                  (student.course && student.course.toLowerCase().includes(query)) ||
+                  (student.batch && student.batch.toLowerCase().includes(query)) ||
+                  (student.seatNumber && student.seatNumber.toLowerCase().includes(query))
+                );
+              });
+
+              return (
+                <>
+                  {/* Top Live Stats Header Card */}
+                  <div className="card" style={{
+                    marginBottom: '1.5rem',
+                    background: isInsideTab
+                      ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(5, 150, 105, 0.04) 100%)'
+                      : 'linear-gradient(135deg, rgba(239, 68, 68, 0.12) 0%, rgba(220, 38, 38, 0.04) 100%)',
+                    border: isInsideTab ? '1.5px solid rgba(16, 185, 129, 0.3)' : '1.5px solid rgba(239, 68, 68, 0.3)',
+                    padding: '1.5rem 2rem',
+                    borderRadius: '16px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '1.5rem'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
+                      <div style={{
+                        width: '56px',
+                        height: '56px',
+                        borderRadius: '50%',
+                        background: isInsideTab ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '1.8rem'
+                      }}>
+                        {isInsideTab ? '🟢' : '🔴'}
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                          <h2 style={{ margin: 0, fontSize: '1.5rem', color: 'var(--text-main)' }}>
+                            {isInsideTab ? 'Students Currently Inside Campus' : 'Students Currently Outside Campus'}
+                          </h2>
+                          <span style={{
+                            background: isInsideTab ? '#10b981' : '#ef4444',
+                            color: 'white',
+                            padding: '3px 10px',
+                            borderRadius: '12px',
+                            fontSize: '0.75rem',
+                            fontWeight: 'bold',
+                            letterSpacing: '0.5px',
+                            textTransform: 'uppercase'
+                          }}>
+                            ● LIVE
+                          </span>
+                        </div>
+                        <p style={{ margin: '4px 0 0 0', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                          {isInsideTab
+                            ? 'Students with active Check-In logs who are currently on campus premises.'
+                            : 'Students who are either checked out or have not logged in today.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <div style={{ textAlign: 'center', padding: '0.5rem 1.2rem', background: 'var(--surface-solid, #ffffff)', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', border: '1px solid var(--glass-border)' }}>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'bold', textTransform: 'uppercase' }}>Total {isInsideTab ? 'Inside' : 'Outside'}</div>
+                        <div style={{ fontSize: '1.8rem', fontWeight: '800', color: isInsideTab ? '#10b981' : '#ef4444' }}>{relevantStudents.length}</div>
+                      </div>
+                      <div style={{ textAlign: 'center', padding: '0.5rem 1rem', background: 'var(--surface-solid, #ffffff)', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', border: '1px solid var(--glass-border)' }}>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>INTER</div>
+                        <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--primary-color)' }}>{interCount}</div>
+                      </div>
+                      <div style={{ textAlign: 'center', padding: '0.5rem 1rem', background: 'var(--surface-solid, #ffffff)', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', border: '1px solid var(--glass-border)' }}>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>FINAL</div>
+                        <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--secondary-color)' }}>{finalCount}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Switch Tabs Bar between Inside & Outside */}
+                  <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                    <div style={{ display: 'flex', background: 'rgba(0,0,0,0.04)', padding: '4px', borderRadius: '10px', border: '1px solid var(--glass-border)', gap: '4px', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('inside')}
+                        style={{
+                          padding: '0.5rem 1.2rem',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: isInsideTab ? 'var(--surface-solid, #ffffff)' : 'transparent',
+                          color: isInsideTab ? '#10b981' : 'var(--text-muted)',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          fontSize: '0.9rem',
+                          boxShadow: isInsideTab ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.4rem'
+                        }}
+                      >
+                        🟢 Inside Campus ({Array.isArray(students) ? students.filter(s => s.currentStatus === 'Inside').length : 0})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('outside')}
+                        style={{
+                          padding: '0.5rem 1.2rem',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: !isInsideTab ? 'var(--surface-solid, #ffffff)' : 'transparent',
+                          color: !isInsideTab ? '#ef4444' : 'var(--text-muted)',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          fontSize: '0.9rem',
+                          boxShadow: !isInsideTab ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.4rem'
+                        }}
+                      >
+                        🔴 Outside Campus ({Array.isArray(students) ? students.filter(s => s.currentStatus !== 'Inside').length : 0})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('students')}
+                        style={{
+                          padding: '0.5rem 1.2rem',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: 'transparent',
+                          color: 'var(--text-muted)',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          fontSize: '0.9rem'
+                        }}
+                      >
+                        🎓 All Students ({Array.isArray(students) ? students.length : 0})
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <button
+                        type="button"
+                        onClick={fetchStudentsData}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          borderRadius: '8px',
+                          border: '1px solid var(--glass-border)',
+                          background: 'var(--surface-color)',
+                          color: 'var(--text-main)',
+                          cursor: 'pointer',
+                          fontWeight: 'bold',
+                          fontSize: '0.85rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.4rem'
+                        }}
+                      >
+                        🔄 Refresh Status
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Search Bar */}
+                  <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+                    <div style={{ position: 'relative', flex: 1, maxWidth: '500px', minWidth: '280px' }}>
+                      <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '1.1rem', pointerEvents: 'none' }}>🔍</span>
+                      <input
+                        type="text"
+                        placeholder={`Search ${isInsideTab ? 'inside' : 'outside'} students by name, ID, course, seat, batch...`}
+                        value={studentSearch}
+                        onChange={(e) => setStudentSearch(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '0.65rem 2.5rem 0.65rem 2.5rem',
+                          borderRadius: '10px',
+                          border: '1px solid var(--glass-border)',
+                          background: 'var(--surface-color)',
+                          backdropFilter: 'blur(8px)',
+                          color: 'var(--text-main)',
+                          fontSize: '0.95rem',
+                          outline: 'none',
+                          boxShadow: '0 4px 12px var(--shadow-color)',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                      {studentSearch && (
+                        <button
+                          onClick={() => setStudentSearch('')}
+                          style={{
+                            position: 'absolute',
+                            right: '12px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--text-muted)',
+                            cursor: 'pointer',
+                            fontSize: '1rem',
+                            padding: 0
+                          }}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                    <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: '500' }}>
+                      Showing {displayedStudents.length} of {relevantStudents.length} students
+                    </span>
+                  </div>
+
+                  {/* Student List */}
+                  <section className="recent-activity" onClick={() => setOpenMenuId(null)}>
+                    <div className="activity-list">
+                      {displayedStudents.map((student) => {
+                        const lastActivityDate = student.lastActivityTime ? new Date(student.lastActivityTime) : null;
+                        const formattedTime = lastActivityDate && !isNaN(lastActivityDate.getTime())
+                          ? lastActivityDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                          : null;
+
+                        return (
+                          <div
+                            key={student.userId}
+                            className="activity-item"
+                            style={{
+                              borderLeft: isInsideTab ? '4px solid #10b981' : '4px solid #ef4444',
+                              position: 'relative',
+                              zIndex: openMenuId === student.userId ? 50 : 1
+                            }}
+                          >
+                            <div className="activity-info">
+                              <div
+                                className="avatar"
+                                style={{
+                                  width: '42px',
+                                  height: '42px',
+                                  fontSize: '1.1rem',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: 'white',
+                                  background: isInsideTab ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #6b7280, #4b5563)'
+                                }}
+                              >
+                                {student.name ? student.name.charAt(0).toUpperCase() : '?'}
+                              </div>
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                                  <strong style={{ fontSize: '1.05rem' }}>{student.name || 'Unknown Student'}</strong>
+                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                                    #{student.userId}
+                                  </span>
+                                  <span style={{
+                                    background: isInsideTab ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                    color: isInsideTab ? '#10b981' : '#ef4444',
+                                    border: isInsideTab ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(239, 68, 68, 0.25)',
+                                    padding: '2px 8px',
+                                    borderRadius: '6px',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 'bold'
+                                  }}>
+                                    {isInsideTab ? '🟢 Inside Campus' : '🔴 Outside Campus'}
+                                  </span>
+                                  {student.seatNumber && (
+                                    <span style={{
+                                      background: 'rgba(99, 102, 241, 0.08)',
+                                      color: 'var(--primary-color)',
+                                      border: '1px solid rgba(99, 102, 241, 0.2)',
+                                      padding: '2px 8px',
+                                      borderRadius: '6px',
+                                      fontSize: '0.75rem',
+                                      fontWeight: '600'
+                                    }}>
+                                      🪑 Seat: {student.seatNumber}
+                                    </span>
+                                  )}
+                                </div>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>
+                                  Course: <strong style={{ color: 'var(--text-main)' }}>{student.course || '-'}</strong> • Batch: {student.batch || 'N/A'} • Mode: <span style={{ textTransform: 'capitalize' }}>{student.mode || 'N/A'}</span>
+                                  {formattedTime && (
+                                    <span style={{ marginLeft: '8px', color: isInsideTab ? '#10b981' : 'var(--text-muted)' }}>
+                                      • {isInsideTab ? `🕒 Checked In: ${formattedTime}` : `🕒 Last Log: ${formattedTime}`}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setViewingProfileStudent(student);
+                                }}
+                                style={{
+                                  padding: '0.4rem 0.8rem',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--glass-border)',
+                                  background: 'var(--surface-color)',
+                                  color: 'var(--text-main)',
+                                  cursor: 'pointer',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 'bold'
+                                }}
+                              >
+                                👁️ Profile
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedAttendanceStudentId(student.userId);
+                                  setAttendanceView('student');
+                                  setActiveTab('attendance');
+                                }}
+                                style={{
+                                  padding: '0.4rem 0.8rem',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--glass-border)',
+                                  background: 'var(--surface-color)',
+                                  color: 'var(--primary-color)',
+                                  cursor: 'pointer',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 'bold'
+                                }}
+                              >
+                                📅 History
+                              </button>
+                              {isInsideTab && user.role === 'admin' && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const todayStr = getLocalDateString();
+                                    const nowStr = new Date().toTimeString().slice(0, 5);
+                                    setManualCheckoutData({
+                                      studentId: student.userId,
+                                      date: todayStr,
+                                      checkoutTime: nowStr
+                                    });
+                                    setShowManualCheckoutModal(true);
+                                  }}
+                                  style={{
+                                    padding: '0.4rem 0.8rem',
+                                    borderRadius: '6px',
+                                    border: 'none',
+                                    background: 'rgba(239, 68, 68, 0.1)',
+                                    color: '#ef4444',
+                                    cursor: 'pointer',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 'bold'
+                                  }}
+                                >
+                                  🚪 Check-Out
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {displayedStudents.length === 0 && (
+                        <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
+                          <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.5rem' }}>
+                            {isInsideTab ? '🏫' : '✨'}
+                          </span>
+                          <p style={{ margin: 0, fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
+                            No {isInsideTab ? 'inside' : 'outside'} students found
+                          </p>
+                          <p style={{ margin: '4px 0 0 0', fontSize: '0.9rem' }}>
+                            {studentSearch ? 'Try a different search query.' : (isInsideTab ? 'No students have currently checked in inside the campus.' : 'All students are currently inside campus!')}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                </>
+              );
+            })()}
+          </>
         ) : isAdminOrStaff ? (
           /* STUDENTS TAB (Admin Only) */
           <>
@@ -7544,6 +7994,44 @@ function Dashboard({ user, onLogout }) {
                   {showAddForm ? 'Close Form' : '+ Add Student'}
                 </button>
               </div>
+            </div>
+
+            {/* Campus Presence Filter Tabs */}
+            <div style={{ marginBottom: '1.2rem', display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              {(() => {
+                const totalCount = Array.isArray(students) ? students.length : 0;
+                const insideCount = Array.isArray(students) ? students.filter(s => s.currentStatus === 'Inside').length : 0;
+                const outsideCount = Math.max(0, totalCount - insideCount);
+
+                return [
+                  { id: 'all', label: `All Students (${totalCount})`, color: 'var(--primary-color)' },
+                  { id: 'inside', label: `🟢 Inside Campus (${insideCount})`, color: '#10b981' },
+                  { id: 'outside', label: `🔴 Outside Campus (${outsideCount})`, color: '#ef4444' }
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setStudentCampusFilter(tab.id)}
+                    style={{
+                      padding: '0.55rem 1.2rem',
+                      borderRadius: '10px',
+                      border: studentCampusFilter === tab.id ? `2px solid ${tab.color}` : '1px solid var(--glass-border)',
+                      background: studentCampusFilter === tab.id ? (tab.id === 'inside' ? 'rgba(16, 185, 129, 0.1)' : tab.id === 'outside' ? 'rgba(239, 68, 68, 0.1)' : 'var(--surface-solid, #ffffff)') : 'var(--surface-color)',
+                      color: studentCampusFilter === tab.id ? tab.color : 'var(--text-muted)',
+                      fontWeight: 'bold',
+                      fontSize: '0.9rem',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      boxShadow: studentCampusFilter === tab.id ? '0 4px 12px rgba(0,0,0,0.06)' : 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.4rem'
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                ));
+              })()}
             </div>
 
             {/* Search Box */}
@@ -9006,6 +9494,20 @@ function Dashboard({ user, onLogout }) {
               >
                 <span className="nav-icon">🎓</span>
                 <span className="nav-text">Students</span>
+              </li>
+              <li
+                className={`mobile-bottom-nav-item ${activeTab === 'inside' ? 'active' : ''}`}
+                onClick={() => setActiveTab('inside')}
+              >
+                <span className="nav-icon">🟢</span>
+                <span className="nav-text">Inside</span>
+              </li>
+              <li
+                className={`mobile-bottom-nav-item ${activeTab === 'outside' ? 'active' : ''}`}
+                onClick={() => setActiveTab('outside')}
+              >
+                <span className="nav-icon">🔴</span>
+                <span className="nav-text">Outside</span>
               </li>
               <li
                 className={`mobile-bottom-nav-item ${activeTab === 'seats' ? 'active' : ''}`}

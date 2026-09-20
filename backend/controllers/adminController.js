@@ -553,12 +553,14 @@ const getStudents = async (req, res) => {
     const todaysLogs = await Attendance.find({ 
       studentId: { $in: studentIds }, 
       date: today 
-    }).sort({ createdAt: 1 }); // Sort oldest to newest
+    }).sort({ timestamp: 1, createdAt: 1 }); // Sort oldest to newest
 
     // Build map of the most recent activity type for each student
     const statusMap = {};
+    const lastLogMap = {};
     for (const log of todaysLogs) {
        statusMap[log.studentId] = log.type; // since it's sorted 1, the later records overwrite older ones accurately
+       lastLogMap[log.studentId] = log.timestamp || log.createdAt;
     }
 
     const studentData = students.map(s => {
@@ -576,7 +578,8 @@ const getStudents = async (req, res) => {
         }
        return {
          ...sObj,
-         currentStatus: statusMap[s.userId] === "IN" ? "Inside" : "Outside"
+         currentStatus: statusMap[s.userId] === "IN" ? "Inside" : "Outside",
+         lastActivityTime: lastLogMap[s.userId] || null
        };
      });
  

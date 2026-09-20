@@ -21,7 +21,9 @@ export default function StudentsTab({
   setFeeSetupStudent,
   setActiveTab,
   handleDelete,
-  batches = []
+  batches = [],
+  studentCampusFilter = 'all',
+  setStudentCampusFilter = () => {}
 }) {
   return (
     <>
@@ -48,6 +50,44 @@ export default function StudentsTab({
             {showAddForm ? 'Close Form' : '+ Add Student'}
           </button>
         </div>
+      </div>
+
+      {/* Campus Presence Filter Tabs */}
+      <div style={{ marginBottom: '1.2rem', display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
+        {(() => {
+          const totalCount = Array.isArray(students) ? students.length : 0;
+          const insideCount = Array.isArray(students) ? students.filter(s => s.currentStatus === 'Inside').length : 0;
+          const outsideCount = Math.max(0, totalCount - insideCount);
+
+          return [
+            { id: 'all', label: `All Students (${totalCount})`, color: 'var(--primary-color)' },
+            { id: 'inside', label: `🟢 Inside Campus (${insideCount})`, color: '#10b981' },
+            { id: 'outside', label: `🔴 Outside Campus (${outsideCount})`, color: '#ef4444' }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setStudentCampusFilter(tab.id)}
+              style={{
+                padding: '0.55rem 1.2rem',
+                borderRadius: '10px',
+                border: studentCampusFilter === tab.id ? `2px solid ${tab.color}` : '1px solid var(--glass-border)',
+                background: studentCampusFilter === tab.id ? (tab.id === 'inside' ? 'rgba(16, 185, 129, 0.1)' : tab.id === 'outside' ? 'rgba(239, 68, 68, 0.1)' : 'var(--surface-solid, #ffffff)') : 'var(--surface-color)',
+                color: studentCampusFilter === tab.id ? tab.color : 'var(--text-muted)',
+                fontWeight: 'bold',
+                fontSize: '0.9rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: studentCampusFilter === tab.id ? '0 4px 12px rgba(0,0,0,0.06)' : 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem'
+              }}
+            >
+              {tab.label}
+            </button>
+          ));
+        })()}
       </div>
 
       {/* Search Box */}
