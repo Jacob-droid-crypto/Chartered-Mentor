@@ -266,21 +266,12 @@ export default function DashboardOverview({
       })()}
 
       {(user.role === 'admin' || user.role === 'staff') && (() => {
-        const todayStr = getLocalDateString();
-        const todayData = Array.isArray(data) ? data.filter(d => d.date === todayStr) : [];
-        const totalStudents = Array.isArray(students) ? students.length : 0;
-        const insideCount = Array.isArray(students) ? students.filter(s => s.currentStatus === 'Inside').length : 0;
-        const outsideCount = Math.max(0, totalStudents - insideCount);
-        const presentCount = todayData.length;
-        const absentCount = Math.max(0, totalStudents - presentCount);
+        const residentialStudents = Array.isArray(students) ? students.filter(s => (s.mode || 'residential').toLowerCase() === 'residential') : [];
+        const insideCount = residentialStudents.filter(s => s.currentStatus === 'Inside').length;
+        const outsideCount = Math.max(0, residentialStudents.length - insideCount);
 
         return (
-          <div className="dashboard-cards" style={{ marginBottom: '2rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.25rem' }}>
-            <div className="card" style={{ cursor: 'pointer', border: todayAttendanceFilter === 'all' ? '1.5px solid var(--primary-color)' : undefined }} onClick={() => { setTodayAttendanceFilter('all'); const el = document.getElementById('today-summary-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}>
-              <div className="card-icon">👨‍🎓</div>
-              <h3>Total Registered</h3>
-              <div className="value">{totalStudents}</div>
-            </div>
+          <div className="dashboard-cards" style={{ marginBottom: '2rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem' }}>
             <div className="card" style={{ cursor: 'pointer', border: todayAttendanceFilter === 'inside' ? '2px solid #10b981' : undefined, background: todayAttendanceFilter === 'inside' ? 'rgba(16, 185, 129, 0.04)' : undefined }} onClick={() => { setTodayAttendanceFilter('inside'); const el = document.getElementById('today-summary-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}>
               <div className="card-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>🟢</div>
               <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>Inside Campus</h3>
@@ -290,16 +281,6 @@ export default function DashboardOverview({
               <div className="card-icon" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444' }}>🔴</div>
               <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>Outside Campus</h3>
               <div className="value" style={{ color: '#ef4444' }}>{outsideCount}</div>
-            </div>
-            <div className="card" style={{ cursor: 'pointer', border: todayAttendanceFilter === 'present' ? '2px solid #3b82f6' : undefined }} onClick={() => { setTodayAttendanceFilter('present'); const el = document.getElementById('today-summary-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}>
-              <div className="card-icon" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' }}>📊</div>
-              <h3>Active Check-ins</h3>
-              <div className="value">{presentCount}</div>
-            </div>
-            <div className="card" style={{ cursor: 'pointer', border: todayAttendanceFilter === 'absent' ? '2px solid #f59e0b' : undefined }} onClick={() => { setTodayAttendanceFilter('absent'); const el = document.getElementById('today-summary-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}>
-              <div className="card-icon" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>🚨</div>
-              <h3>Absentees Today</h3>
-              <div className="value">{absentCount}</div>
             </div>
           </div>
         );
@@ -450,8 +431,9 @@ export default function DashboardOverview({
           <h2 style={{ margin: 0 }}>{(user.role === 'admin' || user.role === 'staff') ? 'Today\'s Attendance Summary' : 'Your Check-ins'}</h2>
           {(user.role === 'admin' || user.role === 'staff') && (() => {
             const totalStudents = Array.isArray(students) ? students.length : 0;
-            const insideCount = Array.isArray(students) ? students.filter(s => s.currentStatus === 'Inside').length : 0;
-            const outsideCount = Math.max(0, totalStudents - insideCount);
+            const residentialStudents = Array.isArray(students) ? students.filter(s => (s.mode || 'residential').toLowerCase() === 'residential') : [];
+            const insideCount = residentialStudents.filter(s => s.currentStatus === 'Inside').length;
+            const outsideCount = Math.max(0, residentialStudents.length - insideCount);
             const todayStr = getLocalDateString();
             const todayData = Array.isArray(data) ? data.filter(d => d.date === todayStr) : [];
             const presentCount = todayData.length;
@@ -513,11 +495,14 @@ export default function DashboardOverview({
             });
 
             const mergedRecords = Array.isArray(students) ? students.map(student => {
+              const isResidential = (student.mode || 'residential').toLowerCase() === 'residential';
               if (attendedMap[student.userId]) {
                 return {
                   ...attendedMap[student.userId],
                   studentName: student.name || attendedMap[student.userId].studentName || studentMap[student.userId] || 'Unknown Student',
                   isAbsent: false,
+                  mode: student.mode || 'residential',
+                  isResidential,
                   currentStatus: student.currentStatus,
                   lastActivityTime: student.lastActivityTime
                 };
@@ -526,6 +511,8 @@ export default function DashboardOverview({
                   studentId: student.userId,
                   studentName: student.name || 'Unknown Student',
                   course: student.course,
+                  mode: student.mode || 'residential',
+                  isResidential,
                   date: todayStr,
                   status: 'Absent',
                   totalHours: 0,
@@ -538,8 +525,8 @@ export default function DashboardOverview({
             }) : [];
 
             const filteredRecords = mergedRecords.filter(r => {
-              if (todayAttendanceFilter === 'inside') return r.currentStatus === 'Inside';
-              if (todayAttendanceFilter === 'outside') return r.currentStatus !== 'Inside';
+              if (todayAttendanceFilter === 'inside') return r.isResidential && r.currentStatus === 'Inside';
+              if (todayAttendanceFilter === 'outside') return r.isResidential && r.currentStatus !== 'Inside';
               if (todayAttendanceFilter === 'present') return !r.isAbsent;
               if (todayAttendanceFilter === 'absent') return r.isAbsent;
               return true;
@@ -556,17 +543,31 @@ export default function DashboardOverview({
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                       <strong>{record.studentName}</strong>
-                      <span style={{
-                        background: record.currentStatus === 'Inside' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
-                        color: record.currentStatus === 'Inside' ? '#10b981' : '#ef4444',
-                        border: record.currentStatus === 'Inside' ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)',
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        fontSize: '0.75rem',
-                        fontWeight: 'bold'
-                      }}>
-                        {record.currentStatus === 'Inside' ? '🟢 Inside' : '🔴 Outside'}
-                      </span>
+                      {record.isResidential ? (
+                        <span style={{
+                          background: record.currentStatus === 'Inside' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+                          color: record.currentStatus === 'Inside' ? '#10b981' : '#ef4444',
+                          border: record.currentStatus === 'Inside' ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold'
+                        }}>
+                          {record.currentStatus === 'Inside' ? '🟢 Inside' : '🔴 Outside'}
+                        </span>
+                      ) : (
+                        <span style={{
+                          background: 'rgba(59, 130, 246, 0.08)',
+                          color: '#3b82f6',
+                          border: '1px solid rgba(59, 130, 246, 0.2)',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold'
+                        }}>
+                          🌐 Online
+                        </span>
+                      )}
                     </div>
                     <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.2rem' }}>
                       ID: {record.studentId} • Course: {record.course || '-'}

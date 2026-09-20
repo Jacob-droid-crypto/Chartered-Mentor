@@ -56,8 +56,9 @@ export default function StudentsTab({
       <div style={{ marginBottom: '1.2rem', display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
         {(() => {
           const totalCount = Array.isArray(students) ? students.length : 0;
-          const insideCount = Array.isArray(students) ? students.filter(s => s.currentStatus === 'Inside').length : 0;
-          const outsideCount = Math.max(0, totalCount - insideCount);
+          const residentialStudents = Array.isArray(students) ? students.filter(s => (s.mode || 'residential').toLowerCase() === 'residential') : [];
+          const insideCount = residentialStudents.filter(s => s.currentStatus === 'Inside').length;
+          const outsideCount = Math.max(0, residentialStudents.length - insideCount);
 
           return [
             { id: 'all', label: `All Students (${totalCount})`, color: 'var(--primary-color)' },

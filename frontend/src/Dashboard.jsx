@@ -2866,8 +2866,9 @@ function Dashboard({ user, onLogout }) {
 
         if (!matchesQuery) return false;
 
-        if (studentCampusFilter === 'inside' && student.currentStatus !== 'Inside') return false;
-        if (studentCampusFilter === 'outside' && student.currentStatus === 'Inside') return false;
+        const isResidential = (student.mode || 'residential').toLowerCase() === 'residential';
+        if (studentCampusFilter === 'inside' && (!isResidential || student.currentStatus !== 'Inside')) return false;
+        if (studentCampusFilter === 'outside' && (!isResidential || student.currentStatus === 'Inside')) return false;
 
         if (paymentFilter === 'paid') {
           return (student.totalFees || 0) > 0 && (student.feesPaid || 0) >= (student.totalFees || 0);
@@ -3866,21 +3867,12 @@ function Dashboard({ user, onLogout }) {
             })()}
 
             {(user.role === 'admin' || user.role === 'staff') && (() => {
-              const todayStr = getLocalDateString();
-              const todayData = Array.isArray(data) ? data.filter(d => d.date === todayStr) : [];
-              const totalStudents = Array.isArray(students) ? students.length : 0;
-              const insideCount = Array.isArray(students) ? students.filter(s => s.currentStatus === 'Inside').length : 0;
-              const outsideCount = Math.max(0, totalStudents - insideCount);
-              const presentCount = todayData.length;
-              const absentCount = Math.max(0, totalStudents - presentCount);
+              const residentialStudents = Array.isArray(students) ? students.filter(s => (s.mode || 'residential').toLowerCase() === 'residential') : [];
+              const insideCount = residentialStudents.filter(s => s.currentStatus === 'Inside').length;
+              const outsideCount = Math.max(0, residentialStudents.length - insideCount);
 
               return (
-                <div className="dashboard-cards" style={{ marginBottom: '2rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.25rem' }}>
-                  <div className="card" style={{ cursor: 'pointer', border: todayAttendanceFilter === 'all' ? '1.5px solid var(--primary-color)' : undefined }} onClick={() => { setTodayAttendanceFilter('all'); const el = document.getElementById('today-summary-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}>
-                    <div className="card-icon">👨‍🎓</div>
-                    <h3>Total Registered</h3>
-                    <div className="value">{totalStudents}</div>
-                  </div>
+                <div className="dashboard-cards" style={{ marginBottom: '2rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem' }}>
                   <div className="card" style={{ cursor: 'pointer', border: todayAttendanceFilter === 'inside' ? '2px solid #10b981' : undefined, background: todayAttendanceFilter === 'inside' ? 'rgba(16, 185, 129, 0.04)' : undefined }} onClick={() => { setTodayAttendanceFilter('inside'); const el = document.getElementById('today-summary-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}>
                     <div className="card-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>🟢</div>
                     <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>Inside Campus</h3>
@@ -3890,16 +3882,6 @@ function Dashboard({ user, onLogout }) {
                     <div className="card-icon" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444' }}>🔴</div>
                     <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>Outside Campus</h3>
                     <div className="value" style={{ color: '#ef4444' }}>{outsideCount}</div>
-                  </div>
-                  <div className="card" style={{ cursor: 'pointer', border: todayAttendanceFilter === 'present' ? '2px solid #3b82f6' : undefined }} onClick={() => { setTodayAttendanceFilter('present'); const el = document.getElementById('today-summary-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}>
-                    <div className="card-icon" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' }}>📊</div>
-                    <h3>Active Check-ins</h3>
-                    <div className="value">{presentCount}</div>
-                  </div>
-                  <div className="card" style={{ cursor: 'pointer', border: todayAttendanceFilter === 'absent' ? '2px solid #f59e0b' : undefined }} onClick={() => { setTodayAttendanceFilter('absent'); const el = document.getElementById('today-summary-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}>
-                    <div className="card-icon" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>🚨</div>
-                    <h3>Absentees Today</h3>
-                    <div className="value">{absentCount}</div>
                   </div>
                 </div>
               );
@@ -4000,8 +3982,9 @@ function Dashboard({ user, onLogout }) {
                 <h2 style={{ margin: 0 }}>{(user.role === 'admin' || user.role === 'staff') ? 'Today\'s Attendance Summary' : 'Your Check-ins'}</h2>
                 {(user.role === 'admin' || user.role === 'staff') && (() => {
                   const totalStudents = Array.isArray(students) ? students.length : 0;
-                  const insideCount = Array.isArray(students) ? students.filter(s => s.currentStatus === 'Inside').length : 0;
-                  const outsideCount = Math.max(0, totalStudents - insideCount);
+                  const residentialStudents = Array.isArray(students) ? students.filter(s => (s.mode || 'residential').toLowerCase() === 'residential') : [];
+                  const insideCount = residentialStudents.filter(s => s.currentStatus === 'Inside').length;
+                  const outsideCount = Math.max(0, residentialStudents.length - insideCount);
                   const todayStr = getLocalDateString();
                   const todayData = Array.isArray(data) ? data.filter(d => d.date === todayStr) : [];
                   const presentCount = todayData.length;
@@ -4063,11 +4046,14 @@ function Dashboard({ user, onLogout }) {
                   });
 
                   const mergedRecords = Array.isArray(students) ? students.map(student => {
+                    const isResidential = (student.mode || 'residential').toLowerCase() === 'residential';
                     if (attendedMap[student.userId]) {
                       return {
                         ...attendedMap[student.userId],
                         studentName: student.name || attendedMap[student.userId].studentName || studentMap[student.userId] || 'Unknown Student',
                         isAbsent: false,
+                        mode: student.mode || 'residential',
+                        isResidential,
                         currentStatus: student.currentStatus,
                         lastActivityTime: student.lastActivityTime
                       };
@@ -4076,6 +4062,8 @@ function Dashboard({ user, onLogout }) {
                         studentId: student.userId,
                         studentName: student.name || 'Unknown Student',
                         course: student.course,
+                        mode: student.mode || 'residential',
+                        isResidential,
                         date: todayStr,
                         status: 'Absent',
                         totalHours: 0,
@@ -4088,8 +4076,8 @@ function Dashboard({ user, onLogout }) {
                   }) : [];
 
                   const filteredRecords = mergedRecords.filter(r => {
-                    if (todayAttendanceFilter === 'inside') return r.currentStatus === 'Inside';
-                    if (todayAttendanceFilter === 'outside') return r.currentStatus !== 'Inside';
+                    if (todayAttendanceFilter === 'inside') return r.isResidential && r.currentStatus === 'Inside';
+                    if (todayAttendanceFilter === 'outside') return r.isResidential && r.currentStatus !== 'Inside';
                     if (todayAttendanceFilter === 'present') return !r.isAbsent;
                     if (todayAttendanceFilter === 'absent') return r.isAbsent;
                     return true;
@@ -4106,17 +4094,31 @@ function Dashboard({ user, onLogout }) {
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                             <strong>{record.studentName}</strong>
-                            <span style={{
-                              background: record.currentStatus === 'Inside' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
-                              color: record.currentStatus === 'Inside' ? '#10b981' : '#ef4444',
-                              border: record.currentStatus === 'Inside' ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)',
-                              padding: '2px 8px',
-                              borderRadius: '4px',
-                              fontSize: '0.75rem',
-                              fontWeight: 'bold'
-                            }}>
-                              {record.currentStatus === 'Inside' ? '🟢 Inside' : '🔴 Outside'}
-                            </span>
+                            {record.isResidential ? (
+                              <span style={{
+                                background: record.currentStatus === 'Inside' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+                                color: record.currentStatus === 'Inside' ? '#10b981' : '#ef4444',
+                                border: record.currentStatus === 'Inside' ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                fontSize: '0.75rem',
+                                fontWeight: 'bold'
+                              }}>
+                                {record.currentStatus === 'Inside' ? '🟢 Inside' : '🔴 Outside'}
+                              </span>
+                            ) : (
+                              <span style={{
+                                background: 'rgba(59, 130, 246, 0.08)',
+                                color: '#3b82f6',
+                                border: '1px solid rgba(59, 130, 246, 0.2)',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                fontSize: '0.75rem',
+                                fontWeight: 'bold'
+                              }}>
+                                🌐 Online
+                              </span>
+                            )}
                           </div>
                           <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.2rem' }}>
                             ID: {record.studentId} • Course: {record.course || '-'}
@@ -7581,7 +7583,10 @@ function Dashboard({ user, onLogout }) {
           <>
             {(() => {
               const isInsideTab = activeTab === 'inside';
-              const relevantStudents = Array.isArray(students) ? students.filter(s => isInsideTab ? s.currentStatus === 'Inside' : s.currentStatus !== 'Inside') : [];
+              const residentialStudents = Array.isArray(students) ? students.filter(s => (s.mode || 'residential').toLowerCase() === 'residential') : [];
+              const relevantStudents = residentialStudents.filter(s => isInsideTab ? s.currentStatus === 'Inside' : s.currentStatus !== 'Inside');
+              const insideCount = residentialStudents.filter(s => s.currentStatus === 'Inside').length;
+              const outsideCount = Math.max(0, residentialStudents.length - insideCount);
               const interCount = relevantStudents.filter(s => s.course === 'INTER').length;
               const finalCount = relevantStudents.filter(s => s.course === 'FINAL').length;
 
@@ -7631,7 +7636,7 @@ function Dashboard({ user, onLogout }) {
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                           <h2 style={{ margin: 0, fontSize: '1.5rem', color: 'var(--text-main)' }}>
-                            {isInsideTab ? 'Students Currently Inside Campus' : 'Students Currently Outside Campus'}
+                            {isInsideTab ? 'Residential Students Inside Campus' : 'Residential Students Outside Campus'}
                           </h2>
                           <span style={{
                             background: isInsideTab ? '#10b981' : '#ef4444',
@@ -7648,8 +7653,8 @@ function Dashboard({ user, onLogout }) {
                         </div>
                         <p style={{ margin: '4px 0 0 0', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                           {isInsideTab
-                            ? 'Students with active Check-In logs who are currently on campus premises.'
-                            : 'Students who are either checked out or have not logged in today.'}
+                            ? 'Residential students with active Check-In logs who are currently on campus premises.'
+                            : 'Residential students who are either checked out or have not logged in today.'}
                         </p>
                       </div>
                     </div>
@@ -7691,7 +7696,7 @@ function Dashboard({ user, onLogout }) {
                           gap: '0.4rem'
                         }}
                       >
-                        🟢 Inside Campus ({Array.isArray(students) ? students.filter(s => s.currentStatus === 'Inside').length : 0})
+                        🟢 Inside Campus ({insideCount})
                       </button>
                       <button
                         type="button"
@@ -7711,7 +7716,7 @@ function Dashboard({ user, onLogout }) {
                           gap: '0.4rem'
                         }}
                       >
-                        🔴 Outside Campus ({Array.isArray(students) ? students.filter(s => s.currentStatus !== 'Inside').length : 0})
+                        🔴 Outside Campus ({outsideCount})
                       </button>
                       <button
                         type="button"
@@ -7739,191 +7744,166 @@ function Dashboard({ user, onLogout }) {
                           padding: '0.5rem 1rem',
                           borderRadius: '8px',
                           border: '1px solid var(--glass-border)',
-                          background: 'var(--surface-color)',
+                          background: 'var(--surface-solid, #ffffff)',
                           color: 'var(--text-main)',
                           cursor: 'pointer',
-                          fontWeight: 'bold',
+                          fontWeight: '600',
                           fontSize: '0.85rem',
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '0.4rem'
+                          gap: '0.4rem',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
                         }}
                       >
-                        🔄 Refresh Status
+                        🔄 Refresh
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleExportStudentsLedger}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: isInsideTab ? '#10b981' : '#ef4444',
+                          color: 'white',
+                          cursor: 'pointer',
+                          fontWeight: '600',
+                          fontSize: '0.85rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.08)'
+                        }}
+                      >
+                        📥 Export {isInsideTab ? 'Inside' : 'Outside'} List
                       </button>
                     </div>
                   </div>
 
                   {/* Search Bar */}
-                  <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-                    <div style={{ position: 'relative', flex: 1, maxWidth: '500px', minWidth: '280px' }}>
-                      <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '1.1rem', pointerEvents: 'none' }}>🔍</span>
-                      <input
-                        type="text"
-                        placeholder={`Search ${isInsideTab ? 'inside' : 'outside'} students by name, ID, course, seat, batch...`}
-                        value={studentSearch}
-                        onChange={(e) => setStudentSearch(e.target.value)}
-                        style={{
-                          width: '100%',
-                          padding: '0.65rem 2.5rem 0.65rem 2.5rem',
-                          borderRadius: '10px',
-                          border: '1px solid var(--glass-border)',
-                          background: 'var(--surface-color)',
-                          backdropFilter: 'blur(8px)',
-                          color: 'var(--text-main)',
-                          fontSize: '0.95rem',
-                          outline: 'none',
-                          boxShadow: '0 4px 12px var(--shadow-color)',
-                          boxSizing: 'border-box'
-                        }}
-                      />
-                      {studentSearch && (
-                        <button
-                          onClick={() => setStudentSearch('')}
-                          style={{
-                            position: 'absolute',
-                            right: '12px',
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            background: 'none',
-                            border: 'none',
-                            color: 'var(--text-muted)',
-                            cursor: 'pointer',
-                            fontSize: '1rem',
-                            padding: 0
-                          }}
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </div>
-                    <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: '500' }}>
-                      Showing {displayedStudents.length} of {relevantStudents.length} students
-                    </span>
+                  <div style={{ marginBottom: '1.2rem' }}>
+                    <input
+                      type="text"
+                      placeholder={`Search ${isInsideTab ? 'inside' : 'outside'} students by name, ID, course, batch, or seat...`}
+                      value={studentSearch}
+                      onChange={(e) => setStudentSearch(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '0.8rem 1.2rem',
+                        borderRadius: '12px',
+                        border: '1px solid var(--glass-border)',
+                        background: 'var(--surface-color)',
+                        color: 'var(--text-main)',
+                        fontSize: '0.95rem',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+                      }}
+                    />
                   </div>
 
-                  {/* Student List */}
-                  <section className="recent-activity" onClick={() => setOpenMenuId(null)}>
-                    <div className="activity-list">
+                  {/* Student Cards Grid */}
+                  <section className="recent-activity">
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1rem' }}>
                       {displayedStudents.map((student) => {
-                        const lastActivityDate = student.lastActivityTime ? new Date(student.lastActivityTime) : null;
-                        const formattedTime = lastActivityDate && !isNaN(lastActivityDate.getTime())
-                          ? lastActivityDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                          : null;
+                        const isStudentInside = student.currentStatus === 'Inside';
+                        const lastTime = student.lastActivityTime ? new Date(student.lastActivityTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
+                        const lastDate = student.lastActivityTime ? new Date(student.lastActivityTime).toLocaleDateString() : null;
 
                         return (
                           <div
-                            key={student.userId}
-                            className="activity-item"
+                            key={student.userId || student._id}
+                            className="card"
                             style={{
-                              borderLeft: isInsideTab ? '4px solid #10b981' : '4px solid #ef4444',
-                              position: 'relative',
-                              zIndex: openMenuId === student.userId ? 50 : 1
+                              padding: '1.2rem 1.4rem',
+                              borderLeft: isStudentInside ? '4px solid #10b981' : '4px solid #ef4444',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              justifyContent: 'space-between',
+                              gap: '1rem',
+                              transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                              cursor: 'pointer'
                             }}
+                            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.08)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
                           >
-                            <div className="activity-info">
-                              <div
-                                className="avatar"
-                                style={{
-                                  width: '42px',
-                                  height: '42px',
-                                  fontSize: '1.1rem',
+                            <div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                                <div>
+                                  <h4 style={{ margin: 0, fontSize: '1.05rem', color: 'var(--text-main)', fontWeight: 'bold' }}>
+                                    {student.name}
+                                  </h4>
+                                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                    ID: <strong style={{ color: 'var(--text-main)' }}>{student.userId}</strong>
+                                    {student.seatNumber && (
+                                      <span style={{ marginLeft: '8px', background: 'rgba(99, 102, 241, 0.1)', color: 'var(--primary-color)', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                                        Seat #{student.seatNumber}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <span style={{
+                                  background: isStudentInside ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                                  color: isStudentInside ? '#10b981' : '#ef4444',
+                                  border: isStudentInside ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
+                                  padding: '3px 10px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 'bold',
                                   display: 'flex',
                                   alignItems: 'center',
-                                  justifyContent: 'center',
-                                  color: 'white',
-                                  background: isInsideTab ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #6b7280, #4b5563)'
-                                }}
-                              >
-                                {student.name ? student.name.charAt(0).toUpperCase() : '?'}
+                                  gap: '0.3rem'
+                                }}>
+                                  {isInsideTab ? '🟢 Inside Campus' : '🔴 Outside Campus'}
+                                </span>
                               </div>
-                              <div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-                                  <strong style={{ fontSize: '1.05rem' }}>{student.name || 'Unknown Student'}</strong>
-                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                                    #{student.userId}
-                                  </span>
-                                  <span style={{
-                                    background: isInsideTab ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                                    color: isInsideTab ? '#10b981' : '#ef4444',
-                                    border: isInsideTab ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(239, 68, 68, 0.25)',
-                                    padding: '2px 8px',
-                                    borderRadius: '6px',
-                                    fontSize: '0.75rem',
-                                    fontWeight: 'bold'
-                                  }}>
-                                    {isInsideTab ? '🟢 Inside Campus' : '🔴 Outside Campus'}
-                                  </span>
-                                  {student.seatNumber && (
-                                    <span style={{
-                                      background: 'rgba(99, 102, 241, 0.08)',
-                                      color: 'var(--primary-color)',
-                                      border: '1px solid rgba(99, 102, 241, 0.2)',
-                                      padding: '2px 8px',
-                                      borderRadius: '6px',
-                                      fontSize: '0.75rem',
-                                      fontWeight: '600'
-                                    }}>
-                                      🪑 Seat: {student.seatNumber}
-                                    </span>
-                                  )}
+
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem', fontSize: '0.85rem', marginTop: '0.75rem', background: 'rgba(0,0,0,0.02)', padding: '0.6rem 0.8rem', borderRadius: '8px' }}>
+                                <div>
+                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'block' }}>Course / Batch</span>
+                                  <strong>{student.course || '-'} ({student.batch || '-'})</strong>
                                 </div>
-                                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>
-                                  Course: <strong style={{ color: 'var(--text-main)' }}>{student.course || '-'}</strong> • Batch: {student.batch || 'N/A'} • Mode: <span style={{ textTransform: 'capitalize' }}>{student.mode || 'N/A'}</span>
-                                  {formattedTime && (
-                                    <span style={{ marginLeft: '8px', color: isInsideTab ? '#10b981' : 'var(--text-muted)' }}>
-                                      • {isInsideTab ? `🕒 Checked In: ${formattedTime}` : `🕒 Last Log: ${formattedTime}`}
-                                    </span>
-                                  )}
+                                <div>
+                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'block' }}>Phone</span>
+                                  <strong>{student.phone || student.contact || '-'}</strong>
+                                </div>
+                                <div style={{ gridColumn: 'span 2', marginTop: '2px' }}>
+                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'block' }}>Last Activity</span>
+                                  <span style={{ color: 'var(--text-main)', fontWeight: '500' }}>
+                                    {lastTime ? `🕒 ${lastTime} on ${lastDate}` : 'No logs recorded today'}
+                                  </span>
                                 </div>
                               </div>
                             </div>
 
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--glass-border)', paddingTop: '0.75rem' }}>
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setViewingProfileStudent(student);
+                                  setSelectedStudent(student);
+                                  setActiveTab('students');
                                 }}
                                 style={{
-                                  padding: '0.4rem 0.8rem',
-                                  borderRadius: '6px',
-                                  border: '1px solid var(--glass-border)',
-                                  background: 'var(--surface-color)',
-                                  color: 'var(--text-main)',
-                                  cursor: 'pointer',
-                                  fontSize: '0.8rem',
-                                  fontWeight: 'bold'
-                                }}
-                              >
-                                👁️ Profile
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelectedAttendanceStudentId(student.userId);
-                                  setAttendanceView('student');
-                                  setActiveTab('attendance');
-                                }}
-                                style={{
-                                  padding: '0.4rem 0.8rem',
-                                  borderRadius: '6px',
-                                  border: '1px solid var(--glass-border)',
-                                  background: 'var(--surface-color)',
+                                  background: 'transparent',
+                                  border: 'none',
                                   color: 'var(--primary-color)',
+                                  fontWeight: 'bold',
+                                  fontSize: '0.85rem',
                                   cursor: 'pointer',
-                                  fontSize: '0.8rem',
-                                  fontWeight: 'bold'
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.3rem',
+                                  padding: 0
                                 }}
                               >
-                                📅 History
+                                👤 View Profile →
                               </button>
-                              {isInsideTab && user.role === 'admin' && (
+
+                              {isInsideTab && (
                                 <button
                                   type="button"
                                   onClick={() => {
+                                    const now = new Date();
+                                    const nowStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
                                     const todayStr = getLocalDateString();
-                                    const nowStr = new Date().toTimeString().slice(0, 5);
                                     setManualCheckoutData({
                                       studentId: student.userId,
                                       date: todayStr,
@@ -7932,7 +7912,7 @@ function Dashboard({ user, onLogout }) {
                                     setShowManualCheckoutModal(true);
                                   }}
                                   style={{
-                                    padding: '0.4rem 0.8rem',
+                                    padding: '0.35rem 0.7rem',
                                     borderRadius: '6px',
                                     border: 'none',
                                     background: 'rgba(239, 68, 68, 0.1)',
@@ -7950,15 +7930,15 @@ function Dashboard({ user, onLogout }) {
                         );
                       })}
                       {displayedStudents.length === 0 && (
-                        <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
+                        <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)', gridColumn: '1 / -1' }}>
                           <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.5rem' }}>
                             {isInsideTab ? '🏫' : '✨'}
                           </span>
                           <p style={{ margin: 0, fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
-                            No {isInsideTab ? 'inside' : 'outside'} students found
+                            No {isInsideTab ? 'inside' : 'outside'} residential students found
                           </p>
                           <p style={{ margin: '4px 0 0 0', fontSize: '0.9rem' }}>
-                            {studentSearch ? 'Try a different search query.' : (isInsideTab ? 'No students have currently checked in inside the campus.' : 'All students are currently inside campus!')}
+                            {studentSearch ? 'Try a different search query.' : (isInsideTab ? 'No residential students have currently checked in inside the campus.' : 'All residential students are currently inside campus!')}
                           </p>
                         </div>
                       )}
@@ -8000,8 +7980,9 @@ function Dashboard({ user, onLogout }) {
             <div style={{ marginBottom: '1.2rem', display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
               {(() => {
                 const totalCount = Array.isArray(students) ? students.length : 0;
-                const insideCount = Array.isArray(students) ? students.filter(s => s.currentStatus === 'Inside').length : 0;
-                const outsideCount = Math.max(0, totalCount - insideCount);
+                const residentialStudents = Array.isArray(students) ? students.filter(s => (s.mode || 'residential').toLowerCase() === 'residential') : [];
+                const insideCount = residentialStudents.filter(s => s.currentStatus === 'Inside').length;
+                const outsideCount = Math.max(0, residentialStudents.length - insideCount);
 
                 return [
                   { id: 'all', label: `All Students (${totalCount})`, color: 'var(--primary-color)' },
