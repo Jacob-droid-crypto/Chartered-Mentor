@@ -160,7 +160,7 @@ export default function FinesTab({
 
     setLoading(true);
     try {
-      const res = await fetch(`/admin/student/${selectedStudentId}/fine`, {
+      const res = await fetch(`/admin/student/${encodeURIComponent(selectedStudentId)}/fine`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -184,9 +184,9 @@ export default function FinesTab({
       } else {
         const text = await res.text();
         if (res.status === 404 || text.includes('Cannot POST') || text.includes('<!DOCTYPE')) {
-          throw new Error('Backend deployment in progress on Vercel. Please wait 1 minute for Vercel to finish updating the server.');
+          throw new Error('Server route unavailable (404). Please ensure the backend is running and up-to-date.');
         }
-        throw new Error('Server error: Non-JSON response received.');
+        throw new Error(`Server error (${res.status}): Non-JSON response received.`);
       }
 
       if (!res.ok) {
@@ -215,7 +215,7 @@ export default function FinesTab({
   const handleDeleteFine = async (studentId, fineId) => {
     if (!window.confirm('Are you sure you want to delete this fine record?')) return;
     try {
-      const res = await fetch(`/admin/student/${studentId}/fine/${fineId}`, {
+      const res = await fetch(`/admin/student/${encodeURIComponent(studentId)}/fine/${encodeURIComponent(fineId)}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${user.token}`
@@ -228,9 +228,9 @@ export default function FinesTab({
       } else {
         const text = await res.text();
         if (res.status === 404 || text.includes('Cannot DELETE') || text.includes('<!DOCTYPE')) {
-          throw new Error('Backend deployment in progress on Vercel. Please wait 1 minute for Vercel to finish updating the server.');
+          throw new Error('Server route unavailable (404). Please ensure the backend is running and up-to-date.');
         }
-        throw new Error('Server error: Non-JSON response received.');
+        throw new Error(`Server error (${res.status}): Non-JSON response received.`);
       }
 
       if (!res.ok) {
@@ -250,7 +250,7 @@ export default function FinesTab({
 
     setLoading(true);
     try {
-      const res = await fetch(`/admin/student/${settlingFine.studentId}/fine/${settlingFine.fineId}/pay`, {
+      const res = await fetch(`/admin/student/${encodeURIComponent(settlingFine.studentId)}/fine/${encodeURIComponent(settlingFine.fineId)}/pay`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${user.token}`,
@@ -270,9 +270,9 @@ export default function FinesTab({
       } else {
         const text = await res.text();
         if (res.status === 404 || text.includes('Cannot POST') || text.includes('<!DOCTYPE')) {
-          throw new Error('Backend deployment in progress on Vercel. Please wait 1 minute for Vercel to finish updating the server.');
+          throw new Error('Server route unavailable (404). Please ensure the backend is running and up-to-date.');
         }
-        throw new Error('Server error: Non-JSON response received.');
+        throw new Error(`Server error (${res.status}): Non-JSON response received.`);
       }
 
       if (!res.ok) {
@@ -293,7 +293,7 @@ export default function FinesTab({
     if (!window.confirm(`Approve payment of ₹${fine.amount} for ${fine.studentName} via ${fine.paymentMethod || 'reported method'}?`)) return;
     setLoading(true);
     try {
-      const res = await fetch(`/admin/student/${fine.studentId}/fine/${fine._id}/pay`, {
+      const res = await fetch(`/admin/student/${encodeURIComponent(fine.studentId)}/fine/${encodeURIComponent(fine._id)}/pay`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${user.token}`,
@@ -312,9 +312,9 @@ export default function FinesTab({
       } else {
         const text = await res.text();
         if (res.status === 404 || text.includes('Cannot POST') || text.includes('<!DOCTYPE')) {
-          throw new Error('Backend deployment in progress on Vercel. Please wait 1 minute for Vercel to finish updating the server.');
+          throw new Error('Server route unavailable (404). Please ensure the backend is running and up-to-date.');
         }
-        throw new Error('Server error: Non-JSON response received.');
+        throw new Error(`Server error (${res.status}): Non-JSON response received.`);
       }
 
       if (!res.ok) {
@@ -334,7 +334,7 @@ export default function FinesTab({
     if (!window.confirm('Reject this fine payment and mark it as unpaid?')) return;
     setLoading(true);
     try {
-      const res = await fetch(`/admin/student/${studentId}/fine/${fineId}/reject`, {
+      const res = await fetch(`/admin/student/${encodeURIComponent(studentId)}/fine/${encodeURIComponent(fineId)}/reject`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${user.token}`
@@ -347,9 +347,9 @@ export default function FinesTab({
       } else {
         const text = await res.text();
         if (res.status === 404 || text.includes('Cannot POST') || text.includes('<!DOCTYPE')) {
-          throw new Error('Backend deployment in progress on Vercel. Please wait 1 minute for Vercel to finish updating the server.');
+          throw new Error('Server route unavailable (404). Please ensure the backend is running and up-to-date.');
         }
-        throw new Error('Server error: Non-JSON response received.');
+        throw new Error(`Server error (${res.status}): Non-JSON response received.`);
       }
 
       if (!res.ok) {

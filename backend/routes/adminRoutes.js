@@ -131,6 +131,7 @@ router.post("/student/:studentId/payment/:paymentId/revert", protect, adminRoleR
 // Fines
 router.post("/student/:studentId/fine", protect, adminOnly, applyFine);
 router.post("/student/:studentId/fine/:fineId/pay", protect, adminOnly, payFine);
+router.post("/student/:studentId/fine/:fineId/reject", protect, adminOnly, rejectFine);
 router.delete("/student/:studentId/fine/:fineId", protect, adminOnly, deleteFine);
 
 // Batches
