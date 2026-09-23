@@ -9,6 +9,7 @@ const GoalConfig = require("../models/GoalConfig");
 const Schedule = require("../models/Schedule");
 const ExamSchedule = require("../models/ExamSchedule");
 const CampusQR = require("../models/CampusQR");
+const CampusNetwork = require("../models/CampusNetwork");
 const Batch = require("../models/Batch");
 const {
   executeAutoLogout,
@@ -1522,6 +1523,109 @@ const refreshCampusQR = async (req, res) => {
   }
 };
 
+/* ================= GET CAMPUS NETWORKS ================= */
+const getCampusNetworks = async (req, res) => {
+  try {
+    const networks = await CampusNetwork.find().sort({ createdAt: -1 });
+    let clientIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "";
+    if (clientIp.includes(",")) {
+      clientIp = clientIp.split(",")[0];
+    }
+    clientIp = clientIp.trim().replace("::ffff:", "");
+    res.json({ networks, currentClientIp: clientIp });
+  } catch (err) {
+    console.error("Get campus networks error:", err);
+    res.status(500).json({ message: "Server error: " + err.message });
+  }
+};
+
+/* ================= ADD CAMPUS NETWORK ================= */
+const addCampusNetwork = async (req, res) => {
+  try {
+    const { name, ipOrRange, description } = req.body;
+    if (!name || !ipOrRange) {
+      return res.status(400).json({ message: "Network name and IP / Range are required." });
+    }
+
+    const cleanIpOrRange = ipOrRange.trim();
+    const network = await CampusNetwork.create({
+      name: name.trim(),
+      ipOrRange: cleanIpOrRange,
+      description: description ? description.trim() : "",
+      isActive: true,
+      addedBy: req.user ? (req.user.name || req.user.email || req.user.studentId || "Admin") : "Admin"
+    });
+
+    res.status(201).json({ message: "Network added successfully", network });
+  } catch (err) {
+    console.error("Add campus network error:", err);
+    res.status(500).json({ message: "Server error: " + err.message });
+  }
+};
+
+/* ================= UPDATE CAMPUS NETWORK ================= */
+const updateCampusNetwork = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, ipOrRange, description, isActive } = req.body;
+
+    const network = await CampusNetwork.findById(id);
+    if (!network) {
+      return res.status(404).json({ message: "Network record not found" });
+    }
+
+    if (name !== undefined) network.name = name.trim();
+    if (ipOrRange !== undefined) network.ipOrRange = ipOrRange.trim();
+    if (description !== undefined) network.description = description.trim();
+    if (isActive !== undefined) network.isActive = Boolean(isActive);
+
+    await network.save();
+    res.json({ message: "Network updated successfully", network });
+  } catch (err) {
+    console.error("Update campus network error:", err);
+    res.status(500).json({ message: "Server error: " + err.message });
+  }
+};
+
+/* ================= DELETE CAMPUS NETWORK ================= */
+const deleteCampusNetwork = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const network = await CampusNetwork.findByIdAndDelete(id);
+    if (!network) {
+      return res.status(404).json({ message: "Network not found" });
+    }
+    res.json({ message: "Network removed successfully" });
+  } catch (err) {
+    console.error("Delete campus network error:", err);
+    res.status(500).json({ message: "Server error: " + err.message });
+  }
+};
+
+/* ================= RESTART BACKEND SERVER ================= */
+const restartBackend = async (req, res) => {
+  try {
+    const adminIdentifier = req.user ? (req.user.name || req.user.studentId || "Admin") : "Admin";
+    console.log(`[SYSTEM] Backend restart triggered by ${adminIdentifier} at ${new Date().toISOString()}`);
+
+    res.json({
+      success: true,
+      message: "Backend server restart initiated. The server will reload in 1-2 seconds.",
+      timestamp: new Date().toISOString()
+    });
+
+    // Gracefully exit process to trigger container / nodemon / pm2 automatic restart
+    setTimeout(() => {
+      console.log("[SYSTEM] Executing clean process restart (process.exit(0))...");
+      process.exit(0);
+    }, 800);
+  } catch (err) {
+    console.error("Restart backend error:", err);
+    res.status(500).json({ message: "Failed to initiate backend restart: " + err.message });
+  }
+};
+
+
 /* ================= RESET STUDENT DEVICE LOCK ================= */
 const resetStudentDevice = async (req, res) => {
   try {
@@ -1969,6 +2073,11 @@ module.exports = {
   deleteExamSchedule,
   getCampusQR,
   refreshCampusQR,
+  getCampusNetworks,
+  addCampusNetwork,
+  updateCampusNetwork,
+  deleteCampusNetwork,
+  restartBackend,
   resetStudentDevice,
   triggerAutoLogout,
   triggerFeeReminders,

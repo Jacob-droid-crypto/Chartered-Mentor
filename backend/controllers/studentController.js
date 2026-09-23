@@ -9,6 +9,18 @@ const AttendanceAdjustment = require("../models/AttendanceAdjustment");
 const Schedule = require("../models/Schedule");
 const ExamSchedule = require("../models/ExamSchedule");
 const CampusQR = require("../models/CampusQR");
+const CampusNetwork = require("../models/CampusNetwork");
+
+const isIpInCidr = (ip, cidr) => {
+  try {
+    const [range, bits = 32] = cidr.split("/");
+    const mask = ~(2 ** (32 - parseInt(bits, 10)) - 1);
+    const ip2long = (ipStr) => ipStr.split(".").reduce((acc, oct) => (acc << 8) + parseInt(oct, 10), 0) >>> 0;
+    return (ip2long(ip) & mask) === (ip2long(range) & mask);
+  } catch (e) {
+    return false;
+  }
+};
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -365,52 +377,81 @@ const scanQr = async (req, res) => {
       await student.save();
     }
 
-    // --- 1. IP RESTRICTION ---
-    // Read allowed IPs from env (comma-separated list). Fallback to new hardcoded IP.
-    const allowedIPsRaw = process.env.ALLOWED_IP || "192.168.68.120, 111.92.83.195, 103.182.166.206";
-    const ALLOWED_IPS = allowedIPsRaw.split(",").map(ip => ip.trim()).filter(Boolean);
-
+    // --- 1. DYNAMIC IP & WI-FI RESTRICTION ---
     let requestIP = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "";
     if (requestIP.includes(",")) {
        requestIP = requestIP.split(",")[0];
     }
     const cleanIP = requestIP.trim().replace("::ffff:", "");
-    
-    console.log("Debug IP Check:", cleanIP, "| Allowed:", ALLOWED_IPS);
 
-    let isIpAllowed = 
-      ALLOWED_IPS.includes(cleanIP) || 
-      cleanIP === "127.0.0.1" || 
-      cleanIP === "localhost" ||
-      cleanIP === "103.182.166.206" || // Explicitly allow user testing IP
-      cleanIP.startsWith("103.182.166.") || // Allow Institute's public WiFi IP range
-      cleanIP.startsWith("111.92.83.") || // Allow secondary Institute public line range
-      cleanIP.startsWith("192.168.") ||
-      cleanIP.startsWith("10.");
+    let isIpAllowed = cleanIP === "127.0.0.1" || cleanIP === "localhost" || cleanIP === "::1";
 
+    // A. Check dynamic authorized networks from database
     if (!isIpAllowed) {
-      // Also check for 172.16.x.x to 172.31.x.x
+      try {
+        const dbNetworks = await CampusNetwork.find({ isActive: true }).lean();
+        for (const net of dbNetworks) {
+          const pattern = (net.ipOrRange || "").trim();
+          if (!pattern) continue;
+
+          if (pattern === cleanIP) {
+            isIpAllowed = true;
+            break;
+          }
+          if (pattern.includes("*")) {
+            const prefix = pattern.replace(/\*.*$/, "");
+            if (cleanIP.startsWith(prefix)) {
+              isIpAllowed = true;
+              break;
+            }
+          }
+          if (pattern.endsWith(".") && cleanIP.startsWith(pattern)) {
+            isIpAllowed = true;
+            break;
+          }
+          if (pattern.includes("/") && isIpInCidr(cleanIP, pattern)) {
+            isIpAllowed = true;
+            break;
+          }
+        }
+      } catch (dbNetErr) {
+        console.warn("Campus network DB check warning:", dbNetErr.message);
+      }
+    }
+
+    // B. Check environment variables fallback & default institutional subnets
+    if (!isIpAllowed) {
+      const allowedIPsRaw = process.env.ALLOWED_IP || "192.168.68.120, 111.92.83.195, 103.182.166.206";
+      const ALLOWED_IPS = allowedIPsRaw.split(",").map(ip => ip.trim()).filter(Boolean);
+
+      isIpAllowed = 
+        ALLOWED_IPS.includes(cleanIP) || 
+        cleanIP === "103.182.166.206" || 
+        cleanIP.startsWith("103.182.166.") || 
+        cleanIP.startsWith("111.92.83.") || 
+        cleanIP.startsWith("192.168.") ||
+        cleanIP.startsWith("10.");
+    }
+
+    // C. Check Private Ranges & iCloud Private Relay
+    if (!isIpAllowed) {
       const parts = cleanIP.split(".");
       if (parts.length === 4) {
         const p0 = parts[0];
         const p1 = parseInt(parts[1], 10);
         if (p0 === "172") {
-          // Standard private network check (172.16.x.x - 172.31.x.x)
           if (p1 >= 16 && p1 <= 31) {
             isIpAllowed = true;
-          }
-          // iCloud Private Relay check (172.224.x.x to 172.239.x.x)
-          else if (p1 >= 224 && p1 <= 239) {
+          } else if (p1 >= 224 && p1 <= 239) {
             isIpAllowed = true;
             console.log(`[IP Check Bypass] Allowed iCloud Private Relay IP: ${cleanIP}`);
           }
         } else {
-          // Other potential iCloud Private Relay ranges
           const p0Num = parseInt(p0, 10);
           const isOtherICloudRelay = 
-            (p0Num === 104 && p1 >= 28 && p1 <= 31) || // 104.28.0.0/14
-            (p0Num === 140 && p1 === 248) ||             // 140.248.0.0/16
-            (p0Num === 146 && p1 === 75);                // Fastly range used by iCloud Relay
+            (p0Num === 104 && p1 >= 28 && p1 <= 31) || 
+            (p0Num === 140 && p1 === 248) ||             
+            (p0Num === 146 && p1 === 75);                
           
           if (isOtherICloudRelay) {
             isIpAllowed = true;
@@ -419,6 +460,8 @@ const scanQr = async (req, res) => {
         }
       }
     }
+
+    console.log("Debug Attendance IP Check:", cleanIP, "| Result Allowed:", isIpAllowed);
 
     if (!isIpAllowed) {
       return res.status(403).json({

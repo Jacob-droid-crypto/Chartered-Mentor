@@ -45,6 +45,11 @@ const {
   deleteExamSchedule,
   getCampusQR,
   refreshCampusQR,
+  getCampusNetworks,
+  addCampusNetwork,
+  updateCampusNetwork,
+  deleteCampusNetwork,
+  restartBackend,
   resetStudentDevice,
   triggerAutoLogout,
   triggerFeeReminders,
@@ -77,6 +82,15 @@ router.all("/cron/cleanup", triggerCleanup);
 router.all("/cron/trigger", triggerCronTasks);
 router.get("/campus-qr", protect, adminOnly, getCampusQR);
 router.post("/campus-qr/refresh", protect, adminOnly, refreshCampusQR);
+
+// Campus Wi-Fi & Authorized IP Networks
+router.get("/networks", protect, adminOnly, getCampusNetworks);
+router.post("/networks", protect, adminOnly, addCampusNetwork);
+router.put("/networks/:id", protect, adminOnly, updateCampusNetwork);
+router.delete("/networks/:id", protect, adminRoleRequired, deleteCampusNetwork);
+
+// System Operations
+router.post("/system/restart", protect, adminOnly, restartBackend);
 
 router.post("/login", loginAdmin);
 router.get("/students", protect, adminOnly, getStudents);
