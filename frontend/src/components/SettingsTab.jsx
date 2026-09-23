@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 
 export default function SettingsTab({
@@ -14,6 +14,8 @@ export default function SettingsTab({
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
+  const [serverOnline, setServerOnline] = useState(null); // null = checking, true = online, false = offline
+  const [loadError, setLoadError] = useState('');
 
   // Form states
   const [showAddModal, setShowAddModal] = useState(false);
@@ -26,35 +28,76 @@ export default function SettingsTab({
   const [isRestarting, setIsRestarting] = useState(false);
   const [restartCountdown, setRestartCountdown] = useState(0);
 
-  // Fetch networks
-  const fetchNetworks = async () => {
+  // Get active token safely
+  const getToken = useCallback(() => {
+    if (user?.token) return user.token;
+    try {
+      const stored = localStorage.getItem('cmUser');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return parsed?.token || '';
+      }
+    } catch (e) {
+      // ignore
+    }
+    return '';
+  }, [user]);
+
+  // Fetch networks and verify server connectivity
+  const fetchNetworks = useCallback(async (isManualRetry = false) => {
+    const token = getToken();
+    if (!token) {
+      setLoadError('Admin authentication token is missing. Please log in again.');
+      return;
+    }
+
     try {
       setLoading(true);
+      setLoadError('');
       const res = await fetch('/admin/networks', {
-        headers: { Authorization: `Bearer ${user.token}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
-      if (res.ok) {
-        setNetworks(data.networks || []);
-        if (data.currentClientIp) {
-          setCurrentClientIp(data.currentClientIp);
+
+      if (!res.ok) {
+        let errMsg = `Server returned status ${res.status}`;
+        try {
+          const errData = await res.json();
+          if (errData?.message) errMsg = errData.message;
+        } catch (_) {
+          // not JSON
         }
-      } else {
-        setStatusMsg({ type: 'error', text: data.message || 'Failed to load Wi-Fi networks' });
+        setServerOnline(false);
+        setLoadError(errMsg);
+        if (isManualRetry) {
+          showNotification('error', errMsg);
+        }
+        return;
+      }
+
+      const data = await res.json();
+      setNetworks(data.networks || []);
+      setServerOnline(true);
+      if (data.currentClientIp) {
+        setCurrentClientIp(data.currentClientIp);
+      }
+      if (isManualRetry) {
+        showNotification('success', 'Connected to backend successfully!');
       }
     } catch (err) {
       console.error('Fetch networks error:', err);
-      setStatusMsg({ type: 'error', text: 'Error connecting to server to load networks.' });
+      setServerOnline(false);
+      setLoadError('Unable to connect to backend server. Please verify backend service is running.');
+      if (isManualRetry) {
+        showNotification('error', 'Backend is currently offline or unreachable.');
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [getToken]);
 
   useEffect(() => {
-    if (user?.token) {
-      fetchNetworks();
-    }
-  }, [user]);
+    fetchNetworks();
+  }, [fetchNetworks]);
 
   const showNotification = (type, text) => {
     setStatusMsg({ type, text });
@@ -66,6 +109,7 @@ export default function SettingsTab({
   // Add new network
   const handleAddNetwork = async (e) => {
     if (e) e.preventDefault();
+    const token = getToken();
     if (!newNetName.trim() || !newNetIp.trim()) {
       showNotification('error', 'Network name and IP / Subnet pattern are required.');
       return;
@@ -77,7 +121,7 @@ export default function SettingsTab({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${user.token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           name: newNetName.trim(),
@@ -118,13 +162,14 @@ export default function SettingsTab({
 
   // Toggle active/inactive
   const handleToggleActive = async (net) => {
+    const token = getToken();
     try {
       setActionLoading(true);
       const res = await fetch(`/admin/networks/${net._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${user.token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           isActive: !net.isActive,
@@ -152,6 +197,7 @@ export default function SettingsTab({
 
   // Delete network
   const handleDeleteNetwork = async (id, name) => {
+    const token = getToken();
     if (!window.confirm(`Are you sure you want to remove network "${name}" from authorized list?`)) {
       return;
     }
@@ -159,7 +205,7 @@ export default function SettingsTab({
       setActionLoading(true);
       const res = await fetch(`/admin/networks/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${user.token}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       if (res.ok) {
@@ -178,14 +224,14 @@ export default function SettingsTab({
 
   // Restart backend
   const handleRestartBackend = async () => {
+    const token = getToken();
     try {
       setIsRestarting(true);
       setRestartCountdown(5);
       const res = await fetch('/admin/system/restart', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${user.token}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
       setShowRestartModal(false);
 
       if (res.ok) {
@@ -195,7 +241,6 @@ export default function SettingsTab({
             if (prev <= 1) {
               clearInterval(timer);
               setIsRestarting(false);
-              // Re-check backend health
               fetchNetworks();
               return 0;
             }
@@ -204,16 +249,15 @@ export default function SettingsTab({
         }, 1000);
       } else {
         setIsRestarting(false);
-        showNotification('error', data.message || 'Failed to trigger backend restart.');
+        showNotification('error', 'Failed to trigger backend restart.');
       }
     } catch (err) {
       console.error('Restart error:', err);
-      // Process restart causes connection abort, which is expected
       setIsRestarting(false);
       showNotification('success', 'Restart initiated. Server is reloading...');
       setTimeout(() => {
         fetchNetworks();
-      }, 3000);
+      }, 3500);
     }
   };
 
@@ -289,7 +333,7 @@ export default function SettingsTab({
         </div>
       </div>
 
-      {/* Global Toast / Alert */}
+      {/* Action Toast / Status Alert */}
       {statusMsg.text && (
         <div
           style={{
@@ -349,7 +393,7 @@ export default function SettingsTab({
                   Current Connected Admin IP
                 </div>
                 <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--text-main)', fontFamily: 'monospace', marginTop: '2px' }}>
-                  {currentClientIp || 'Detecting...'}
+                  {currentClientIp || (serverOnline === false ? 'Offline / Not Connected' : 'Detecting...')}
                 </div>
               </div>
             </div>
@@ -431,7 +475,7 @@ export default function SettingsTab({
               </h3>
               <button
                 type="button"
-                onClick={fetchNetworks}
+                onClick={() => fetchNetworks(true)}
                 disabled={loading}
                 style={{
                   display: 'flex',
@@ -453,6 +497,30 @@ export default function SettingsTab({
             {loading ? (
               <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
                 Loading authorized networks...
+              </div>
+            ) : loadError ? (
+              <div style={{ textAlign: 'center', padding: '2.5rem 1rem', background: 'rgba(239, 68, 68, 0.04)', borderRadius: '12px', border: '1px solid rgba(239, 68, 68, 0.15)' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⚠️</div>
+                <h4 style={{ margin: '0 0 0.4rem 0', color: '#dc2626' }}>Backend Connection Notice</h4>
+                <p style={{ maxWidth: '500px', margin: '0 auto 1.2rem auto', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                  {loadError}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => fetchNetworks(true)}
+                  style={{
+                    padding: '0.55rem 1.2rem',
+                    background: 'var(--primary, #3b82f6)',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  🔄 Retry Connection
+                </button>
               </div>
             ) : networks.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '3.5rem 1rem', color: 'var(--text-muted)' }}>
@@ -684,15 +752,15 @@ export default function SettingsTab({
             >
               <div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Server Status</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 'bold', color: isRestarting ? '#f59e0b' : '#10b981', marginTop: '4px' }}>
-                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isRestarting ? '#f59e0b' : '#10b981' }}></span>
-                  {isRestarting ? `Restarting (${restartCountdown}s)...` : 'Online & Healthy'}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 'bold', color: isRestarting ? '#f59e0b' : serverOnline === true ? '#10b981' : serverOnline === false ? '#dc2626' : '#64748b', marginTop: '4px' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isRestarting ? '#f59e0b' : serverOnline === true ? '#10b981' : serverOnline === false ? '#dc2626' : '#94a3b8' }}></span>
+                  {isRestarting ? `Restarting (${restartCountdown}s)...` : serverOnline === true ? 'Online & Healthy' : serverOnline === false ? 'Offline / Unreachable' : 'Checking Connection...'}
                 </div>
               </div>
               <div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Configured Wi-Fi Rules</div>
                 <div style={{ fontWeight: 'bold', color: 'var(--text-main)', marginTop: '4px' }}>
-                  {networks.length} Active Rules
+                  {serverOnline === false ? '—' : `${networks.length} Active Rules`}
                 </div>
               </div>
               <div>
@@ -707,30 +775,53 @@ export default function SettingsTab({
               <strong>⚠️ Administrator Notice:</strong> Triggering a server restart will gracefully restart the Node.js backend instance. Active student connections will seamlessly reconnect within 1–2 seconds.
             </div>
 
-            <button
-              type="button"
-              onClick={() => setShowRestartModal(true)}
-              disabled={isRestarting}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.6rem',
-                padding: '0.85rem 1.6rem',
-                background: '#dc2626',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '12px',
-                cursor: isRestarting ? 'not-allowed' : 'pointer',
-                fontWeight: 'bold',
-                fontSize: '1rem',
-                boxShadow: '0 4px 14px rgba(220, 38, 38, 0.3)',
-                transition: 'all 0.2s',
-                opacity: isRestarting ? 0.6 : 1,
-              }}
-            >
-              <span>{isRestarting ? '⏳' : '🔄'}</span>
-              <span>{isRestarting ? `Server Reloading (${restartCountdown}s)...` : 'Restart Backend Server'}</span>
-            </button>
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => setShowRestartModal(true)}
+                disabled={isRestarting}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.6rem',
+                  padding: '0.85rem 1.6rem',
+                  background: '#dc2626',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '12px',
+                  cursor: isRestarting ? 'not-allowed' : 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '1rem',
+                  boxShadow: '0 4px 14px rgba(220, 38, 38, 0.3)',
+                  transition: 'all 0.2s',
+                  opacity: isRestarting ? 0.6 : 1,
+                }}
+              >
+                <span>{isRestarting ? '⏳' : '🔄'}</span>
+                <span>{isRestarting ? `Server Reloading (${restartCountdown}s)...` : 'Restart Backend Server'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => fetchNetworks(true)}
+                disabled={loading || isRestarting}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.85rem 1.25rem',
+                  background: 'transparent',
+                  color: 'var(--text-main)',
+                  border: '1px solid var(--glass-border, #cbd5e1)',
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  fontSize: '0.95rem',
+                }}
+              >
+                🔄 Test Connection
+              </button>
+            </div>
           </div>
         </div>
       )}
