@@ -1859,72 +1859,42 @@ function Dashboard({ user, onLogout }) {
     return days;
   };
 
-  const getMonthDays = () => {
-    const days = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-
-    let temp = new Date(firstOfMonth);
-    while (temp <= today) {
-      days.push(new Date(temp));
-      temp.setDate(temp.getDate() + 1);
-    }
-    return days;
+  const getMonthDays = (joiningDateStr) => {
+    return getStudentMonthDays(joiningDateStr);
   };
 
   const getCurrentAttendanceMonthStart = (joiningDateStr, today = new Date()) => {
-    if (!joiningDateStr) {
-      return new Date(today.getFullYear(), today.getMonth(), 1);
-    }
+    const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    firstOfMonth.setHours(0, 0, 0, 0);
 
-    const jDate = new Date(joiningDateStr);
-    if (isNaN(jDate.getTime())) {
-      return new Date(today.getFullYear(), today.getMonth(), 1);
-    }
-    jDate.setHours(0, 0, 0, 0);
-    const joinDay = jDate.getDate();
-
-    let startYear = today.getFullYear();
-    let startMonth = today.getMonth();
-
-    let candidate = new Date(startYear, startMonth, joinDay);
-    candidate.setHours(0, 0, 0, 0);
-
-    if (candidate.getMonth() !== startMonth) {
-      candidate = new Date(startYear, startMonth + 1, 0);
-      candidate.setHours(0, 0, 0, 0);
-    }
-
-    if (candidate > today) {
-      startMonth -= 1;
-      if (startMonth < 0) {
-        startMonth = 11;
-        startYear -= 1;
-      }
-      candidate = new Date(startYear, startMonth, joinDay);
-      candidate.setHours(0, 0, 0, 0);
-      if (candidate.getMonth() !== startMonth) {
-        candidate = new Date(startYear, startMonth + 1, 0);
-        candidate.setHours(0, 0, 0, 0);
+    const joiningDate = joiningDateStr ? new Date(joiningDateStr) : null;
+    if (joiningDate && !isNaN(joiningDate.getTime())) {
+      joiningDate.setHours(0, 0, 0, 0);
+      if (joiningDate > firstOfMonth && joiningDate <= today) {
+        return joiningDate;
       }
     }
 
-    if (candidate < jDate) {
-      return new Date(jDate);
-    }
-
-    return candidate;
+    return firstOfMonth;
   };
 
   const getStudentMonthDays = (joiningDateStr) => {
     const days = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
-    const startOfPeriod = getCurrentAttendanceMonthStart(joiningDateStr, today);
+    const joiningDate = joiningDateStr ? new Date(joiningDateStr) : null;
+    if (joiningDate && !isNaN(joiningDate.getTime())) {
+      joiningDate.setHours(0, 0, 0, 0);
+    }
 
-    let temp = new Date(startOfPeriod);
+    let startDate = new Date(firstOfMonth);
+    if (joiningDate && joiningDate > firstOfMonth && joiningDate <= today) {
+      startDate = new Date(joiningDate);
+    }
+
+    let temp = new Date(startDate);
     while (temp <= today) {
       days.push(new Date(temp));
       temp.setDate(temp.getDate() + 1);
@@ -8798,7 +8768,7 @@ function Dashboard({ user, onLogout }) {
                       return (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                           <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                            Current Cycle: <strong>{cycleStartStr}</strong> to <strong>{todayStr}</strong> ({expectedDays} elapsed days)
+                            Current Month: <strong>{cycleStartStr}</strong> to <strong>{todayStr}</strong> ({expectedDays} elapsed days)
                           </p>
 
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '1rem', background: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
@@ -8807,7 +8777,7 @@ function Dashboard({ user, onLogout }) {
                               <strong style={{ fontSize: '1.1rem', color: attendanceRate >= 75 ? '#10b981' : '#ef4444' }}>{attendanceRate}%</strong>
                             </div>
                             <div>
-                              <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>Cycle Study Duration</span>
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>Monthly Study Duration</span>
                               <strong style={{ fontSize: '1.1rem', color: 'var(--text-main)' }}>{formatStudyTime(stats.monthHours)}</strong>
                             </div>
                             <div>
