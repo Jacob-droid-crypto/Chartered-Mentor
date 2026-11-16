@@ -15,7 +15,7 @@ const connectDB = async () => {
 
   if (!cached.promise) {
     const opts = {
-      bufferCommands: false,
+      bufferCommands: true, // Allow Mongoose to safely buffer queries until connection completes
       maxPoolSize: 10,
       serverSelectionTimeoutMS: 5000,
     };

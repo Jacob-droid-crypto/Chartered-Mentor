@@ -19,6 +19,17 @@ app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
+// Ensure DB is connected before processing API requests (handles serverless cold starts)
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error("Database connection failure:", err);
+    res.status(500).json({ message: "Database connection failed", error: err.message });
+  }
+});
+
 /* ================= ROUTES ================= */
 app.use("/admin", adminRoutes);
 app.use("/student", studentRoutes);
@@ -96,5 +107,3 @@ if (require.main === module) {
 }
 
 module.exports = app;
-
-// Trigger Vercel backend deployment - Fine Management System
