@@ -969,6 +969,43 @@ const updateStudentFeeRemarks = async (req, res) => {
   }
 };
 
+const updateStudentInstallmentRemark = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const { installmentIndex, remarks } = req.body;
+    if (!studentId) return res.status(400).json({ message: "Student ID is required" });
+    const cleanId = studentId.trim().toUpperCase();
+
+    const user = await User.findOne({ userId: cleanId, role: "student" });
+    if (!user) return res.status(404).json({ message: "Student not found" });
+
+    const idx = Number(installmentIndex);
+    if (isNaN(idx) || !user.installments || idx < 0 || idx >= user.installments.length) {
+      return res.status(400).json({ message: "Invalid installment index" });
+    }
+
+    user.installments[idx].remarks = remarks !== undefined ? String(remarks) : "";
+
+    // Sync remarks to any linked feeHistory record for this installment
+    const instNum = idx + 1;
+    if (user.feeHistory && user.feeHistory.length > 0) {
+      const linkedPayment = user.feeHistory.find(p => p.installmentNumber === instNum);
+      if (linkedPayment) {
+        linkedPayment.remarks = user.installments[idx].remarks;
+      }
+    }
+
+    user.markModified("installments");
+    user.markModified("feeHistory");
+    await user.save();
+
+    res.json({ message: "Installment remark updated successfully", user });
+  } catch (err) {
+    console.error("Update installment remark error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 const addStudentPayment = async (req, res) => {
   try {
     const { studentId } = req.params;
@@ -2079,6 +2116,7 @@ module.exports = {
   updatePaymentConfig,
   updateStudentFees,
   updateStudentFeeRemarks,
+  updateStudentInstallmentRemark,
   addStudentPayment,
   approveStudentPayment,
   rejectStudentPayment,

@@ -166,18 +166,20 @@ export default function FeeSetupTab({
                       style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--glass-border)', color: 'var(--text-main)', background: 'transparent' }}
                     />
                   </div>
-                  <div style={{ flex: '1.5', minWidth: '180px' }}>
-                    <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Breakup Remarks</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. 1st installment, admission fee..."
+                  <div style={{ width: '100%', marginTop: '0.5rem' }}>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-main)', marginBottom: '0.25rem' }}>
+                      📝 Installment {index + 1} Remark Box (Editable Anytime)
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder={`Enter specific remarks for Installment ${index + 1} (e.g. cheque clearance details, concession terms, due on exam results)...`}
                       value={inst.remarks || ''}
                       onChange={e => {
                         const updated = [...feeSetupStudent.installments];
                         updated[index].remarks = e.target.value;
                         setFeeSetupStudent({ ...feeSetupStudent, installments: updated });
                       }}
-                      style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--glass-border)', color: 'var(--text-main)', background: 'transparent' }}
+                      style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '6px', border: '1px solid var(--glass-border)', color: 'var(--text-main)', background: 'white', fontSize: '0.85rem', resize: 'vertical' }}
                     />
                   </div>
                   {(feeSetupStudent.installments || []).length > 1 && (

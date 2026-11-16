@@ -813,6 +813,7 @@ function Dashboard({ user, onLogout }) {
   // Payment UI States
   const [showPayModal, setShowPayModal] = useState(false);
   const [feeSetupStudent, setFeeSetupStudent] = useState(null);
+  const [feeSetupReturnTab, setFeeSetupReturnTab] = useState('payments');
   const [showFeeDuePopup, setShowFeeDuePopup] = useState(false);
   const [editingPayment, setEditingPayment] = useState(null);
   const [paymentSearchQuery, setPaymentSearchQuery] = useState('');
@@ -5554,8 +5555,8 @@ function Dashboard({ user, onLogout }) {
                           <th style={{ padding: '0.8rem 1rem' }}>Total Fee</th>
                           <th style={{ padding: '0.8rem 1rem' }}>Paid</th>
                           <th style={{ padding: '0.8rem 1rem' }}>Balance</th>
-                          <th style={{ padding: '0.8rem 1rem', width: '220px' }}>Fee Breakup / Schedule</th>
-                          <th style={{ padding: '0.8rem 1rem', minWidth: '260px' }}>Payment Remarks (Paragraph Box)</th>
+                          <th style={{ padding: '0.8rem 1rem', minWidth: '380px' }}>Installments & Separate Remark Boxes</th>
+                          <th style={{ padding: '0.8rem 1rem', minWidth: '230px' }}>Overall Student Remarks</th>
                           <th style={{ padding: '0.8rem 1rem', textAlign: 'center' }}>Action</th>
                         </tr>
                       </thead>
@@ -5597,23 +5598,117 @@ function Dashboard({ user, onLogout }) {
                                 </td>
                                 <td style={{ padding: '1rem' }}>
                                   {Array.isArray(stud.installments) && stud.installments.length > 0 ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                       {stud.installments.map((inst, iIdx) => (
-                                        <div key={iIdx} style={{ fontSize: '0.78rem', padding: '2px 6px', background: inst.status === 'Paid' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)', borderRadius: '4px', border: '1px solid ' + (inst.status === 'Paid' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)') }}>
-                                          <span style={{ fontWeight: 'bold' }}>Inst {iIdx + 1}: ₹{inst.amount}</span> ({inst.status})
-                                          {inst.remarks && <span style={{ color: '#4f46e5', marginLeft: '4px', fontWeight: 'bold' }}>• {inst.remarks}</span>}
+                                        <div key={iIdx} style={{ background: '#f8fafc', padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
+                                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem', flexWrap: 'wrap', gap: '0.3rem' }}>
+                                            <span style={{ fontWeight: 'bold', fontSize: '0.82rem', color: 'var(--text-main)' }}>
+                                              📌 Installment {iIdx + 1}: ₹{inst.amount}
+                                            </span>
+                                            <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                                              <span style={{
+                                                fontSize: '0.72rem',
+                                                padding: '1px 6px',
+                                                borderRadius: '4px',
+                                                fontWeight: 'bold',
+                                                background: inst.status === 'Paid' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                                                color: inst.status === 'Paid' ? '#10b981' : '#ef4444'
+                                              }}>
+                                                {inst.status === 'Paid' ? '✓ Paid' : '⏳ Unpaid'}
+                                              </span>
+                                              {inst.dueDate && (
+                                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                                  Due: {new Date(inst.dueDate).toLocaleDateString()}
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+                                          <div>
+                                            <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 'bold', marginBottom: '2px' }}>
+                                              Installment {iIdx + 1} Remark Box:
+                                            </label>
+                                            <textarea
+                                              rows={2}
+                                              key={'inst-remark-key-' + stud.userId + '-' + iIdx + '-' + (inst.remarks || '')}
+                                              id={'inst-remark-' + stud.userId + '-' + iIdx}
+                                              defaultValue={inst.remarks || ''}
+                                              placeholder={'Installment ' + (iIdx + 1) + ' remarks (editable anytime)...'}
+                                              style={{ width: '100%', padding: '0.4rem 0.5rem', borderRadius: '5px', border: '1px solid var(--glass-border)', fontSize: '0.8rem', background: 'white', color: 'var(--text-main)', resize: 'vertical' }}
+                                            />
+                                            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.4rem', marginTop: '3px' }}>
+                                              {savedRemarkStudentId === (stud.userId + '-inst-' + iIdx) && (
+                                                <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: 'bold' }}>✓ Saved!</span>
+                                              )}
+                                              <button
+                                                type="button"
+                                                onClick={async () => {
+                                                  const val = document.getElementById('inst-remark-' + stud.userId + '-' + iIdx)?.value || '';
+                                                  try {
+                                                    const res = await fetch('/admin/student/' + stud.userId + '/installment-remark', {
+                                                      method: 'POST',
+                                                      headers: { 'Authorization': 'Bearer ' + user.token, 'Content-Type': 'application/json' },
+                                                      body: JSON.stringify({ installmentIndex: iIdx, remarks: val })
+                                                    });
+                                                    if (!res.ok) throw new Error(await res.text());
+                                                    setSavedRemarkStudentId(stud.userId + '-inst-' + iIdx);
+                                                    setTimeout(() => setSavedRemarkStudentId(null), 2500);
+                                                    setStudents(prev => prev.map(s => {
+                                                      if (s.userId !== stud.userId) return s;
+                                                      const updatedInsts = Array.isArray(s.installments) ? [...s.installments] : [];
+                                                      if (updatedInsts[iIdx]) {
+                                                        updatedInsts[iIdx] = { ...updatedInsts[iIdx], remarks: val };
+                                                      }
+                                                      return { ...s, installments: updatedInsts };
+                                                    }));
+                                                  } catch (err) {
+                                                    alert('Error saving installment remark: ' + err.message);
+                                                  }
+                                                }}
+                                                style={{ padding: '0.2rem 0.6rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}
+                                              >
+                                                💾 Save Inst {iIdx + 1} Remark
+                                              </button>
+                                            </div>
+                                          </div>
                                         </div>
                                       ))}
                                     </div>
                                   ) : (
-                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No breakup set</span>
+                                    <div style={{ padding: '0.6rem', background: 'rgba(0,0,0,0.02)', borderRadius: '6px', textAlign: 'center' }}>
+                                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.3rem' }}>No installments configured</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setFeeSetupStudent({
+                                            userId: stud.userId,
+                                            name: stud.name,
+                                            totalFees: stud.totalFees || 0,
+                                            feeRemarks: stud.feeRemarks || '',
+                                            installments: [
+                                              { amount: stud.totalFees ? Math.round(Number(stud.totalFees) / 3) : '', dueDate: '', status: 'Unpaid', remarks: '' },
+                                              { amount: stud.totalFees ? Math.round(Number(stud.totalFees) / 3) : '', dueDate: '', status: 'Unpaid', remarks: '' },
+                                              { amount: stud.totalFees ? (Number(stud.totalFees) - 2 * Math.round(Number(stud.totalFees) / 3)) : '', dueDate: '', status: 'Unpaid', remarks: '' }
+                                            ],
+                                            feeHistory: stud.feeHistory || []
+                                          });
+                                          setFeeSetupReturnTab('payments');
+                                          setFeeSetupReturnTab('payments');
+                                      setActiveTab('feeSetup');
+                                        }}
+                                        style={{ padding: '0.3rem 0.75rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}
+                                      >
+                                        ➕ Create Installments
+                                      </button>
+                                    </div>
                                   )}
                                 </td>
                                 <td style={{ padding: '1rem' }}>
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                    <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>General Student Notes:</label>
                                     <textarea
                                       rows={2}
-                                      placeholder="Enter payment remarks for this student..."
+                                      placeholder="General payment remarks for this student..."
+                                      key={'student-fee-remark-key-' + stud.userId + '-' + (stud.feeRemarks || '')}
                                       defaultValue={stud.feeRemarks || ''}
                                       id={'student-fee-remark-' + stud.userId}
                                       style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--glass-border)', fontSize: '0.85rem', background: 'white', color: 'var(--text-main)', resize: 'vertical' }}
@@ -5642,7 +5737,7 @@ function Dashboard({ user, onLogout }) {
                                         }}
                                         style={{ padding: '0.3rem 0.75rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
                                       >
-                                        💾 Save Remark
+                                        💾 Save Overall
                                       </button>
                                     </div>
                                   </div>
@@ -5685,6 +5780,7 @@ function Dashboard({ user, onLogout }) {
                                         feeHistory: stud.feeHistory || [],
                                         feesPaid: stud.feesPaid || 0
                                       });
+                                      setFeeSetupReturnTab('payments');
                                       setActiveTab('feeSetup');
                                     }}
                                     style={{ padding: '0.4rem 0.8rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}
@@ -5864,6 +5960,11 @@ function Dashboard({ user, onLogout }) {
                                       </span>
                                     )}
                                   </div>
+                                  {inst.remarks && (
+                                    <div style={{ fontSize: '0.8rem', color: '#4f46e5', background: 'rgba(79, 70, 229, 0.08)', padding: '4px 8px', borderRadius: '6px', fontWeight: '500', marginTop: '2px' }}>
+                                      📝 Note: {inst.remarks}
+                                    </div>
+                                  )}
                                 </div>
                               );
                             })}
@@ -6905,7 +7006,7 @@ function Dashboard({ user, onLogout }) {
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h2>Set Fee Structure for {feeSetupStudent.name}</h2>
-              <button onClick={() => { setActiveTab('students'); setFeeSetupStudent(null); }} style={{ padding: '0.5rem 1rem', background: 'transparent', border: '1px solid var(--text-muted)', color: 'var(--text-main)', borderRadius: '8px', cursor: 'pointer' }}>← Back to Students</button>
+              <button onClick={() => { setActiveTab(feeSetupReturnTab || 'payments'); setFeeSetupStudent(null); }} style={{ padding: '0.5rem 1rem', background: 'transparent', border: '1px solid var(--text-muted)', color: 'var(--text-main)', borderRadius: '8px', cursor: 'pointer' }}>← Back</button>
             </div>
             <div className="card" style={{ maxWidth: '700px' }}>
               <form onSubmit={async (e) => {
@@ -6945,7 +7046,7 @@ function Dashboard({ user, onLogout }) {
                   if (!res.ok) throw new Error(await res.text());
                   alert('Fee structure updated successfully!');
                   fetchStudentsData();
-                  setActiveTab('students');
+                  setActiveTab(feeSetupReturnTab || 'payments');
                   setFeeSetupStudent(null);
                 } catch (err) { alert('Error: ' + err.message); }
               }} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -7057,18 +7158,20 @@ function Dashboard({ user, onLogout }) {
                             style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--glass-border)', color: 'var(--text-main)', background: 'transparent' }}
                           />
                         </div>
-                        <div style={{ flex: '1.5', minWidth: '180px' }}>
-                          <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Breakup Remarks</label>
-                          <input
-                            type="text"
-                            placeholder="e.g. 1st installment, admission fee..."
+                        <div style={{ width: '100%', marginTop: '0.5rem' }}>
+                          <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-main)', marginBottom: '0.25rem' }}>
+                            📝 Installment {index + 1} Remark Box (Editable Anytime)
+                          </label>
+                          <textarea
+                            rows={2}
+                            placeholder={`Enter specific remarks for Installment ${index + 1} (e.g. cheque clearance details, concession terms, due on exam results)...`}
                             value={inst.remarks || ''}
                             onChange={e => {
                               const updated = [...feeSetupStudent.installments];
                               updated[index].remarks = e.target.value;
                               setFeeSetupStudent({ ...feeSetupStudent, installments: updated });
                             }}
-                            style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--glass-border)', color: 'var(--text-main)', background: 'transparent' }}
+                            style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '6px', border: '1px solid var(--glass-border)', color: 'var(--text-main)', background: 'white', fontSize: '0.85rem', resize: 'vertical' }}
                           />
                         </div>
                         {(feeSetupStudent.installments || []).length > 1 && (
@@ -7144,8 +7247,8 @@ function Dashboard({ user, onLogout }) {
                 </div>
 
                 <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                  <button type="button" onClick={() => { setActiveTab('students'); setFeeSetupStudent(null); }} style={{ flex: 1, padding: '1rem', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-main)', fontWeight: 'bold', fontSize: '1.1rem' }}>Cancel</button>
-                  <button type="submit" style={{ flex: 1, padding: '1rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1.1rem' }}>Save Fee Structure</button>
+                  <button type="button" onClick={() => { setActiveTab(feeSetupReturnTab || 'payments'); setFeeSetupStudent(null); }} style={{ flex: 1, padding: '1rem', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-main)', fontWeight: 'bold', fontSize: '1.1rem' }}>Cancel</button>
+                  <button type="submit" style={{ flex: 1, padding: '1rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1.1rem' }}>Save Fee Structure & Remarks</button>
                 </div>
               </form>
             </div>
