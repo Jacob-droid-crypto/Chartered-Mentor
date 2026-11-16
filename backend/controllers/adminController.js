@@ -879,14 +879,15 @@ const updateInstallmentStatus = (user) => {
 const updateStudentFees = async (req, res) => {
   try {
     const { studentId } = req.params;
-    const { totalFees, installments } = req.body;
+    const { totalFees, installments, feeRemarks } = req.body;
     if (!studentId) return res.status(400).json({ message: "Student ID is required" });
     const cleanId = studentId.trim().toUpperCase();
     
     const user = await User.findOne({ userId: cleanId, role: "student" });
     if (!user) return res.status(404).json({ message: "Student not found" });
     
-    user.totalFees = Number(totalFees);
+    if (totalFees !== undefined && totalFees !== null && totalFees !== "") user.totalFees = Number(totalFees);
+    if (feeRemarks !== undefined) user.feeRemarks = feeRemarks;
     if (installments && Array.isArray(installments)) {
       // Clean up any legacy single lump-sum auto-generated records
       user.feeHistory = (user.feeHistory || []).filter(
@@ -897,7 +898,8 @@ const updateStudentFees = async (req, res) => {
         amount: Number(inst.amount),
         dueDate: new Date(inst.dueDate),
         status: inst.status || "Unpaid",
-        paidDate: inst.status === "Paid" ? (inst.paidDate ? new Date(inst.paidDate) : new Date()) : null
+        paidDate: inst.status === "Paid" ? (inst.paidDate ? new Date(inst.paidDate) : new Date()) : null,
+        remarks: inst.remarks || ""
       }));
 
       // Synchronize linked payments in user.feeHistory for each installment
@@ -913,13 +915,15 @@ const updateStudentFees = async (req, res) => {
             existingPayment.amount = pAmt;
             existingPayment.date = pDate;
             existingPayment.status = "Verified";
+            if (inst.remarks) existingPayment.remarks = inst.remarks;
           } else {
             user.feeHistory.push({
               amount: pAmt,
               date: pDate,
               receiptNo: `Verified (Installment ${instNum})`,
               status: "Verified",
-              installmentNumber: instNum
+              installmentNumber: instNum,
+              remarks: inst.remarks || ""
             });
           }
         } else {
@@ -946,10 +950,29 @@ const updateStudentFees = async (req, res) => {
   }
 };
 
+const updateStudentFeeRemarks = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const { feeRemarks } = req.body;
+    if (!studentId) return res.status(400).json({ message: "Student ID is required" });
+    const cleanId = studentId.trim().toUpperCase();
+    
+    const user = await User.findOne({ userId: cleanId, role: "student" });
+    if (!user) return res.status(404).json({ message: "Student not found" });
+    
+    user.feeRemarks = feeRemarks !== undefined ? feeRemarks : "";
+    await user.save();
+    res.json({ message: "Student fee remarks updated successfully", user });
+  } catch (err) {
+    console.error("Update fee remarks error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 const addStudentPayment = async (req, res) => {
   try {
     const { studentId } = req.params;
-    const { amount, date, receiptNo } = req.body;
+    const { amount, date, receiptNo, remarks } = req.body;
     if (!studentId) return res.status(400).json({ message: "Student ID is required" });
     const cleanId = studentId.trim().toUpperCase();
     
@@ -961,7 +984,8 @@ const addStudentPayment = async (req, res) => {
       amount: Number(amount),
       date: date ? new Date(date) : new Date(),
       receiptNo,
-      status: 'Paid'
+      status: 'Paid',
+      remarks: remarks || ""
     });
     
     // Recalculate installments paid status
@@ -1040,7 +1064,7 @@ const rejectStudentPayment = async (req, res) => {
 const editStudentPayment = async (req, res) => {
   try {
     const { studentId, paymentId } = req.params;
-    const { amount, date, status, receiptNo, installmentNumber } = req.body;
+    const { amount, date, status, receiptNo, installmentNumber, remarks } = req.body;
     
     const user = await User.findOne({ userId: studentId, role: "student" });
     if (!user) return res.status(404).json({ message: "Student not found" });
@@ -1055,6 +1079,7 @@ const editStudentPayment = async (req, res) => {
     if (installmentNumber !== undefined) {
       payment.installmentNumber = installmentNumber ? Number(installmentNumber) : null;
     }
+    if (remarks !== undefined) payment.remarks = remarks;
     
     // Recalculate total feesPaid from all Verified, Paid, or Received payments
     user.feesPaid = user.feeHistory
@@ -1134,6 +1159,7 @@ const updateStudentProfileByAdmin = async (req, res) => {
     if (motherPhone !== undefined) student.motherPhone = motherPhone;
     if (motherOccupation !== undefined) student.motherOccupation = motherOccupation;
     if (seatNumber !== undefined) student.seatNumber = seatNumber || null;
+    if (req.body.feeRemarks !== undefined) student.feeRemarks = req.body.feeRemarks;
 
     // Check if profile is complete (all required fields filled)
     if (
@@ -2052,6 +2078,7 @@ module.exports = {
   getPaymentConfig,
   updatePaymentConfig,
   updateStudentFees,
+  updateStudentFeeRemarks,
   addStudentPayment,
   approveStudentPayment,
   rejectStudentPayment,

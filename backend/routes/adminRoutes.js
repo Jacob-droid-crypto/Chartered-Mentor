@@ -24,6 +24,7 @@ const {
   getPaymentConfig,
   updatePaymentConfig,
   updateStudentFees,
+  updateStudentFeeRemarks,
   addStudentPayment,
   approveStudentPayment,
   rejectStudentPayment,
@@ -132,6 +133,7 @@ router.get("/goal-config", protect, adminOnly, getGoalConfig);
 router.post("/goal-config", protect, adminOnly, updateGoalConfig);
 router.delete("/goal-config/:id", protect, adminRoleRequired, deleteGoalConfig);
 router.post("/student/:studentId/fees", protect, adminRoleRequired, updateStudentFees);
+router.post("/student/:studentId/fee-remarks", protect, adminRoleRequired, updateStudentFeeRemarks);
 router.post("/student/:studentId/payment", protect, adminRoleRequired, addStudentPayment);
 router.post("/student/:studentId/profile", protect, adminOnly, updateStudentProfileByAdmin);
 
@@ -155,9 +157,3 @@ router.put("/batches/:id", protect, adminOnly, updateBatch);
 router.delete("/batches/:id", protect, adminOnly, deleteBatch);
 
 module.exports = router;
-
-
-
-
-
-

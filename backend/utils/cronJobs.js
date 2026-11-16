@@ -253,8 +253,37 @@ const executeCleanup = async () => {
   return stats;
 };
 
+/* ================= 4. SCHEDULE ALL CRON JOBS ================= */
+const startCronJobs = () => {
+  const cron = require("node-cron");
+
+  // Auto Logout — every day at 10:35 PM IST (17:05 UTC)
+  cron.schedule("35 17 * * *", async () => {
+    console.log("[Cron] Running auto-logout job...");
+    const stats = await executeAutoLogout();
+    console.log("[Cron] Auto-logout done:", stats);
+  });
+
+  // Fee Reminders — every day at 9:00 AM IST (03:30 UTC)
+  cron.schedule("30 3 * * *", async () => {
+    console.log("[Cron] Running fee reminder job...");
+    const stats = await executeFeeReminders();
+    console.log("[Cron] Fee reminders done:", stats);
+  });
+
+  // Cleanup — every day at 2:00 AM IST (20:30 UTC previous day)
+  cron.schedule("30 20 * * *", async () => {
+    console.log("[Cron] Running cleanup job...");
+    const stats = await executeCleanup();
+    console.log("[Cron] Cleanup done:", stats);
+  });
+
+  console.log("✅ Cron jobs scheduled (IST): Auto-Logout@22:35, Fee-Reminders@09:00, Cleanup@02:00");
+};
+
 module.exports = {
   executeFeeReminders,
   executeAutoLogout,
   executeCleanup,
+  startCronJobs,
 };

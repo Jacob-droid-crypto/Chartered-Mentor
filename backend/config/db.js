@@ -2,17 +2,50 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 
-const connectDB = async () => {
-  try {
-    await mongoose.connect(process.env.MONGODB_URI);
-    console.log("✅ MongoDB Connected Successfully");
+// Cached connection for Serverless environments (Vercel)
+let cached = global.mongoose;
+if (!cached) {
+  cached = global.mongoose = { conn: null, promise: null, seeded: false };
+}
 
-    // Initialize Default Admin & Staff
-    await createAdminAndStaffIfNotExists();
-  } catch (err) {
-    console.error("❌ MongoDB connection error:", err);
-    process.exit(1);
+const connectDB = async () => {
+  if (cached.conn && mongoose.connection.readyState === 1) {
+    return cached.conn;
   }
+
+  if (!cached.promise) {
+    const opts = {
+      bufferCommands: false,
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 5000,
+    };
+
+    cached.promise = mongoose.connect(process.env.MONGODB_URI, opts).then(async (mongooseInstance) => {
+      console.log("✅ MongoDB Connected Successfully");
+
+      // Only check default accounts once per container lifetime
+      if (!cached.seeded) {
+        cached.seeded = true;
+        try {
+          await createAdminAndStaffIfNotExists();
+        } catch (initErr) {
+          console.error("Error checking default accounts:", initErr.message);
+        }
+      }
+
+      return mongooseInstance;
+    });
+  }
+
+  try {
+    cached.conn = await cached.promise;
+  } catch (err) {
+    cached.promise = null;
+    console.error("❌ MongoDB connection error:", err);
+    throw err;
+  }
+
+  return cached.conn;
 };
 
 async function createAdminAndStaffIfNotExists() {
@@ -20,73 +53,35 @@ async function createAdminAndStaffIfNotExists() {
     const adminId = process.env.ADMIN_USERID || "CM.ADMIN";
     const adminPassword = process.env.ADMIN_PASSWORD || "growhigh";
 
-    let admin = await User.findOne({ role: "admin" });
+    // Fast check: Only check if an admin exists, skip heavy bcrypt on cold starts
+    let admin = await User.findOne({ role: "admin" }).select("_id userId");
 
     if (!admin) {
       const hashedPassword = await bcrypt.hash(adminPassword, 10);
-
       await User.create({
         userId: adminId,
         password: hashedPassword,
         role: "admin",
         firstLogin: true,
       });
-
       console.log(`✅ Default Admin Created with ID: ${adminId}`);
-    } else {
-      let isModified = false;
-      if (admin.userId !== adminId) {
-        console.log(`🔄 Renaming admin from ${admin.userId} to ${adminId}`);
-        admin.userId = adminId;
-        isModified = true;
-      }
-      
-      const isMatch = await bcrypt.compare(adminPassword, admin.password);
-      if (!isMatch) {
-        console.log("🔄 Updating admin password in database to match configuration");
-        admin.password = await bcrypt.hash(adminPassword, 10);
-        isModified = true;
-      }
-
-      if (isModified) {
-        await admin.save();
-      }
     }
 
     const staffId = process.env.STAFF_USERID || "CM.COORDINATOR";
     const staffPassword = process.env.STAFF_PASSWORD || "mentorpath";
 
-    let staff = await User.findOne({ role: "staff" });
+    // Fast check: Only check if a staff exists
+    let staff = await User.findOne({ role: "staff" }).select("_id userId");
 
     if (!staff) {
       const hashedPassword = await bcrypt.hash(staffPassword, 10);
-
       await User.create({
         userId: staffId,
         password: hashedPassword,
         role: "staff",
         firstLogin: false,
       });
-
       console.log(`✅ Default Staff Created with ID: ${staffId}`);
-    } else {
-      let isModified = false;
-      if (staff.userId !== staffId) {
-        console.log(`🔄 Renaming staff from ${staff.userId} to ${staffId}`);
-        staff.userId = staffId;
-        isModified = true;
-      }
-
-      const isMatch = await bcrypt.compare(staffPassword, staff.password);
-      if (!isMatch) {
-        console.log("🔄 Updating staff password in database to match configuration");
-        staff.password = await bcrypt.hash(staffPassword, 10);
-        isModified = true;
-      }
-
-      if (isModified) {
-        await staff.save();
-      }
     }
   } catch (error) {
     console.error("Admin/Staff creation error:", error);

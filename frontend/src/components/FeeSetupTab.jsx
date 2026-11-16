@@ -16,7 +16,7 @@ export default function FeeSetupTab({
         <h2>Set Fee Structure for {feeSetupStudent.name}</h2>
         <button onClick={() => { setActiveTab('students'); setFeeSetupStudent(null); }} style={{ padding: '0.5rem 1rem', background: 'transparent', border: '1px solid var(--text-muted)', color: 'var(--text-main)', borderRadius: '8px', cursor: 'pointer' }}>← Back to Students</button>
       </div>
-      <div className="card" style={{ maxWidth: '700px' }}>
+      <div className="card" style={{ maxWidth: '750px' }}>
         <form onSubmit={async (e) => {
           e.preventDefault();
 
@@ -47,7 +47,8 @@ export default function FeeSetupTab({
               headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 totalFees: totalCourseFee,
-                installments: insts
+                installments: insts,
+                feeRemarks: feeSetupStudent.feeRemarks || ''
               })
             });
             if (!res.ok) throw new Error(await res.text());
@@ -85,7 +86,7 @@ export default function FeeSetupTab({
                   const currentInsts = feeSetupStudent.installments || [];
                   setFeeSetupStudent({
                     ...feeSetupStudent,
-                    installments: [...currentInsts, { amount: '', dueDate: '', status: 'Unpaid' }]
+                    installments: [...currentInsts, { amount: '', dueDate: '', status: 'Unpaid', remarks: '' }]
                   });
                 }}
                 style={{ padding: '0.5rem 1rem', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}
@@ -113,7 +114,7 @@ export default function FeeSetupTab({
                       style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--glass-border)', color: 'var(--text-main)', background: 'transparent' }}
                     />
                   </div>
-                  <div style={{ flex: '1.2', minWidth: '160px' }}>
+                  <div style={{ flex: '1.2', minWidth: '150px' }}>
                     <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Due Date</label>
                     <input
                       type="date"
@@ -127,8 +128,8 @@ export default function FeeSetupTab({
                       style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--glass-border)', color: 'var(--text-main)', background: 'transparent' }}
                     />
                   </div>
-                  <div style={{ flex: '1', minWidth: '130px' }}>
-                    <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Verification Status</label>
+                  <div style={{ flex: '1', minWidth: '120px' }}>
+                    <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Status</label>
                     <select
                       value={inst.status || 'Unpaid'}
                       onChange={e => {
@@ -150,7 +151,7 @@ export default function FeeSetupTab({
                       <option value="Paid">Paid</option>
                     </select>
                   </div>
-                  <div style={{ flex: '1.2', minWidth: '160px' }}>
+                  <div style={{ flex: '1.2', minWidth: '140px' }}>
                     <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Date of Payment</label>
                     <input
                       type="date"
@@ -160,6 +161,20 @@ export default function FeeSetupTab({
                       onChange={e => {
                         const updated = [...feeSetupStudent.installments];
                         updated[index].paidDate = e.target.value;
+                        setFeeSetupStudent({ ...feeSetupStudent, installments: updated });
+                      }}
+                      style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--glass-border)', color: 'var(--text-main)', background: 'transparent' }}
+                    />
+                  </div>
+                  <div style={{ flex: '1.5', minWidth: '180px' }}>
+                    <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Breakup Remarks</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 1st installment, admission fee..."
+                      value={inst.remarks || ''}
+                      onChange={e => {
+                        const updated = [...feeSetupStudent.installments];
+                        updated[index].remarks = e.target.value;
                         setFeeSetupStudent({ ...feeSetupStudent, installments: updated });
                       }}
                       style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--glass-border)', color: 'var(--text-main)', background: 'transparent' }}
@@ -175,7 +190,7 @@ export default function FeeSetupTab({
                       style={{ alignSelf: 'flex-end', background: 'rgba(239, 68, 68, 0.08)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '0.5rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
                       title="Remove Installment"
                     >
-                      ❌ Remove
+                      ❌
                     </button>
                   )}
                 </div>
@@ -216,14 +231,35 @@ export default function FeeSetupTab({
             })()}
           </div>
 
+          <div style={{ background: 'white', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: 'var(--text-main)', fontSize: '1rem' }}>
+              📝 Student Payment Remarks (Paragraph Box)
+            </label>
+            <p style={{ margin: '0 0 0.8rem 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              Add overall payment notes, concession terms, parent discussions, or fee remarks for this student. You have the right to edit this anytime.
+            </p>
+            <textarea
+              rows={3}
+              placeholder="Enter overall payment remarks or notes for this student..."
+              value={feeSetupStudent.feeRemarks || ''}
+              onChange={e => {
+                setFeeSetupStudent({
+                  ...feeSetupStudent,
+                  feeRemarks: e.target.value
+                });
+              }}
+              style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)', fontSize: '0.95rem', background: '#f8fafc', color: 'var(--text-main)', resize: 'vertical' }}
+            />
+          </div>
+
           <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
             <button type="button" onClick={() => { setActiveTab('students'); setFeeSetupStudent(null); }} style={{ flex: 1, padding: '1rem', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-main)', fontWeight: 'bold', fontSize: '1.1rem' }}>Cancel</button>
-            <button type="submit" style={{ flex: 1, padding: '1rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1.1rem' }}>Save Fee Structure</button>
+            <button type="submit" style={{ flex: 1, padding: '1rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1.1rem' }}>Save Fee Structure & Remarks</button>
           </div>
         </form>
       </div>
 
-      <div className="card" style={{ maxWidth: '700px', marginTop: '2rem' }}>
+      <div className="card" style={{ maxWidth: '750px', marginTop: '2rem' }}>
         <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-main)' }}>💰 Payment History & Verification</h3>
         {feeSetupStudent.feeHistory && feeSetupStudent.feeHistory.length > 0 ? (
           <div className="activity-list">
@@ -239,6 +275,11 @@ export default function FeeSetupTab({
                         Installment {fee.installmentNumber}
                       </span>
                     )}
+                    {fee.remarks && (
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                        Note: {fee.remarks}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
@@ -252,7 +293,8 @@ export default function FeeSetupTab({
                       date: fee.date,
                       receiptNo: fee.receiptNo || '',
                       status: fee.status,
-                      installmentNumber: fee.installmentNumber || ''
+                      installmentNumber: fee.installmentNumber || '',
+                      remarks: fee.remarks || ''
                     })} style={{ padding: '0.3rem 0.8rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>✏️ Edit</button>
                     {fee.status === 'Pending' && (
                       <>

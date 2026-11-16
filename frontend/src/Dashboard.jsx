@@ -815,6 +815,8 @@ function Dashboard({ user, onLogout }) {
   const [feeSetupStudent, setFeeSetupStudent] = useState(null);
   const [showFeeDuePopup, setShowFeeDuePopup] = useState(false);
   const [editingPayment, setEditingPayment] = useState(null);
+  const [paymentSearchQuery, setPaymentSearchQuery] = useState('');
+  const [savedRemarkStudentId, setSavedRemarkStudentId] = useState(null);
 
   // Due Students Tab States
   const [dueSearchQuery, setDueSearchQuery] = useState('');
@@ -2476,6 +2478,7 @@ function Dashboard({ user, onLogout }) {
         row["Total Course Fee"] = student.totalFees || 0;
         row["Fees Paid"] = student.feesPaid || 0;
         row["Remaining Balance"] = (student.totalFees || 0) - (student.feesPaid || 0);
+        row["Payment Remarks"] = student.feeRemarks || "-";
 
         let maxInstallments = 0;
         students.forEach(s => {
@@ -2546,6 +2549,7 @@ function Dashboard({ user, onLogout }) {
           row[`Inst ${i + 1} Amount (₹)`] = inst ? inst.amount : "-";
           row[`Inst ${i + 1} Status`] = inst ? inst.status : "-";
           row[`Inst ${i + 1} Due Date`] = inst && inst.dueDate ? safeFormatDate(inst.dueDate) : "-";
+          row[`Inst ${i + 1} Remarks`] = inst && inst.remarks ? inst.remarks : "-";
           
           if (pays.length > 0) {
             row[`Inst ${i + 1} Paid Amount (₹)`] = pays.reduce((sum, p) => sum + p.amount, 0);
@@ -5521,6 +5525,184 @@ function Dashboard({ user, onLogout }) {
                   </form>
                 </div>
 
+                <div className="card" style={{ marginBottom: '2rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '1rem' }}>
+                    <div>
+                      <h3 style={{ margin: 0, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span>👥</span> Student Fee Ledger & Payment Remarks
+                      </h3>
+                      <p style={{ color: 'var(--text-muted)', margin: '0.3rem 0 0 0', fontSize: '0.9rem' }}>
+                        Track each student's fee breakups, balances, and maintain remarks in the paragraph box below. Editable anytime.
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <input
+                        type="text"
+                        placeholder="🔍 Search student name, ID, course..."
+                        value={paymentSearchQuery}
+                        onChange={e => setPaymentSearchQuery(e.target.value)}
+                        style={{ padding: '0.6rem 1rem', borderRadius: '8px', border: '1px solid var(--glass-border)', fontSize: '0.9rem', minWidth: '240px', background: 'white' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '850px' }}>
+                      <thead>
+                        <tr style={{ background: 'rgba(59, 130, 246, 0.05)', borderBottom: '2px solid var(--glass-border)', color: 'var(--text-main)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          <th style={{ padding: '0.8rem 1rem' }}>Student</th>
+                          <th style={{ padding: '0.8rem 1rem' }}>Total Fee</th>
+                          <th style={{ padding: '0.8rem 1rem' }}>Paid</th>
+                          <th style={{ padding: '0.8rem 1rem' }}>Balance</th>
+                          <th style={{ padding: '0.8rem 1rem', width: '220px' }}>Fee Breakup / Schedule</th>
+                          <th style={{ padding: '0.8rem 1rem', minWidth: '260px' }}>Payment Remarks (Paragraph Box)</th>
+                          <th style={{ padding: '0.8rem 1rem', textAlign: 'center' }}>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Array.isArray(students) && students
+                          .filter(s => {
+                            if (s.role !== 'student') return false;
+                            if (!paymentSearchQuery.trim()) return true;
+                            const q = paymentSearchQuery.toLowerCase();
+                            return (s.name && s.name.toLowerCase().includes(q)) ||
+                                   (s.userId && s.userId.toLowerCase().includes(q)) ||
+                                   (s.course && s.course.toLowerCase().includes(q)) ||
+                                   (s.batch && s.batch.toLowerCase().includes(q));
+                          })
+                          .map((stud) => {
+                            const totalFee = stud.totalFees || 0;
+                            const paid = stud.feesPaid || 0;
+                            const balance = totalFee - paid;
+                            return (
+                              <tr key={stud.userId} style={{ borderBottom: '1px solid var(--glass-border)', verticalAlign: 'top' }}>
+                                <td style={{ padding: '1rem' }}>
+                                  <strong style={{ color: 'var(--text-main)', display: 'block', fontSize: '0.95rem' }}>{stud.name}</strong>
+                                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>#{stud.userId} • {stud.course}</span>
+                                  {stud.batch && <div style={{ fontSize: '0.75rem', color: 'var(--primary-color)', fontWeight: 'bold' }}>Batch: {stud.batch}</div>}
+                                </td>
+                                <td style={{ padding: '1rem', fontWeight: 'bold', fontSize: '0.95rem', color: 'var(--text-main)' }}>
+                                  ₹{totalFee}
+                                </td>
+                                <td style={{ padding: '1rem', fontWeight: 'bold', fontSize: '0.95rem', color: '#10b981' }}>
+                                  ₹{paid}
+                                </td>
+                                <td style={{ padding: '1rem', fontWeight: 'bold', fontSize: '0.95rem', color: balance > 0 ? '#ef4444' : '#10b981' }}>
+                                  ₹{balance}
+                                  {stud.nextPaymentDueDate && (
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'normal', marginTop: '2px' }}>
+                                      Due: {new Date(stud.nextPaymentDueDate).toLocaleDateString()}
+                                    </div>
+                                  )}
+                                </td>
+                                <td style={{ padding: '1rem' }}>
+                                  {Array.isArray(stud.installments) && stud.installments.length > 0 ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                      {stud.installments.map((inst, iIdx) => (
+                                        <div key={iIdx} style={{ fontSize: '0.78rem', padding: '2px 6px', background: inst.status === 'Paid' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)', borderRadius: '4px', border: '1px solid ' + (inst.status === 'Paid' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)') }}>
+                                          <span style={{ fontWeight: 'bold' }}>Inst {iIdx + 1}: ₹{inst.amount}</span> ({inst.status})
+                                          {inst.remarks && <span style={{ color: '#4f46e5', marginLeft: '4px', fontWeight: 'bold' }}>• {inst.remarks}</span>}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No breakup set</span>
+                                  )}
+                                </td>
+                                <td style={{ padding: '1rem' }}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                    <textarea
+                                      rows={2}
+                                      placeholder="Enter payment remarks for this student..."
+                                      defaultValue={stud.feeRemarks || ''}
+                                      id={'student-fee-remark-' + stud.userId}
+                                      style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--glass-border)', fontSize: '0.85rem', background: 'white', color: 'var(--text-main)', resize: 'vertical' }}
+                                    />
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.5rem' }}>
+                                      {savedRemarkStudentId === stud.userId && (
+                                        <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 'bold' }}>✓ Saved!</span>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={async () => {
+                                          const val = document.getElementById('student-fee-remark-' + stud.userId)?.value || '';
+                                          try {
+                                            const res = await fetch('/admin/student/' + stud.userId + '/fee-remarks', {
+                                              method: 'POST',
+                                              headers: { 'Authorization': 'Bearer ' + user.token, 'Content-Type': 'application/json' },
+                                              body: JSON.stringify({ feeRemarks: val })
+                                            });
+                                            if (!res.ok) throw new Error(await res.text());
+                                            setSavedRemarkStudentId(stud.userId);
+                                            setTimeout(() => setSavedRemarkStudentId(null), 2500);
+                                            setStudents(prev => prev.map(s => s.userId === stud.userId ? { ...s, feeRemarks: val } : s));
+                                          } catch (err) {
+                                            alert('Error saving remarks: ' + err.message);
+                                          }
+                                        }}
+                                        style={{ padding: '0.3rem 0.75rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
+                                      >
+                                        💾 Save Remark
+                                      </button>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const formatInputDate = (d) => {
+                                        if (!d) return '';
+                                        const dateObj = new Date(d);
+                                        if (isNaN(dateObj.getTime())) return '';
+                                        const year = dateObj.getFullYear();
+                                        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                                        const day = String(dateObj.getDate()).padStart(2, '0');
+                                        return year + '-' + month + '-' + day;
+                                      };
+
+                                      const existingInstallments = Array.isArray(stud.installments) && stud.installments.length > 0
+                                        ? stud.installments.map(inst => ({
+                                          amount: inst.amount || '',
+                                          dueDate: formatInputDate(inst.dueDate),
+                                          status: inst.status || 'Unpaid',
+                                          paidDate: formatInputDate(inst.paidDate),
+                                          remarks: inst.remarks || ''
+                                        }))
+                                        : [
+                                          { amount: stud.totalFees ? Math.round(Number(stud.totalFees) / 3) : '', dueDate: '', status: 'Unpaid', remarks: '' },
+                                          { amount: stud.totalFees ? Math.round(Number(stud.totalFees) / 3) : '', dueDate: '', status: 'Unpaid', remarks: '' },
+                                          { amount: stud.totalFees ? (Number(stud.totalFees) - 2 * Math.round(Number(stud.totalFees) / 3)) : '', dueDate: '', status: 'Unpaid', remarks: '' }
+                                        ];
+
+                                      setFeeSetupStudent({
+                                        userId: stud.userId,
+                                        name: stud.name,
+                                        totalFees: stud.totalFees || '',
+                                        feeRemarks: stud.feeRemarks || '',
+                                        nextPaymentDueDate: formatInputDate(stud.nextPaymentDueDate),
+                                        installments: existingInstallments,
+                                        feeHistory: stud.feeHistory || [],
+                                        feesPaid: stud.feesPaid || 0
+                                      });
+                                      setActiveTab('feeSetup');
+                                    }}
+                                    style={{ padding: '0.4rem 0.8rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}
+                                  >
+                                    💰 Set Fees
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                    {(!students || students.filter(s => s.role === 'student').length === 0) && (
+                      <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>No student records found.</p>
+                    )}
+                  </div>
+                </div>
+
                 <div className="card">
                   <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-main)' }}>Recent Received Payments</h3>
                   <div className="activity-list">
@@ -5650,6 +5832,14 @@ function Dashboard({ user, onLogout }) {
                           {profileData?.nextPaymentDueDate ? new Date(profileData.nextPaymentDueDate).toLocaleDateString() : 'N/A'}
                         </div>
                       </div>
+                      {profileData?.feeRemarks && (
+                        <div style={{ marginTop: '1rem', padding: '0.8rem 1rem', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '8px', borderLeft: '4px solid #3b82f6' }}>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.5px' }}>📝 Administration Note</span>
+                          <p style={{ margin: '0.3rem 0 0 0', fontSize: '0.9rem', color: 'var(--text-main)', whiteSpace: 'pre-wrap' }}>
+                            {profileData.feeRemarks}
+                          </p>
+                        </div>
+                      )}
 
                       {profileData?.installments && profileData.installments.length > 0 && (
                         <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px dashed rgba(0, 0, 0, 0.1)' }}>
@@ -6748,7 +6938,8 @@ function Dashboard({ user, onLogout }) {
                     headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                       totalFees: totalCourseFee,
-                      installments: insts
+                      installments: insts,
+                      feeRemarks: feeSetupStudent.feeRemarks || ''
                     })
                   });
                   if (!res.ok) throw new Error(await res.text());
@@ -6786,7 +6977,7 @@ function Dashboard({ user, onLogout }) {
                         const currentInsts = feeSetupStudent.installments || [];
                         setFeeSetupStudent({
                           ...feeSetupStudent,
-                          installments: [...currentInsts, { amount: '', dueDate: '', status: 'Unpaid' }]
+                          installments: [...currentInsts, { amount: '', dueDate: '', status: 'Unpaid', remarks: '' }]
                         });
                       }}
                       style={{ padding: '0.5rem 1rem', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}
@@ -6866,6 +7057,20 @@ function Dashboard({ user, onLogout }) {
                             style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--glass-border)', color: 'var(--text-main)', background: 'transparent' }}
                           />
                         </div>
+                        <div style={{ flex: '1.5', minWidth: '180px' }}>
+                          <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Breakup Remarks</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. 1st installment, admission fee..."
+                            value={inst.remarks || ''}
+                            onChange={e => {
+                              const updated = [...feeSetupStudent.installments];
+                              updated[index].remarks = e.target.value;
+                              setFeeSetupStudent({ ...feeSetupStudent, installments: updated });
+                            }}
+                            style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--glass-border)', color: 'var(--text-main)', background: 'transparent' }}
+                          />
+                        </div>
                         {(feeSetupStudent.installments || []).length > 1 && (
                           <button
                             type="button"
@@ -6915,6 +7120,27 @@ function Dashboard({ user, onLogout }) {
                       </div>
                     );
                   })()}
+                </div>
+
+                <div style={{ background: 'white', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: 'var(--text-main)', fontSize: '1rem' }}>
+                    📝 Student Payment Remarks (Paragraph Box)
+                  </label>
+                  <p style={{ margin: '0 0 0.8rem 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    Add overall payment notes, concession terms, parent discussions, or fee remarks for this student. You have the right to edit this anytime.
+                  </p>
+                  <textarea
+                    rows={3}
+                    placeholder="Enter overall payment remarks or notes for this student..."
+                    value={feeSetupStudent.feeRemarks || ''}
+                    onChange={e => {
+                      setFeeSetupStudent({
+                        ...feeSetupStudent,
+                        feeRemarks: e.target.value
+                      });
+                    }}
+                    style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)', fontSize: '0.95rem', background: '#f8fafc', color: 'var(--text-main)', resize: 'vertical' }}
+                  />
                 </div>
 
                 <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
@@ -8148,7 +8374,8 @@ function Dashboard({ user, onLogout }) {
                                     amount: inst.amount || '',
                                     dueDate: formatInputDate(inst.dueDate),
                                     status: inst.status || 'Unpaid',
-                                    paidDate: formatInputDate(inst.paidDate)
+                                    paidDate: formatInputDate(inst.paidDate),
+                                    remarks: inst.remarks || ''
                                   }))
                                   : [
                                     { amount: student.totalFees ? Math.round(Number(student.totalFees) / 3) : '', dueDate: '', status: 'Unpaid' },
@@ -8160,6 +8387,7 @@ function Dashboard({ user, onLogout }) {
                                   userId: student.userId,
                                   name: student.name,
                                   totalFees: student.totalFees || '',
+                                  feeRemarks: student.feeRemarks || '',
                                   nextPaymentDueDate: formatInputDate(student.nextPaymentDueDate),
                                   installments: existingInstallments,
                                   feeHistory: student.feeHistory || [],
@@ -8647,7 +8875,14 @@ function Dashboard({ user, onLogout }) {
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                             {viewingProfileStudent.installments.map((inst, idx) => (
                               <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white', padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
-                                <span style={{ fontWeight: 'bold', fontSize: '0.85rem', color: 'var(--text-main)' }}>Installment {idx + 1}: ₹{inst.adjustedAmount !== undefined ? inst.adjustedAmount : inst.amount}</span>
+                                <span style={{ fontWeight: 'bold', fontSize: '0.85rem', color: 'var(--text-main)' }}>
+                                  Installment {idx + 1}: ₹{inst.adjustedAmount !== undefined ? inst.adjustedAmount : inst.amount}
+                                  {inst.remarks && (
+                                    <span style={{ marginLeft: '0.4rem', fontSize: '0.75rem', color: '#6366f1', background: 'rgba(99, 102, 241, 0.08)', padding: '1px 6px', borderRadius: '4px' }}>
+                                      🏷️ {inst.remarks}
+                                    </span>
+                                  )}
+                                </span>
                                 <div style={{ fontSize: '0.85rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                                   <span style={{ color: 'var(--text-muted)' }}>Due: {new Date(inst.dueDate).toLocaleDateString()}</span>
                                   {inst.status === 'Paid' ? (
@@ -8746,6 +8981,44 @@ function Dashboard({ user, onLogout }) {
                           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No payment history available.</p>
                         )}
                       </div>
+
+                      {/* Payment Remarks in Profile */}
+                      <div style={{ marginTop: '1rem', background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-main)', marginBottom: '0.3rem' }}>
+                          📝 Payment Remarks (Paragraph Box)
+                        </label>
+                        <textarea
+                          rows={2}
+                          defaultValue={viewingProfileStudent.feeRemarks || ''}
+                          id={'profile-fee-remarks-' + viewingProfileStudent.userId}
+                          placeholder="Add or edit payment remarks for this student..."
+                          style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid var(--glass-border)', fontSize: '0.85rem', resize: 'vertical', background: 'white' }}
+                        />
+                        <div style={{ textAlign: 'right', marginTop: '0.5rem' }}>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const val = document.getElementById('profile-fee-remarks-' + viewingProfileStudent.userId)?.value || '';
+                              try {
+                                const res = await fetch('/admin/student/' + viewingProfileStudent.userId + '/fee-remarks', {
+                                  method: 'POST',
+                                  headers: { 'Authorization': 'Bearer ' + user.token, 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ feeRemarks: val })
+                                });
+                                if (!res.ok) throw new Error(await res.text());
+                                alert('Remarks updated successfully!');
+                                setViewingProfileStudent(prev => ({ ...prev, feeRemarks: val }));
+                                fetchStudentsData();
+                              } catch (e) {
+                                alert('Error: ' + e.message);
+                              }
+                            }}
+                            style={{ padding: '0.35rem 0.9rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
+                          >
+                            💾 Save Remark
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   )}
 
@@ -8832,7 +9105,8 @@ function Dashboard({ user, onLogout }) {
                     receiptNo: e.target.receiptNo.value,
                     date: new Date(e.target.date.value).toISOString(),
                     status: e.target.status.value,
-                    installmentNumber: e.target.installmentNumber.value ? Number(e.target.installmentNumber.value) : null
+                    installmentNumber: e.target.installmentNumber.value ? Number(e.target.installmentNumber.value) : null,
+                    remarks: e.target.remarks ? e.target.remarks.value : undefined
                   })
                 });
                 const resData = await res.json();
@@ -8900,6 +9174,17 @@ function Dashboard({ user, onLogout }) {
                   <option value="Paid">Paid</option>
                   <option value="Rejected">Rejected</option>
                 </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Payment Remarks / Notes</label>
+                <textarea
+                  name="remarks"
+                  rows={2}
+                  defaultValue={editingPayment.remarks || ''}
+                  placeholder="Notes for this payment..."
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)', resize: 'vertical' }}
+                />
               </div>
 
               <div>

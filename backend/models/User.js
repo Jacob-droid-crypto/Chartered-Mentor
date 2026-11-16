@@ -107,19 +107,25 @@ const userSchema = new mongoose.Schema({
   nextPaymentDueDate: {
     type: Date
   },
+  feeRemarks: {
+    type: String,
+    default: ""
+  },
   feeHistory: [{
     amount: Number,
     date: { type: Date, default: Date.now },
     status: { type: String, default: 'Paid' },
     receiptNo: String,
-    installmentNumber: Number
+    installmentNumber: Number,
+    remarks: { type: String, default: "" }
   }],
   installments: [{
     amount: { type: Number, required: true },
     adjustedAmount: { type: Number },
     dueDate: { type: Date, required: true },
     status: { type: String, enum: ["Unpaid", "Paid"], default: "Unpaid" },
-    paidDate: { type: Date }
+    paidDate: { type: Date },
+    remarks: { type: String, default: "" }
   }],
   fines: [{
     amount: { type: Number, required: true },

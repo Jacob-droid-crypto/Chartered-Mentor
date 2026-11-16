@@ -230,6 +230,11 @@ export default function StudentsTab({
                         <span style={{ color: '#ef4444' }}>Due: ₹{(student.totalFees || 0) - (student.feesPaid || 0)}</span>
                       </div>
                     )}
+                    {student.feeRemarks && (
+                      <div style={{ marginTop: '0.3rem', fontSize: '0.8rem', color: '#4f46e5', background: 'rgba(79, 70, 229, 0.08)', padding: '2px 8px', borderRadius: '4px', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={student.feeRemarks}>
+                        📝 Remark: {student.feeRemarks}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -272,18 +277,20 @@ export default function StudentsTab({
                               amount: inst.amount || '',
                               dueDate: formatInputDate(inst.dueDate),
                               status: inst.status || 'Unpaid',
-                              paidDate: formatInputDate(inst.paidDate)
+                              paidDate: formatInputDate(inst.paidDate),
+                              remarks: inst.remarks || ''
                             }))
                             : [
-                              { amount: student.totalFees ? Math.round(Number(student.totalFees) / 3) : '', dueDate: '', status: 'Unpaid' },
-                              { amount: student.totalFees ? Math.round(Number(student.totalFees) / 3) : '', dueDate: '', status: 'Unpaid' },
-                              { amount: student.totalFees ? (Number(student.totalFees) - 2 * Math.round(Number(student.totalFees) / 3)) : '', dueDate: '', status: 'Unpaid' }
+                              { amount: student.totalFees ? Math.round(Number(student.totalFees) / 3) : '', dueDate: '', status: 'Unpaid', remarks: '' },
+                              { amount: student.totalFees ? Math.round(Number(student.totalFees) / 3) : '', dueDate: '', status: 'Unpaid', remarks: '' },
+                              { amount: student.totalFees ? (Number(student.totalFees) - 2 * Math.round(Number(student.totalFees) / 3)) : '', dueDate: '', status: 'Unpaid', remarks: '' }
                             ];
 
                           setFeeSetupStudent({
                             userId: student.userId,
                             name: student.name,
                             totalFees: student.totalFees || '',
+                            feeRemarks: student.feeRemarks || '',
                             nextPaymentDueDate: formatInputDate(student.nextPaymentDueDate),
                             installments: existingInstallments,
                             feeHistory: student.feeHistory || [],

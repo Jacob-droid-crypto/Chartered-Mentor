@@ -905,7 +905,7 @@ const submitPayment = async (req, res) => {
     const user = req.user;
     if (!user || user.role !== 'student') return res.status(403).json({ message: "Unauthorized" });
 
-    const { amount, receiptNo } = req.body;
+    const { amount, receiptNo, remarks } = req.body;
     if (!amount || isNaN(amount) || amount <= 0) {
       return res.status(400).json({ message: "Invalid payment amount" });
     }
@@ -918,7 +918,8 @@ const submitPayment = async (req, res) => {
       amount: Number(amount),
       date: new Date(),
       receiptNo: receiptNo || "Self-Reported",
-      status: "Pending"
+      status: "Pending",
+      remarks: remarks || ""
     });
 
     await studentRecord.save();
