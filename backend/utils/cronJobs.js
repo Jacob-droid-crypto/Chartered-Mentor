@@ -1,0 +1,289 @@
+const User = require("../models/User");
+const Attendance = require("../models/Attendance");
+const GoalConfig = require("../models/GoalConfig");
+const Schedule = require("../models/Schedule");
+const QuestionPaper = require("../models/QuestionPaper");
+
+const getISTDateString = (date = new Date()) => {
+  const shifted = new Date(date.getTime() + 5.5 * 60 * 60 * 1000);
+  return shifted.toISOString().split("T")[0];
+};
+
+/* ================= FEE REMINDER EMAIL UTILITY ================= */
+const sendFeeReminderEmail = async (student, balance, dueDateStr) => {
+  const { email, name } = student;
+  const frontendURL = process.env.FRONTEND_URL || "http://localhost:5173";
+
+  let emailSent = false;
+
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+      <h2 style="color: #ef4444; text-align: center;">Fee Payment Reminder</h2>
+      <p>Hello ${name},</p>
+      <p>This is a friendly reminder that your upcoming fee payment is due in <strong>2 days</strong>.</p>
+      <div style="background: #f9fafb; padding: 15px; border-radius: 8px; margin: 20px 0;">
+        <p style="margin: 0 0 10px 0;"><strong>Due Date:</strong> ${dueDateStr}</p>
+        <p style="margin: 0;"><strong>Remaining Balance:</strong> ₹${balance}</p>
+      </div>
+      <p>Please log in to your dashboard to view the institute's payment instructions and clear your dues.</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${frontendURL}" style="display: inline-block; padding: 12px 24px; background: #4f46e5; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">Go to Dashboard</a>
+      </div>
+      <p style="font-size: 12px; color: #888; text-align: center;">If you have already made the payment, please disregard this email.</p>
+    </div>
+  `;
+
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const { Resend } = require("resend");
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      const { data, error } = await resend.emails.send({
+        from:
+          process.env.RESEND_FROM_EMAIL ||
+          "Chartered Mentor <onboarding@resend.dev>",
+        to: email,
+        subject: "Action Required: Fee Payment Reminder",
+        html: htmlContent,
+      });
+      if (!error) emailSent = true;
+    } catch (err) {
+      console.error("Resend error sending fee reminder:", err);
+    }
+  }
+
+  if (!emailSent && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+    try {
+      const nodemailer = require("nodemailer");
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        },
+      });
+      await transporter.sendMail({
+        from: `"Chartered Mentor" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: "Action Required: Fee Payment Reminder",
+        html: htmlContent,
+      });
+      emailSent = true;
+    } catch (err) {
+      console.error("Nodemailer error sending fee reminder:", err);
+    }
+  }
+
+  if (!emailSent) {
+    console.error("Failed to send fee reminder to:", email);
+  } else {
+    console.log("Fee reminder sent successfully to:", email);
+  }
+  return emailSent;
+};
+
+/* ================= 1. EXECUTE FEE REMINDERS ================= */
+const executeFeeReminders = async () => {
+  console.log("Running fee reminder job...");
+  const stats = { sent: 0, failed: 0, recipients: [] };
+  try {
+    const targetDate = new Date();
+    targetDate.setDate(targetDate.getDate() + 2);
+
+    const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999));
+
+    const students = await User.find({
+      role: "student",
+      nextPaymentDueDate: {
+        $gte: startOfDay,
+        $lte: endOfDay,
+      },
+    });
+
+    for (const student of students) {
+      const balance = (student.totalFees || 0) - (student.feesPaid || 0);
+      if (balance > 0) {
+        const dueDateStr = new Date(
+          student.nextPaymentDueDate,
+        ).toLocaleDateString();
+        const sent = await sendFeeReminderEmail(student, balance, dueDateStr);
+        if (sent) {
+          stats.sent++;
+          stats.recipients.push(student.email);
+        } else {
+          stats.failed++;
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error in fee reminder job:", error);
+    stats.error = error.message;
+  }
+  return stats;
+};
+
+/* ================= 2. EXECUTE AUTO LOGOUT ================= */
+const executeAutoLogout = async () => {
+  const stats = { checkedOut: [], skippedOnline: [], errors: 0 };
+  try {
+    // Find all students whose last attendance record is "IN"
+    const checkedIn = await Attendance.aggregate([
+      { $sort: { timestamp: 1, createdAt: 1 } },
+      {
+        $group: {
+          _id: "$studentId",
+          lastRecord: { $last: "$$ROOT" },
+        },
+      },
+      {
+        $match: {
+          "lastRecord.type": "IN",
+        },
+      },
+    ]);
+
+    if (checkedIn.length === 0) {
+      return stats;
+    }
+
+    const todayStr = getISTDateString();
+    const now = new Date();
+
+    // Retrieve all global configurations to resolve effective configs quickly
+    const defaultConfigs = await GoalConfig.find({ studentId: null }).sort({
+      effectiveFrom: -1,
+    });
+
+    for (const group of checkedIn) {
+      const studentId = group._id;
+      const lastInLog = group.lastRecord;
+      const checkInDate = lastInLog.date; // YYYY-MM-DD format
+
+      // Resolve active goal configuration on the check-in date
+      const config =
+        defaultConfigs.find((c) => c.effectiveFrom <= checkInDate) ||
+        defaultConfigs[defaultConfigs.length - 1];
+
+      if (!config || !config.autoLogoutEnabled || !config.autoLogoutTime) {
+        continue;
+      }
+
+      // Auto logout threshold for that specific check-in date
+      const autoLogoutTimestamp = new Date(
+        `${checkInDate}T${config.autoLogoutTime}:00+05:30`,
+      );
+
+      // Determine if we should trigger checkout
+      let shouldCheckout = false;
+      let checkoutTimestamp = autoLogoutTimestamp;
+
+      if (checkInDate < todayStr) {
+        // If check-in date is a past day, they should always be logged out (since we are past that day's auto-logout window)
+        shouldCheckout = true;
+        if (new Date(lastInLog.timestamp) >= autoLogoutTimestamp) {
+          checkoutTimestamp = new Date(`${checkInDate}T23:59:59+05:30`);
+        }
+      } else if (checkInDate === todayStr) {
+        // If check-in date is today, checkout only if the current time is past the auto-logout time set by admin
+        if (
+          now >= autoLogoutTimestamp &&
+          new Date(lastInLog.timestamp) < autoLogoutTimestamp
+        ) {
+          shouldCheckout = true;
+        }
+      }
+
+      if (shouldCheckout) {
+        const student = await User.findOne({ userId: studentId });
+        if (student) {
+          if (student.mode === "online") {
+            stats.skippedOnline.push(studentId);
+            continue;
+          }
+          console.log(
+            `[Auto Logout] Checking OUT student ${studentId} automatically for date ${checkInDate} target time ${config.autoLogoutTime}`,
+          );
+
+          await Attendance.create({
+            studentId,
+            course: student.course,
+            type: "OUT",
+            date: checkInDate,
+            timestamp: checkoutTimestamp,
+          });
+
+          stats.checkedOut.push({
+            studentId,
+            date: checkInDate,
+            time: config.autoLogoutTime,
+          });
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error in executeAutoLogout:", error);
+    stats.errors++;
+  }
+  return stats;
+};
+
+/* ================= 3. EXECUTE CLEANUP ================= */
+const executeCleanup = async () => {
+  console.log("Running auto-delete cleanup job...");
+  const stats = { schedulesDeleted: 0, papersDeleted: 0 };
+  try {
+    // 1. Delete schedules opened more than 10 days ago
+    const scheduleThreshold = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+    const scheduleRes = await Schedule.deleteMany({
+      openedAt: { $ne: null, $lte: scheduleThreshold },
+    });
+    stats.schedulesDeleted = scheduleRes.deletedCount || 0;
+
+    // 2. Delete question papers started more than 3 days ago (only if no answer sheet uploaded)
+    const paperThreshold = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+    const paperRes = await QuestionPaper.deleteMany({
+      startTime: { $ne: null, $lte: paperThreshold },
+      answerFileData: null,
+    });
+    stats.papersDeleted = paperRes.deletedCount || 0;
+  } catch (error) {
+    console.error("Error in cleanup job:", error);
+    stats.error = error.message;
+  }
+  return stats;
+};
+
+/* ================= 4. SCHEDULE ALL CRON JOBS ================= */
+const startCronJobs = () => {
+  const cron = require("node-cron");
+
+  // Auto Logout — every day at 10:35 PM IST (17:05 UTC)
+  cron.schedule("35 17 * * *", async () => {
+    console.log("[Cron] Running auto-logout job...");
+    const stats = await executeAutoLogout();
+    console.log("[Cron] Auto-logout done:", stats);
+  });
+
+  // Fee Reminders — every day at 9:00 AM IST (03:30 UTC)
+  cron.schedule("30 3 * * *", async () => {
+    console.log("[Cron] Running fee reminder job...");
+    const stats = await executeFeeReminders();
+    console.log("[Cron] Fee reminders done:", stats);
+  });
+
+  // Cleanup — every day at 2:00 AM IST (20:30 UTC previous day)
+  cron.schedule("30 20 * * *", async () => {
+    console.log("[Cron] Running cleanup job...");
+    const stats = await executeCleanup();
+    console.log("[Cron] Cleanup done:", stats);
+  });
+
+  console.log("✅ Cron jobs scheduled (IST): Auto-Logout@22:35, Fee-Reminders@09:00, Cleanup@02:00");
+};
+
+module.exports = {
+  executeFeeReminders,
+  executeAutoLogout,
+  executeCleanup,
+  startCronJobs,
+};

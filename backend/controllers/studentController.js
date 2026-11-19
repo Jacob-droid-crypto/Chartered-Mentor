@@ -1,0 +1,1311 @@
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
+const nodemailer = require("nodemailer");
+const { OAuth2Client } = require("google-auth-library");
+const User = require("../models/User");
+const Attendance = require("../models/Attendance");
+const AttendanceAdjustment = require("../models/AttendanceAdjustment");
+const Schedule = require("../models/Schedule");
+const ExamSchedule = require("../models/ExamSchedule");
+const CampusQR = require("../models/CampusQR");
+const CampusNetwork = require("../models/CampusNetwork");
+
+const isIpInCidr = (ip, cidr) => {
+  try {
+    const [range, bits = 32] = cidr.split("/");
+    const mask = ~(2 ** (32 - parseInt(bits, 10)) - 1);
+    const ip2long = (ipStr) => ipStr.split(".").reduce((acc, oct) => (acc << 8) + parseInt(oct, 10), 0) >>> 0;
+    return (ip2long(ip) & mask) === (ip2long(range) & mask);
+  } catch (e) {
+    return false;
+  }
+};
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+const generateToken = (userId, role) => {
+  return jwt.sign({ userId, role }, process.env.JWT_SECRET || "fallback_secret", {
+    expiresIn: "45d",
+  });
+};
+
+const getISTDateString = (date = new Date()) => {
+  const shifted = new Date(date.getTime() + 5.5 * 60 * 60 * 1000);
+  return shifted.toISOString().split("T")[0];
+};
+
+/* ================= STUDENT LOGIN ================= */
+const loginStudent = async (req, res) => {
+  try {
+    const { userId, password } = req.body;
+    if (!userId) return res.status(400).json({ message: "User ID is required" });
+    const cleanId = userId.trim();
+
+    const student = await User.findOne({
+      $or: [
+        { userId: cleanId.toUpperCase() },
+        { email: { $regex: new RegExp(`^${cleanId}$`, "i") } }
+      ],
+      role: "student"
+    });
+    if (!student) return res.status(404).json({ message: "Student not found" });
+
+    const isMatch = await bcrypt.compare(password, student.password);
+    if (!isMatch) return res.status(401).json({ message: "Invalid password" });
+
+    res.json({
+      message: "Login successful",
+      studentId: student.userId,
+      name: student.name,
+      firstLogin: student.firstLogin,
+      profileCompleted: student.profileCompleted || false,
+      token: generateToken(student.userId, student.role),
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* ================= CHANGE STUDENT PASSWORD ================= */
+const changePassword = async (req, res) => {
+  try {
+    const { userId, newPassword } = req.body;
+
+    if (!userId || !newPassword) {
+      return res.status(400).json({ message: "Missing data" });
+    }
+    const cleanId = userId.trim().toUpperCase();
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await User.updateOne(
+      { userId: cleanId, role: "student" },
+      { password: hashedPassword, firstLogin: false },
+    );
+
+    res.json({ message: "Password updated successfully" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* ================= DASHBOARD INFO ================= */
+const getDashboard = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    if (!studentId) return res.status(400).json({ message: "Student ID is required" });
+    const cleanId = studentId.trim().toUpperCase();
+
+    const student = await User.findOne(
+      { userId: cleanId, role: "student" },
+      { password: 0 },
+    );
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    const today = getISTDateString();
+
+    const logs = await Attendance.find({
+      studentId: cleanId,
+      date: today,
+    }).sort({ createdAt: 1 });
+
+    const allLogs = await Attendance.find({ studentId: cleanId }).sort({ timestamp: 1 });
+    const adjustments = await AttendanceAdjustment.find({ studentId: cleanId });
+    const adjMap = {};
+    adjustments.forEach(a => {
+      adjMap[a.date] = a;
+    });
+
+    const groupedLogs = {};
+    allLogs.forEach((r) => {
+      const key = r.date;
+      if (!groupedLogs[key]) {
+        groupedLogs[key] = [];
+      }
+      groupedLogs[key].push(r);
+    });
+
+    const summary = {};
+    for (const key in groupedLogs) {
+      const dayLogs = groupedLogs[key];
+      
+      let totalMs = 0;
+      let lastInTime = null;
+      const hasIN = dayLogs.some(log => log.type === "IN");
+      const hasOUT = dayLogs[dayLogs.length - 1].type === "OUT";
+      
+      dayLogs.forEach(log => {
+        const logTime = log.timestamp ? new Date(log.timestamp).getTime() : (log.createdAt ? new Date(log.createdAt).getTime() : 0);
+        if (log.type === "IN") {
+          if (lastInTime === null) {
+            lastInTime = logTime;
+          }
+        } else if (log.type === "OUT") {
+          if (lastInTime !== null) {
+            totalMs += Math.max(0, logTime - lastInTime);
+            lastInTime = null;
+          }
+        }
+      });
+      
+      if (lastInTime !== null) {
+        if (key === today) {
+          totalMs += Math.max(0, Date.now() - lastInTime);
+        } else {
+          const latestLog = dayLogs[dayLogs.length - 1];
+          const latestTime = latestLog.timestamp ? new Date(latestLog.timestamp).getTime() : (latestLog.createdAt ? new Date(latestLog.createdAt).getTime() : 0);
+          totalMs += Math.max(0, latestTime - lastInTime);
+        }
+      }
+
+      let firstIn = null;
+      const firstInLog = dayLogs.find(log => log.type === "IN");
+      if (firstInLog) {
+        firstIn = firstInLog.timestamp ? new Date(firstInLog.timestamp).getTime() : (firstInLog.createdAt ? new Date(firstInLog.createdAt).getTime() : 0);
+      }
+
+      const adj = adjMap[key];
+      const adjType = adj?.type || (adj?.deductionMinutes > 0 ? "DEDUCT" : (adj?.minutes > 0 ? "ADD" : "NONE"));
+      const adjMinutes = adj ? (adj.minutes !== undefined ? adj.minutes : (adj.deductionMinutes || 0)) : 0;
+      const adjHours = adjMinutes / 60;
+      const deductionMinutes = adjType === "DEDUCT" ? adjMinutes : 0;
+      const deductionHours = deductionMinutes / 60;
+      const addedMinutes = adjType === "ADD" ? adjMinutes : 0;
+      const addedHours = addedMinutes / 60;
+      const deductionReason = adj ? adj.reason : "";
+      const adjustmentReason = adj ? adj.reason : "";
+      const rawHours = totalMs / (1000 * 60 * 60);
+      let netHours = rawHours;
+      if (adjType === "ADD") {
+        netHours = rawHours + addedHours;
+      } else if (adjType === "DEDUCT") {
+        netHours = Math.max(0, rawHours - deductionHours);
+      }
+
+      summary[key] = {
+        studentId: dayLogs[0].studentId,
+        course: dayLogs[0].course,
+        date: key,
+        hasIN,
+        hasOUT,
+        totalMs,
+        rawHours,
+        adjustmentType: adj ? adjType : null,
+        adjustmentMinutes: adjMinutes,
+        adjustmentHours: adjHours,
+        deductionMinutes,
+        deductionHours,
+        addedMinutes,
+        addedHours,
+        deductionReason,
+        adjustmentReason,
+        totalHours: netHours,
+        firstIn
+      };
+    }
+
+    // Include adjustments for days when the student had no biometric logs
+    adjustments.forEach(adj => {
+      const key = adj.date;
+      if (!summary[key]) {
+        const adjType = adj.type || (adj.deductionMinutes > 0 ? "DEDUCT" : (adj.minutes > 0 ? "ADD" : "NONE"));
+        const adjMinutes = adj.minutes !== undefined ? adj.minutes : (adj.deductionMinutes || 0);
+        const adjHours = adjMinutes / 60;
+        const deductionMinutes = adjType === "DEDUCT" ? adjMinutes : 0;
+        const deductionHours = deductionMinutes / 60;
+        const addedMinutes = adjType === "ADD" ? adjMinutes : 0;
+        const addedHours = addedMinutes / 60;
+        const deductionReason = adj.reason || "";
+        const adjustmentReason = adj.reason || "";
+        const rawHours = 0;
+        const netHours = adjType === "ADD" ? addedHours : 0;
+
+        summary[key] = {
+          studentId: student.userId,
+          course: student.course || "-",
+          date: key,
+          hasIN: false,
+          hasOUT: false,
+          totalMs: 0,
+          rawHours: 0,
+          adjustmentType: adjType,
+          adjustmentMinutes: adjMinutes,
+          adjustmentHours: adjHours,
+          deductionMinutes,
+          deductionHours,
+          addedMinutes,
+          addedHours,
+          deductionReason,
+          adjustmentReason,
+          totalHours: netHours,
+          firstIn: null
+        };
+      }
+    });
+
+    const attendanceSummary = Object.values(summary).map((s) => ({
+      studentId: s.studentId,
+      course: s.course,
+      date: s.date,
+      rawHours: s.rawHours,
+      adjustmentType: s.adjustmentType,
+      adjustmentMinutes: s.adjustmentMinutes,
+      adjustmentHours: s.adjustmentHours,
+      deductionMinutes: s.deductionMinutes,
+      deductionHours: s.deductionHours,
+      addedMinutes: s.addedMinutes,
+      addedHours: s.addedHours,
+      deductionReason: s.deductionReason,
+      adjustmentReason: s.adjustmentReason,
+      totalHours: s.totalHours,
+      status: (s.hasIN || (s.adjustmentType === 'ADD' && s.totalHours > 0)) ? "Present" : "Absent",
+      firstIn: s.firstIn ? new Date(s.firstIn).toISOString() : null,
+      hasOUT: s.hasOUT,
+    }));
+
+    const attendanceAdjustments = adjustments
+      .filter(a => (a.minutes > 0 || a.deductionMinutes > 0))
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .map(a => {
+        const type = a.type || (a.deductionMinutes > 0 ? "DEDUCT" : "ADD");
+        const mins = a.minutes !== undefined ? a.minutes : (a.deductionMinutes || 0);
+        return {
+          date: a.date,
+          type,
+          minutes: mins,
+          hours: mins / 60,
+          deductionMinutes: type === "DEDUCT" ? mins : 0,
+          deductionHours: type === "DEDUCT" ? mins / 60 : 0,
+          addedMinutes: type === "ADD" ? mins : 0,
+          addedHours: type === "ADD" ? mins / 60 : 0,
+          reason: a.reason,
+          adjustedBy: a.adjustedBy
+        };
+      });
+
+    res.json({
+      studentId: student.userId,
+      name: student.name,
+      email: student.email,
+      phone: student.phone,
+      course: student.course,
+      mode: student.mode || "residential",
+      seatNumber: student.seatNumber || null,
+      profilePhoto: student.profilePhoto,
+      totalFees: student.totalFees,
+      feesPaid: student.feesPaid,
+      nextPaymentDueDate: student.nextPaymentDueDate,
+      feeHistory: student.feeHistory,
+      todayLogs: logs,
+      attendanceSummary,
+      attendanceAdjustments,
+      address: student.address || "",
+      group: student.group || "",
+      aadharNumber: student.aadharNumber || "",
+      fatherName: student.fatherName || "",
+      fatherPhone: student.fatherPhone || "",
+      fatherOccupation: student.fatherOccupation || "",
+      motherName: student.motherName || "",
+      motherPhone: student.motherPhone || "",
+      motherOccupation: student.motherOccupation || "",
+      profileCompleted: student.profileCompleted || false,
+      batch: student.batch || "",
+      dob: student.dob || null,
+      joiningDate: student.joiningDate || null,
+      installments: student.installments || [],
+      fines: student.fines || [],
+      serverTime: new Date()
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* ================= MARK ATTENDANCE ================= */
+const scanQr = async (req, res) => {
+  try {
+    const { studentId, qrValue, lat, lng, deviceId } = req.body;
+
+    if (!studentId || !qrValue) {
+      return res.status(400).json({ message: "Missing data" });
+    }
+    const cleanId = studentId.trim().toUpperCase();
+
+    const student = await User.findOne({
+      userId: cleanId,
+      role: "student",
+    });
+
+    if (!student) {
+      return res.status(401).json({
+        message: "Invalid student session. Please login again.",
+      });
+    }
+
+    // --- DEVICE LOCK CHECK ---
+    if (!deviceId) {
+      return res.status(400).json({ message: "Device ID is required to verify device security." });
+    }
+
+    if (student.deviceFingerprint) {
+      if (student.deviceFingerprint !== deviceId) {
+        return res.status(403).json({
+          message: "Your account is locked to another device. Please contact the Admin to reset your device lock."
+        });
+      }
+    } else {
+      // Check if this device is already registered to another student
+      const otherStudent = await User.findOne({
+        deviceFingerprint: deviceId,
+        userId: { $ne: student.userId },
+        role: "student"
+      });
+
+      if (otherStudent) {
+        return res.status(403).json({
+          message: `This device is registered to another student (${otherStudent.name}). Dual device attendance is not allowed.`
+        });
+      }
+
+      // Lock this device to this student
+      student.deviceFingerprint = deviceId;
+      await student.save();
+    }
+
+    // --- 1. DYNAMIC IP & WI-FI RESTRICTION ---
+    let requestIP = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "";
+    if (requestIP.includes(",")) {
+       requestIP = requestIP.split(",")[0];
+    }
+    const cleanIP = requestIP.trim().replace("::ffff:", "");
+
+    let isIpAllowed = cleanIP === "127.0.0.1" || cleanIP === "localhost" || cleanIP === "::1";
+
+    // A. Check dynamic authorized networks from database
+    if (!isIpAllowed) {
+      try {
+        const dbNetworks = await CampusNetwork.find({ isActive: true }).lean();
+        for (const net of dbNetworks) {
+          const pattern = (net.ipOrRange || "").trim();
+          if (!pattern) continue;
+
+          if (pattern === cleanIP) {
+            isIpAllowed = true;
+            break;
+          }
+          if (pattern.includes("*")) {
+            const prefix = pattern.replace(/\*.*$/, "");
+            if (cleanIP.startsWith(prefix)) {
+              isIpAllowed = true;
+              break;
+            }
+          }
+          if (pattern.endsWith(".") && cleanIP.startsWith(pattern)) {
+            isIpAllowed = true;
+            break;
+          }
+          if (pattern.includes("/") && isIpInCidr(cleanIP, pattern)) {
+            isIpAllowed = true;
+            break;
+          }
+        }
+      } catch (dbNetErr) {
+        console.warn("Campus network DB check warning:", dbNetErr.message);
+      }
+    }
+
+    // B. Check environment variables fallback & default institutional subnets
+    if (!isIpAllowed) {
+      const allowedIPsRaw = process.env.ALLOWED_IP || "192.168.68.120, 111.92.83.195, 103.182.166.206";
+      const ALLOWED_IPS = allowedIPsRaw.split(",").map(ip => ip.trim()).filter(Boolean);
+
+      isIpAllowed = 
+        ALLOWED_IPS.includes(cleanIP) || 
+        cleanIP === "103.182.166.206" || 
+        cleanIP.startsWith("103.182.166.") || 
+        cleanIP.startsWith("111.92.83.") || 
+        cleanIP.startsWith("192.168.") ||
+        cleanIP.startsWith("10.");
+    }
+
+    // C. Check Private Ranges & iCloud Private Relay
+    if (!isIpAllowed) {
+      const parts = cleanIP.split(".");
+      if (parts.length === 4) {
+        const p0 = parts[0];
+        const p1 = parseInt(parts[1], 10);
+        if (p0 === "172") {
+          if (p1 >= 16 && p1 <= 31) {
+            isIpAllowed = true;
+          } else if (p1 >= 224 && p1 <= 239) {
+            isIpAllowed = true;
+            console.log(`[IP Check Bypass] Allowed iCloud Private Relay IP: ${cleanIP}`);
+          }
+        } else {
+          const p0Num = parseInt(p0, 10);
+          const isOtherICloudRelay = 
+            (p0Num === 104 && p1 >= 28 && p1 <= 31) || 
+            (p0Num === 140 && p1 === 248) ||             
+            (p0Num === 146 && p1 === 75);                
+          
+          if (isOtherICloudRelay) {
+            isIpAllowed = true;
+            console.log(`[IP Check Bypass] Allowed iCloud Private Relay IP: ${cleanIP}`);
+          }
+        }
+      }
+    }
+
+    console.log("Debug Attendance IP Check:", cleanIP, "| Result Allowed:", isIpAllowed);
+
+    if (!isIpAllowed) {
+      return res.status(403).json({
+        message: `Network Error: You must be connected to the Institute's WiFi to mark attendance. (Your IP: ${cleanIP}). If you are on campus, please ensure you are connected to the Institute's WiFi and have disabled any VPN or iCloud Private Relay.`,
+      });
+    }
+
+    // --- 2. GPS RADIUS RESTRICTION ---
+    if (!lat || !lng) {
+      return res.status(400).json({ message: "Location data is required to verify campus radius." });
+    }
+
+    // Set your Institute's exact Latitude and Longitude here:
+    // Update these values to the precise GPS coordinates of the institute
+    const INST_LAT = process.env.INST_LAT ? parseFloat(process.env.INST_LAT) : 9.99232; 
+    const INST_LNG = process.env.INST_LNG ? parseFloat(process.env.INST_LNG) : 76.31317;
+    const ALLOWED_RADIUS_METERS = process.env.ALLOWED_RADIUS_METERS ? parseInt(process.env.ALLOWED_RADIUS_METERS, 10) : 50; // Strict 50m radius
+    
+    const getDistance = (lat1, lon1, lat2, lon2) => {
+      const R = 6371e3; 
+      const dLat = (lat2 - lat1) * (Math.PI / 180);
+      const dLon = (lon2 - lon1) * (Math.PI / 180); 
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * 
+                Math.sin(dLon / 2) * Math.sin(dLon / 2); 
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
+      return R * c; 
+    };
+
+    const distance = getDistance(lat, lng, INST_LAT, INST_LNG);
+
+    if (distance > ALLOWED_RADIUS_METERS) {
+       return res.status(403).json({ 
+         message: `You are out of campus radius. Distance: ${Math.round(distance)}m` 
+       });
+    }
+
+    const campusQrConfig = await CampusQR.findOne();
+    let type;
+    if (campusQrConfig) {
+      if (qrValue === campusQrConfig.activeInToken) type = "IN";
+      else if (qrValue === campusQrConfig.activeOutToken) type = "OUT";
+      else {
+        // Fallback for testing/static values
+        if (qrValue === "CM-ATTENDANCE-IN") type = "IN";
+        else if (qrValue === "CM-ATTENDANCE-OUT") type = "OUT";
+        else return res.status(401).json({ message: "Invalid or expired QR code" });
+      }
+    } else {
+      if (qrValue === "CM-ATTENDANCE-IN") type = "IN";
+      else if (qrValue === "CM-ATTENDANCE-OUT") type = "OUT";
+      else return res.status(401).json({ message: "Invalid or expired QR code" });
+    }
+
+    const course = student.course;
+    const today = getISTDateString();
+
+    const lastRecord = await Attendance.findOne({ studentId: cleanId }).sort({ createdAt: -1 });
+    const limitMs = 16 * 60 * 60 * 1000; // 16 hours limit
+
+    if (type === "IN") {
+      if (lastRecord && lastRecord.type === "IN") {
+        const timeDiffMs = Date.now() - new Date(lastRecord.timestamp).getTime();
+        if (timeDiffMs < limitMs) {
+          return res.status(400).json({ message: "You are already Checked IN!" });
+        }
+      }
+    } else if (type === "OUT") {
+      if (!lastRecord || lastRecord.type === "OUT") {
+        return res.status(400).json({ message: "You must Check IN first before Checking OUT!" });
+      }
+      const timeDiffMs = Date.now() - new Date(lastRecord.timestamp).getTime();
+      if (timeDiffMs > limitMs) {
+        return res.status(400).json({ message: "Your last Check-In has expired. Please Check IN again." });
+      }
+    }
+
+    const recordDate = (type === "OUT" && lastRecord) ? lastRecord.date : today;
+
+    await Attendance.create({
+      studentId: cleanId,
+      course,
+      type,
+      date: recordDate
+    });
+
+    res.json({ message: `Attendance ${type} marked successfully` });
+  } catch (error) {
+    console.error("QR scan error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* ================= DAILY HOURS CALCULATION ================= */
+const getDailyHours = async (req, res) => {
+  try {
+    const { studentId, date } = req.params;
+    if (!studentId) return res.status(400).json({ message: "Student ID is required" });
+    const cleanId = studentId.trim().toUpperCase();
+
+    const logs = await Attendance.find({ studentId: cleanId, date }).sort({ timestamp: 1 });
+    let totalMs = 0;
+    let lastInTime = null;
+    
+    logs.forEach(log => {
+      const logTime = log.timestamp ? new Date(log.timestamp).getTime() : (log.createdAt ? new Date(log.createdAt).getTime() : 0);
+      if (log.type === "IN") {
+        if (lastInTime === null) {
+          lastInTime = logTime;
+        }
+      } else if (log.type === "OUT") {
+        if (lastInTime !== null) {
+          totalMs += Math.max(0, logTime - lastInTime);
+          lastInTime = null;
+        }
+      }
+    });
+    
+    if (lastInTime !== null) {
+      const today = getISTDateString();
+      if (date === today) {
+        totalMs += Math.max(0, Date.now() - lastInTime);
+      } else {
+        const latestLog = logs[logs.length - 1];
+        const latestTime = latestLog.timestamp ? new Date(latestLog.timestamp).getTime() : (latestLog.createdAt ? new Date(latestLog.createdAt).getTime() : 0);
+        totalMs += Math.max(0, latestTime - lastInTime);
+      }
+    }
+
+    const totalHours = totalMs / (1000 * 60 * 60);
+
+    res.json({
+      studentId,
+      date,
+      totalHours,
+    });
+  } catch (err) {
+    console.error("Hour calculation error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* ================= UPDATE PROFILE ================= */
+const updateProfile = async (req, res) => {
+  try {
+    const user = req.user;
+    if (!user) return res.status(404).json({ message: "User not found" });
+    
+    const { 
+      name, email, phone, course, profilePhoto,
+      address, group, aadharNumber, dob, joiningDate,
+      fatherName, fatherPhone, fatherOccupation,
+      motherName, motherPhone, motherOccupation
+    } = req.body;
+
+    if (name !== undefined) user.name = name;
+    if (email !== undefined) user.email = email;
+    if (phone !== undefined) user.phone = phone;
+    if (course !== undefined) user.course = course;
+    if (profilePhoto !== undefined) user.profilePhoto = profilePhoto;
+
+    if (user.role === 'student') {
+      if (address !== undefined) user.address = address;
+      if (group !== undefined) user.group = group || undefined;
+      if (aadharNumber !== undefined) user.aadharNumber = aadharNumber;
+      if (dob !== undefined) user.dob = dob ? new Date(dob) : null;
+      if (joiningDate !== undefined) user.joiningDate = joiningDate ? new Date(joiningDate) : null;
+      if (fatherName !== undefined) user.fatherName = fatherName;
+      if (fatherPhone !== undefined) user.fatherPhone = fatherPhone;
+      if (fatherOccupation !== undefined) user.fatherOccupation = fatherOccupation;
+      if (motherName !== undefined) user.motherName = motherName;
+      if (motherPhone !== undefined) user.motherPhone = motherPhone;
+      if (motherOccupation !== undefined) user.motherOccupation = motherOccupation;
+
+      // Check if profile is complete (all required fields filled)
+      if (
+        user.name && 
+        user.email && 
+        user.phone && 
+        user.address && 
+        user.group && 
+        user.aadharNumber && 
+        user.dob &&
+        user.joiningDate &&
+        user.fatherName && 
+        user.fatherPhone && 
+        user.fatherOccupation && 
+        user.motherName && 
+        user.motherPhone && 
+        user.motherOccupation
+      ) {
+        user.profileCompleted = true;
+      } else {
+        user.profileCompleted = false;
+      }
+    } else {
+      user.profileCompleted = false;
+    }
+
+    await user.save();
+    
+    res.json({ message: "Profile updated successfully", user });
+  } catch (error) {
+    console.error("Update profile error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* ================= FORGOT PASSWORD ================= */
+const forgotPassword = async (req, res) => {
+  try {
+    const { userId, role } = req.body;
+    const targetRole = role || "student";
+    if (!userId) return res.status(400).json({ message: "User ID is required" });
+    const cleanId = userId.trim();
+    
+    const user = await User.findOne({
+      $or: [
+        { userId: cleanId.toUpperCase() },
+        { email: { $regex: new RegExp(`^${cleanId}$`, "i") } }
+      ],
+      role: targetRole
+    });
+    if (!user) return res.status(404).json({ message: `No ${targetRole} found with that User ID/Email` });
+    if (!user.email) return res.status(400).json({ message: "No email associated with this account. Contact Admin." });
+
+    // Generate a secure 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const hashedOtp = await bcrypt.hash(otp, 10);
+
+    user.resetPasswordOtp = hashedOtp; 
+    user.resetPasswordExpire = Date.now() + 15 * 60 * 1000; // 15 minutes
+    await user.save();
+
+    const message = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+        <h2 style="color: #4f46e5; text-align: center;">Password Reset Request</h2>
+        <p>Hello,</p>
+        <p>You requested to reset your password for your Chartered Mentor account.</p>
+        <p>Your One-Time Password (OTP) is:</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <span style="display: inline-block; padding: 12px 24px; background: #f3f4f6; color: #111827; letter-spacing: 4px; border-radius: 6px; font-weight: bold; font-size: 24px;">${otp}</span>
+        </div>
+        <p>This code is valid for 15 minutes. If you did not request this, please ignore this email.</p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+        <p style="font-size: 12px; color: #888; text-align: center;">Chartered Mentor Support</p>
+      </div>
+    `;
+
+    let emailSent = false;
+    let emailErrorMsg = "";
+
+    // Try Resend first
+    if (process.env.RESEND_API_KEY) {
+      try {
+        const { Resend } = require("resend");
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const { data, error } = await resend.emails.send({
+          from: process.env.RESEND_FROM_EMAIL || "Chartered Mentor <onboarding@resend.dev>",
+          to: user.email,
+          subject: "Chartered Mentor - Password Reset OTP",
+          html: message,
+        });
+        if (error) {
+          emailErrorMsg = error.message;
+        } else {
+          emailSent = true;
+        }
+      } catch (err) {
+        console.error("Resend error:", err);
+      }
+    }
+
+    // Fallback to Nodemailer
+    if (!emailSent && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+      try {
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
+          }
+        });
+        await transporter.sendMail({
+          from: `"Chartered Mentor" <${process.env.EMAIL_USER}>`,
+          to: user.email,
+          subject: "Chartered Mentor - Password Reset OTP",
+          html: message
+        });
+        emailSent = true;
+      } catch (err) {
+        emailErrorMsg = err.message;
+      }
+    }
+
+    if (!emailSent) {
+      return res.status(500).json({ message: "Failed to send email. " + emailErrorMsg });
+    }
+
+    res.json({ message: "A 6-digit OTP has been sent to your registered email" });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    res.status(500).json({ message: "Server Error" });
+  }
+};
+
+/* ================= RESET PASSWORD WITH OTP ================= */
+const resetPassword = async (req, res) => {
+  try {
+    const { userId, otp, newPassword, role } = req.body;
+    const targetRole = role || "student";
+
+    if (!userId || !otp || !newPassword) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+    const cleanId = userId.trim();
+
+    const user = await User.findOne({
+      $or: [
+        { userId: cleanId.toUpperCase() },
+        { email: { $regex: new RegExp(`^${cleanId}$`, "i") } }
+      ],
+      role: targetRole,
+      resetPasswordExpire: { $gt: Date.now() },
+    });
+
+    if (!user || !user.resetPasswordOtp) {
+      return res.status(400).json({ message: "Invalid or expired OTP" });
+    }
+
+    const isMatch = await bcrypt.compare(otp, user.resetPasswordOtp);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Incorrect OTP" });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.resetPasswordOtp = undefined;
+    user.resetPasswordExpire = undefined;
+    await user.save();
+
+    res.json({ message: "Password reset successfully. You can now login." });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* ================= VERIFY GOOGLE OAUTH ================= */
+const verifyGoogle = async (req, res) => {
+  try {
+    const { token } = req.body;
+    
+    if (!token) {
+      return res.status(400).json({ message: "No Google token provided" });
+    }
+
+    if (!process.env.GOOGLE_CLIENT_ID) {
+       return res.status(500).json({ message: "Server is missing GOOGLE_CLIENT_ID. Please tell Admin to configure it." });
+    }
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    
+    const payload = ticket.getPayload();
+    const email = payload.email;
+
+    if (!email) {
+      return res.status(400).json({ message: "Google authentication failed" });
+    }
+
+    const user = await User.findOne({ email, role: "student" });
+
+    if (!user) {
+      return res.status(404).json({ message: "No student account found with this Google email. Make sure the Admin used this exact email to create your account." });
+    }
+
+    // Google Verified successfully!
+    // We return a temporary authentication token so the frontend can immediately hit "Change Password"
+    res.json({
+      message: "Google Verification Successful",
+      userId: user.userId,
+      firstLogin: user.firstLogin,
+      tempToken: generateToken(user.userId, user.role), // To allow changing password securely
+    });
+
+  } catch (error) {
+    console.error("Google verify error:", error);
+    res.status(500).json({ message: "Invalid or expired Google Token" });
+  }
+};
+
+const QuestionPaper = require("../models/QuestionPaper");
+
+/* ================= GET STUDENT PAPERS ================= */
+const getStudentPapers = async (req, res) => {
+  try {
+    const user = req.user;
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Auto-delete question papers 3 days after student started/opened them (only if no answer sheet uploaded)
+    const paperThreshold = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+    await QuestionPaper.deleteMany({ startTime: { $ne: null, $lte: paperThreshold }, answerFileData: null });
+
+    const query = { target: user.userId };
+
+    const papers = await QuestionPaper.find(query, { fileData: 0, answerFileData: 0 }).sort({ scheduledTime: 1 });
+
+    res.json(papers);
+  } catch (err) {
+    console.error("Get student papers error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* ================= DOWNLOAD PAPER ================= */
+const downloadPaper = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const paper = await QuestionPaper.findById(id);
+
+    if (!paper) {
+      return res.status(404).json({ message: "Question Paper not found" });
+    }
+
+    const buffer = Buffer.from(paper.fileData, "base64");
+
+    res.setHeader("Content-Type", paper.fileType);
+    res.setHeader("Content-Disposition", `inline; filename="${paper.fileName}"`);
+    res.send(buffer);
+  } catch (err) {
+    console.error("Download error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* ================= SUBMIT PAYMENT ================= */
+const submitPayment = async (req, res) => {
+  try {
+    const user = req.user;
+    if (!user || user.role !== 'student') return res.status(403).json({ message: "Unauthorized" });
+
+    const { amount, receiptNo, remarks } = req.body;
+    if (!amount || isNaN(amount) || amount <= 0) {
+      return res.status(400).json({ message: "Invalid payment amount" });
+    }
+
+    const studentRecord = await User.findOne({ userId: user.userId, role: 'student' });
+    if (!studentRecord) return res.status(404).json({ message: "Student not found" });
+
+    // Add to history as Pending. Do not update feesPaid yet.
+    studentRecord.feeHistory.push({
+      amount: Number(amount),
+      date: new Date(),
+      receiptNo: receiptNo || "Self-Reported",
+      status: "Pending",
+      remarks: remarks || ""
+    });
+
+    await studentRecord.save();
+    
+    res.json({ message: "Payment submitted and is pending admin approval.", feesPaid: studentRecord.feesPaid });
+  } catch (err) {
+    console.error("Submit payment error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* ================= MANUAL ATTENDANCE ================= */
+const manualAttendance = async (req, res) => {
+  try {
+    const { studentId, action } = req.body; // action is 'IN' or 'OUT'
+
+    if (!studentId || !action || !["IN", "OUT"].includes(action)) {
+      return res.status(400).json({ message: "Invalid action or missing data" });
+    }
+    const cleanId = studentId.trim().toUpperCase();
+
+    const student = await User.findOne({
+      userId: cleanId,
+      role: "student",
+    });
+
+    if (!student) {
+      return res.status(401).json({ message: "Invalid student session." });
+    }
+
+    if (student.mode !== "online") {
+      return res.status(403).json({ message: "Manual attendance is only allowed for online students." });
+    }
+
+    const lastRecord = await Attendance.findOne({ studentId: cleanId }).sort({ createdAt: -1 });
+    const limitMs = 16 * 60 * 60 * 1000; // 16 hours limit
+
+    if (action === "IN") {
+      if (lastRecord && lastRecord.type === "IN") {
+        const timeDiffMs = Date.now() - new Date(lastRecord.timestamp).getTime();
+        if (timeDiffMs < limitMs) {
+          return res.status(400).json({ message: "You are already checked IN." });
+        }
+      }
+    } else if (action === "OUT") {
+      if (!lastRecord || lastRecord.type === "OUT") {
+        return res.status(400).json({ message: "You must check IN before checking OUT." });
+      }
+      const timeDiffMs = Date.now() - new Date(lastRecord.timestamp).getTime();
+      if (timeDiffMs > limitMs) {
+        return res.status(400).json({ message: "Your last Check-In has expired. Please Check IN again." });
+      }
+    }
+
+    const today = getISTDateString();
+    const recordDate = (action === "OUT" && lastRecord) ? lastRecord.date : today;
+
+    const newLog = await Attendance.create({
+      studentId: cleanId,
+      course: student.course,
+      type: action,
+      date: recordDate,
+    });
+
+    res.json({
+      message: `Successfully checked ${action}`,
+      type: action,
+      timestamp: newLog.timestamp,
+    });
+  } catch (err) {
+    console.error("Manual Attendance Error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* ================= START STUDENT EXAM ================= */
+const startStudentExam = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = req.user;
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const paper = await QuestionPaper.findOne({ _id: id, target: user.userId });
+    if (!paper) {
+      return res.status(404).json({ message: "Question Paper not found" });
+    }
+
+    // Date comparison (midnight local time or date string splitting)
+    const todayStr = getISTDateString();
+    const scheduledStr = new Date(paper.scheduledTime).toISOString().split("T")[0];
+
+    // If today is before the scheduled date, it's locked
+    if (todayStr < scheduledStr) {
+      return res.status(400).json({ message: "Exam is locked until the scheduled date" });
+    }
+
+    // Set startTime if not already started
+    if (!paper.startTime) {
+      paper.startTime = new Date();
+      await paper.save();
+    }
+
+    res.json({
+      message: "Exam started successfully",
+      startTime: paper.startTime,
+      examDuration: paper.examDuration,
+      uploadDuration: paper.uploadDuration,
+    });
+  } catch (err) {
+    console.error("Start exam error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* ================= SUBMIT ANSWER PAPER ================= */
+const submitAnswerPaper = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = req.user;
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const { answerFileName, answerFileType, answerFileData } = req.body;
+
+    if (!answerFileName || !answerFileType || !answerFileData) {
+      return res.status(400).json({ message: "Missing file details" });
+    }
+
+    const paper = await QuestionPaper.findOne({ _id: id, target: user.userId });
+    if (!paper) {
+      return res.status(404).json({ message: "Question Paper not found" });
+    }
+
+    if (!paper.startTime) {
+      paper.startTime = new Date();
+    }
+
+    // Enforce combined exam + upload duration timer
+    const totalDurationMs = (paper.examDuration + paper.uploadDuration) * 60 * 1000;
+    const startMs = new Date(paper.startTime).getTime();
+    const currentMs = new Date().getTime();
+
+    // 2-minute buffer for network lag
+    if (currentMs - startMs > totalDurationMs + 120000) {
+      return res.status(400).json({ message: "Time Expired. Answer sheets cannot be submitted." });
+    }
+
+    paper.answerFileName = answerFileName;
+    paper.answerFileType = answerFileType;
+    paper.answerFileData = answerFileData;
+    paper.answerUploadedAt = new Date();
+    await paper.save();
+
+    res.json({
+      message: "Answer sheets submitted successfully",
+      answerUploadedAt: paper.answerUploadedAt,
+      answerFileName: paper.answerFileName,
+    });
+  } catch (err) {
+    console.error("Submit answer error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* ================= STUDENT VIEW ANSWER SHEET ================= */
+const downloadStudentAnswerPaper = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = req.user;
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const paper = await QuestionPaper.findOne({ _id: id, target: user.userId });
+
+    if (!paper) {
+      return res.status(404).json({ message: "Question Paper not found" });
+    }
+
+    if (!paper.answerFileData) {
+      return res.status(404).json({ message: "Answer sheet not submitted yet" });
+    }
+
+    const buffer = Buffer.from(paper.answerFileData, "base64");
+
+    res.setHeader("Content-Type", paper.answerFileType || "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="${paper.answerFileName || "answer-sheet.pdf"}"`);
+    res.send(buffer);
+  } catch (err) {
+    console.error("Download student answer error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* ================= STUDENT SCHEDULES ================= */
+const getStudentSchedules = async (req, res) => {
+  try {
+    const user = req.user;
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Auto-delete schedules 10 days after they were opened
+    const threshold = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+    await Schedule.deleteMany({ openedAt: { $ne: null, $lte: threshold } });
+
+    const schedules = await Schedule.find({ target: user.userId }, { fileData: 0 }).sort({ date: 1 });
+    res.json(schedules);
+  } catch (error) {
+    console.error("Get student schedules error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const toggleScheduleStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = req.user;
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const schedule = await Schedule.findOne({ _id: id, target: user.userId });
+    if (!schedule) {
+      return res.status(404).json({ message: "Schedule not found or unauthorized" });
+    }
+
+    schedule.status = schedule.status === "Pending" ? "Completed" : "Pending";
+    await schedule.save();
+
+    res.json({ message: `Schedule marked as ${schedule.status}`, schedule });
+  } catch (error) {
+    console.error("Toggle schedule status error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const downloadScheduleFile = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = req.user;
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const schedule = await Schedule.findOne({ _id: id, target: user.userId });
+    if (!schedule) {
+      return res.status(404).json({ message: "Schedule not found or unauthorized" });
+    }
+
+    if (!schedule.fileData) {
+      return res.status(404).json({ message: "No file associated with this schedule" });
+    }
+
+    // Set openedAt if not already marked
+    if (!schedule.openedAt) {
+      schedule.openedAt = new Date();
+      await schedule.save();
+    }
+
+    const buffer = Buffer.from(schedule.fileData, "base64");
+    res.setHeader("Content-Type", schedule.fileType || "application/octet-stream");
+    res.setHeader("Content-Disposition", `attachment; filename="${schedule.fileName || "schedule-file"}"`);
+    res.send(buffer);
+  } catch (error) {
+    console.error("Download schedule file error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const markScheduleOpened = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = req.user;
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const schedule = await Schedule.findOne({ _id: id, target: user.userId });
+    if (!schedule) {
+      return res.status(404).json({ message: "Schedule not found or unauthorized" });
+    }
+
+    if (!schedule.openedAt) {
+      schedule.openedAt = new Date();
+      await schedule.save();
+    }
+
+    res.json({ message: "Schedule marked as opened", schedule });
+  } catch (error) {
+    console.error("Mark schedule opened error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const getStudentAttendanceHistory = async (req, res) => {
+  try {
+    const studentId = req.user.userId;
+    const cleanId = studentId.trim().toUpperCase();
+    const records = await Attendance.find({ studentId: cleanId }).sort({ timestamp: -1 });
+
+    const cleaned = records.map((r) => {
+      const d = new Date(r.timestamp);
+      return {
+        studentId: r.studentId,
+        course: r.course || "-",
+        date: r.date,
+        time: isNaN(d.getTime()) ? "-" : d.toLocaleTimeString(),
+        type: r.type || "-",
+        timestamp: r.timestamp
+      };
+    });
+
+    res.json(cleaned);
+  } catch (err) {
+    console.error("History Error:", err);
+    res.status(500).json({ message: "Error fetching attendance history" });
+  }
+};
+
+/* ================= STUDENT EXAM SCHEDULER ================= */
+const getStudentExamSchedules = async (req, res) => {
+  try {
+    const studentId = req.user.userId;
+    const schedules = await ExamSchedule.find({ studentId }).sort({ date: 1 });
+    res.json(schedules);
+  } catch (err) {
+    console.error("Get student exam schedules error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* ================= STUDENT MARK FINE AS PAID ================= */
+const markFinePaid = async (req, res) => {
+  try {
+    const user = req.user;
+    if (!user || user.role !== 'student') {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    const { fineId } = req.params;
+    const { paymentMethod, transactionId, paidDate, notes } = req.body || {};
+
+    const student = await User.findOne({ userId: user.userId, role: "student" });
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    if (!student.fines) {
+      return res.status(400).json({ message: "Student has no fines" });
+    }
+
+    const fine = student.fines.id(fineId);
+    if (!fine) {
+      return res.status(404).json({ message: "Fine record not found" });
+    }
+
+    fine.status = "Pending Approval";
+    fine.paymentMethod = paymentMethod || "UPI";
+    fine.transactionId = transactionId || null;
+    fine.paidDate = paidDate ? new Date(paidDate) : new Date();
+    fine.notes = notes || null;
+
+    await student.save();
+
+    const studentObj = student.toObject();
+    delete studentObj.password;
+
+    res.json({ message: "Fine payment submitted and is pending admin approval.", student: studentObj });
+  } catch (err) {
+    console.error("Student mark fine paid error:", err);
+    res.status(500).json({ message: "Server error: " + err.message });
+  }
+};
+
+module.exports = {
+  loginStudent,
+  changePassword,
+  getDashboard,
+  scanQr,
+  getDailyHours,
+  updateProfile,
+  forgotPassword,
+  resetPassword,
+  verifyGoogle,
+  getStudentPapers,
+  downloadPaper,
+  startStudentExam,
+  submitAnswerPaper,
+  downloadStudentAnswerPaper,
+  submitPayment,
+  manualAttendance,
+  getStudentSchedules,
+  toggleScheduleStatus,
+  downloadScheduleFile,
+  markScheduleOpened,
+  getStudentAttendanceHistory,
+  getStudentExamSchedules,
+  markFinePaid
+};
