@@ -1,78 +1,80 @@
+/* ========================================================
+   BLUE & WHITE CRISP MODERN LOGIN THEME
+   ======================================================== */
+
 .login-container {
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: 100vh;
   width: 100vw;
-  background: transparent;
+  background: #f8fafc;
   position: relative;
   overflow: hidden;
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+  padding: 1.5rem;
+  background-image: 
+    radial-gradient(circle at 50% -10%, rgba(37, 99, 235, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 100% 100%, rgba(2, 132, 199, 0.04) 0%, transparent 40%);
 }
 
-/* Anime Aesthetic Background with slow pan animation */
 .anime-background {
-  position: absolute;
-  top: -10%;
-  left: -10%;
-  width: 120%;
-  height: 120%;
-  background-image: url('/anime_bg.png');
-  background-size: cover;
-  background-position: center;
-  z-index: 0;
-  animation: slowPan 30s linear infinite alternate;
-  filter: brightness(1.05) saturate(1.1);
+  display: none !important;
 }
 
-/* Soft white overlay to ensure text readability while keeping anime bg visible */
+.login-container::before,
 .login-container::after {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 100%);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  z-index: 1;
+  display: none !important;
 }
 
+/* Crisp White Card with Subtle Border & Soft Ambient Shadow */
 .login-card {
-  max-width: 420px;
+  max-width: 440px;
   width: 100%;
-  padding: 2.5rem;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  padding: 2.75rem 2.25rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 24px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08), 
-              0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+  box-shadow: 0 20px 45px -10px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(226, 232, 240, 0.5);
   z-index: 10;
   position: relative;
-  animation: cardEntrance 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: cardEntrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes cardEntrance {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .login-card h2 {
-  color: #1e293b;
-  font-size: 1.8rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
+  color: #0f172a;
+  font-size: 1.7rem;
+  font-weight: 800;
+  margin-bottom: 0.35rem;
   letter-spacing: -0.5px;
 }
 
 .login-card p {
   color: #64748b;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 400;
+  line-height: 1.5;
 }
 
+/* Crisp Segmented Role Switcher */
 .role-toggle {
   display: flex;
-  background: rgba(241, 245, 249, 0.8);
+  background: #f1f5f9;
   border-radius: 14px;
-  padding: 0.35rem;
+  padding: 0.3rem;
   margin-bottom: 1.5rem;
-  border: 1px solid rgba(0,0,0,0.03);
+  border: 1px solid #e2e8f0;
 }
 
 .role-btn {
@@ -80,20 +82,31 @@
   padding: 0.7rem;
   border: none;
   background: transparent;
-  border-radius: 10px;
+  border-radius: 11px;
   cursor: pointer;
   color: #64748b;
   font-weight: 600;
-  font-size: 0.95rem;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 0.9rem;
+  letter-spacing: 0.2px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.role-btn:hover {
+  color: #0f172a;
 }
 
 .role-btn.active {
-  background: white;
-  color: #4f46e5;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
 }
 
+/* Modern Input Groups */
 .input-group {
   margin-bottom: 1.25rem;
   text-align: left;
@@ -101,133 +114,116 @@
 
 .input-group label {
   display: block;
-  margin-bottom: 0.5rem;
-  color: #475569;
-  font-size: 0.9rem;
-  font-weight: 500;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
 }
 
 .input-group input {
   width: 100%;
-  padding: 0.9rem 1.2rem;
+  padding: 0.8rem 1rem;
   border-radius: 12px;
   border: 1.5px solid #e2e8f0;
-  background: rgba(255, 255, 255, 0.9);
-  color: #1e293b;
-  font-size: 1rem;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 0.95rem;
   outline: none;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
+}
+
+.input-group input::placeholder {
+  color: #94a3b8;
 }
 
 .input-group input:focus {
-  border-color: #818cf8;
-  box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.15);
-  background: white;
+  border-color: #2563eb;
+  background: #ffffff;
+  box-shadow: 0 0 0 3.5px rgba(37, 99, 235, 0.12);
 }
 
+/* Royal Blue Submit Button */
 .submit-btn {
   width: 100%;
-  padding: 1rem;
-  background: linear-gradient(135deg, #6366f1, #ec4899);
-  color: white;
-  border: none;
+  padding: 0.85rem 1.5rem;
   border-radius: 12px;
-  font-size: 1.05rem;
-  font-weight: 600;
+  border: none;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 0.98rem;
+  font-weight: 700;
+  letter-spacing: 0.2px;
   cursor: pointer;
-  margin-top: 1rem;
-  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.25);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
+  transition: all 0.2s ease;
+  margin-top: 0.5rem;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
-.submit-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 25px rgba(99, 102, 241, 0.35);
-  background: linear-gradient(135deg, #4f46e5, #db2777);
+.submit-btn:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35);
 }
 
-.submit-btn:active:not(:disabled) {
-  transform: translateY(1px);
+.submit-btn:active {
+  transform: translateY(0);
 }
 
 .submit-btn:disabled {
-  background: #cbd5e1;
-  color: #f8fafc;
+  opacity: 0.6;
   cursor: not-allowed;
+  transform: none;
   box-shadow: none;
 }
 
+/* Links & Actions */
 .forgot-link {
-  background: transparent;
+  background: none;
   border: none;
-  color: #ec4899;
+  color: #2563eb;
   font-size: 0.85rem;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
+  text-decoration: none;
   padding: 0;
   transition: color 0.2s;
 }
 
 .forgot-link:hover {
-  color: #db2777;
+  color: #1d4ed8;
   text-decoration: underline;
 }
 
+/* Status Notifications */
 .error-msg {
   background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #ef4444;
-  padding: 0.85rem;
+  color: #dc2626;
+  padding: 0.8rem 1rem;
   border-radius: 12px;
-  margin-bottom: 1.5rem;
-  font-size: 0.9rem;
-  text-align: left;
-  animation: shake 0.5s ease-in-out;
+  font-size: 0.85rem;
+  margin-bottom: 1.25rem;
+  border: 1px solid #fee2e2;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .success-msg {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  color: #10b981;
-  padding: 0.85rem;
+  background: #ecfdf5;
+  color: #059669;
+  padding: 0.8rem 1rem;
   border-radius: 12px;
-  margin-bottom: 1.5rem;
-  font-size: 0.9rem;
-  text-align: left;
-}
-
-/* Animations */
-@keyframes cardEntrance {
-  0% { opacity: 0; transform: translateY(30px) scale(0.98); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-@keyframes slowPan {
-  0% { transform: scale(1) translate(0, 0); }
-  100% { transform: scale(1.05) translate(-2%, -2%); }
-}
-
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-5px); }
-  75% { transform: translateX(5px); }
-}
-
-/* Decorative sparkles/stars for the aesthetic anime feel */
-.sparkle {
-  position: absolute;
-  width: 4px;
-  height: 4px;
-  background: white;
-  border-radius: 50%;
-  box-shadow: 0 0 10px 2px rgba(255,255,255,0.8);
-  animation: twinkle 3s infinite alternate;
-  z-index: 2;
-}
-
-@keyframes twinkle {
-  0% { opacity: 0.2; transform: scale(0.8); }
-  100% { opacity: 1; transform: scale(1.2); }
+  font-size: 0.85rem;
+  margin-bottom: 1.25rem;
+  border: 1px solid #d1fae5;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }

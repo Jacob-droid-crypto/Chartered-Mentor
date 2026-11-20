@@ -173,35 +173,27 @@ function Login({ onLoginSuccess }) {
 
   return (
     <div className="login-container">
-      <div className="sparkle" style={{ top: '20%', left: '15%', animationDelay: '0s' }}></div>
-      <div className="sparkle" style={{ top: '60%', left: '10%', animationDelay: '1.5s' }}></div>
-      <div className="sparkle" style={{ top: '30%', right: '20%', animationDelay: '0.5s' }}></div>
-      <div className="sparkle" style={{ top: '75%', right: '15%', animationDelay: '2s' }}></div>
-      
       <div className="login-card">
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <img 
             src="/logo.png" 
             alt="Chartered Mentor Logo" 
             style={{ 
-              width: '340px', 
+              maxWidth: '280px', 
+              width: '100%',
               height: 'auto', 
-              margin: '0 auto 1.5rem auto', 
-              display: 'block',
-              filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.06))',
-              transition: 'transform 0.3s ease'
+              margin: '0 auto 1.5rem auto',
+              display: 'block'
             }} 
-            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
-            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
           />
           <h2>
-            {view === 'login' ? 'Welcome Back ✨' 
+            {view === 'login' ? 'Welcome Back' 
               : view === 'google_verify' ? 'Verify Identity' 
               : view.startsWith('forgot') ? 'Reset Password' 
               : 'Set New Password'}
           </h2>
           <p>
-            {view === 'login' ? 'Sign in to your beautiful dashboard' 
+            {view === 'login' ? 'Sign in to access your campus dashboard & study records' 
               : view === 'google_verify' ? 'Use your registered Google account to verify.' 
               : view === 'forgot_role_select' ? 'Who are you resetting the password for?'
               : view === 'forgot_email' ? 'Enter your ID to receive an OTP.'
@@ -220,12 +212,16 @@ function Login({ onLoginSuccess }) {
                 type="button"
                 className={`role-btn ${role === 'student' ? 'active' : ''}`}
                 onClick={() => setRole('student')}
-              >Student</button>
+              >
+                <span>🎓</span> Student
+              </button>
               <button 
                 type="button"
                 className={`role-btn ${role === 'admin' ? 'active' : ''}`}
                 onClick={() => setRole('admin')}
-              >Admin</button>
+              >
+                <span>🛡️</span> Admin
+              </button>
             </div>
 
             <div className="input-group">

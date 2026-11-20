@@ -33,8 +33,21 @@ export default defineConfig({
   ],
   server: {
     proxy: {
-      '/admin': 'http://localhost:5000',
-      '/student': 'http://localhost:5000'
+      '/admin': {
+        target: 'https://chartered-mentor-nifm.vercel.app',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/student': {
+        target: 'https://chartered-mentor-nifm.vercel.app',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/qr': {
+        target: 'https://chartered-mentor-nifm.vercel.app',
+        changeOrigin: true,
+        secure: false,
+      }
     }
   },
   build: {

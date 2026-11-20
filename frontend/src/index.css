@@ -1,45 +1,67 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 :root {
-  --primary-color: #4f46e5;
-  --primary-hover: #4338ca;
-  --secondary-color: #ec4899;
-  --bg-color: #f1f5f9; /* Pale whitish background */
-  --surface-color: rgba(255, 255, 255, 0.75); /* White glass surface */
-  --surface-solid: #ffffff; /* Solid white background for dropdowns, modals, etc. */
-  --text-main: #1e293b;
-  --text-muted: #64748b;
-  --glass-border: rgba(255, 255, 255, 0.6);
-  --shadow-color: rgba(148, 163, 184, 0.15); /* Soft dark shadow for light mode */
+  /* ========================================================
+     BLUE & WHITE CORPORATE / ACADEMIC SAAS PALETTE
+     ======================================================== */
+  --primary-color: #2563eb;          /* Royal Blue */
+  --primary-hover: #1d4ed8;          /* Deep Royal Blue */
+  --primary-light: #eff6ff;          /* Light Blue 50 */
+  --primary-glow: rgba(37, 99, 235, 0.25);
+  
+  --secondary-color: #0284c7;        /* Ocean Blue */
+  --accent-color: #3b82f6;           /* Electric Blue */
+  
+  --bg-color: #f8fafc;               /* Clean Slate 50 Canvas */
+  --surface-color: #ffffff;          /* Pure Crisp White Card */
+  --surface-solid: #ffffff;
+  --surface-subtle: #f1f5f9;         /* Subtle Slate 100 */
+  --surface-hover: #e2e8f0;
+  
+  --text-main: #0f172a;              /* Deep Slate 900 */
+  --text-body: #334155;              /* Slate 700 */
+  --text-muted: #64748b;             /* Slate 500 */
+  --text-subtle: #94a3b8;            /* Slate 400 */
+  
+  --glass-border: #e2e8f0;           /* Crisp 1px Border */
+  --border-subtle: #e2e8f0;
+  --border-focus: #2563eb;
+  
+  --shadow-color: rgba(15, 23, 42, 0.05);
+  --card-shadow: 0 1px 3px rgba(15, 23, 42, 0.05), 0 10px 25px -5px rgba(37, 99, 235, 0.04);
+  
+  --status-inside: #059669;          /* Emerald */
+  --status-inside-bg: #ecfdf5;
+  --status-outside: #e11d48;         /* Rose */
+  --status-outside-bg: #fff1f2;
+  --status-due: #d97706;             /* Amber */
+  --status-due-bg: #fffbeb;
 }
 
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 body {
-  background-color: #f8fafc;
+  background-color: var(--bg-color);
   color: var(--text-main);
   min-height: 100vh;
   margin: 0;
   display: flex;
-  background-image: linear-gradient(135deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.4) 100%), url('/abstract_bg.png');
-  background-size: cover;
-  background-position: center;
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.04) 0%, transparent 60%),
+    linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
   background-attachment: fixed;
-  animation: bgPan 60s linear infinite alternate;
+  color-scheme: light;
 }
 
-@keyframes bgPan {
-  0% { background-position: 0% 50%; }
-  100% { background-position: 100% 50%; }
-}
-
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
