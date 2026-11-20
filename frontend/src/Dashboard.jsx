@@ -2871,10 +2871,11 @@ function Dashboard({ user, onLogout }) {
         {/* Brand Header */}
         <div className="sidebar-brand-wrapper">
           <div className="sidebar-brand-logo" onClick={() => setActiveTab('dashboard')} title="Chartered Mentor">
-            <div className="brand-badge-cm">CM</div>
-            <div>
-              <div className="brand-title-text">Chartered Mentor</div>
-            </div>
+            <img 
+              src="/logo.png" 
+              alt="Chartered Mentor" 
+              className="sidebar-brand-logo-img" 
+            />
           </div>
           <button 
             type="button" 

@@ -578,6 +578,20 @@ button.primary:hover, .btn-primary:hover {
   align-items: center;
   gap: 0.75rem;
   cursor: pointer;
+  padding: 0.2rem 0;
+}
+
+.sidebar-brand-logo-img {
+  height: 44px;
+  width: auto;
+  max-width: 195px;
+  object-fit: contain;
+  display: block;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.sidebar-brand-logo:hover .sidebar-brand-logo-img {
+  transform: scale(1.03);
 }
 
 .brand-badge-cm {
