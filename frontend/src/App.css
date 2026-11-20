@@ -448,6 +448,10 @@ button.primary:hover, .btn-primary:hover {
 /* ========================================================
    MOBILE APP DOCK (BLUE & WHITE)
    ======================================================== */
+.mobile-bottom-nav {
+  display: none !important;
+}
+
 @media screen and (max-width: 768px) {
   .app-container {
     flex-direction: column;

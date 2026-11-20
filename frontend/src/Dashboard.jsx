@@ -2870,9 +2870,6 @@ function Dashboard({ user, onLogout }) {
             <div className="brand-badge-cm">CM</div>
             <div>
               <div className="brand-title-text">Chartered Mentor</div>
-              <div className="brand-status-sub">
-                <span style={{ color: '#10b981', fontSize: '0.65rem' }}>●</span> Kochi Campus Live
-              </div>
             </div>
           </div>
           <button 
@@ -3076,14 +3073,6 @@ function Dashboard({ user, onLogout }) {
                 <span className="sidebar-item-icon">⏱️</span>
                 <span>Attendance Records</span>
               </button>
-              <button
-                type="button"
-                className={`sidebar-item-btn ${activeTab === 'scan_qr' ? 'active' : ''}`}
-                onClick={() => { setActiveTab('scan_qr'); setMobileSidebarOpen(false); }}
-              >
-                <span className="sidebar-item-icon">📱</span>
-                <span>Scan Campus QR</span>
-              </button>
 
               <div className="sidebar-group-title">Academics</div>
               <button
@@ -3218,10 +3207,6 @@ function Dashboard({ user, onLogout }) {
           </div>
 
           <div className="header-controls-clean">
-            <div className="active-tab-badge">
-              Active Tab: '{activeTab}'
-            </div>
-
             {(user.role === 'admin' || user.role === 'staff') && (
               <button
                 type="button"
@@ -10044,19 +10029,6 @@ function Dashboard({ user, onLogout }) {
               >
                 <span className="nav-icon">⏱️</span>
                 <span className="nav-text">Goal Tracker</span>
-              </li>
-              <li
-                className={`mobile-bottom-nav-item ${activeTab === 'scan_qr' ? 'active' : ''}`}
-                onClick={() => {
-                  if (data && !data.profileCompleted) {
-                    alert('Please complete your profile details first to unlock all dashboard features.');
-                    return;
-                  }
-                  setActiveTab('scan_qr');
-                }}
-              >
-                <span className="nav-icon">📷</span>
-                <span className="nav-text">Scan QR</span>
               </li>
               <li
                 className={`mobile-bottom-nav-item ${activeTab === 'profile' ? 'active' : ''}`}
