@@ -716,6 +716,8 @@ function Dashboard({ user, onLogout }) {
   const [liveStudyHours, setLiveStudyHours] = useState(0);
   const [studyTrackerPeriod, setStudyTrackerPeriod] = useState('week');
   const [todayAttendanceFilter, setTodayAttendanceFilter] = useState('all'); // all, present, absent
+  const [upcomingScheduleRange, setUpcomingScheduleRange] = useState('3days'); // '3days', '7days', 'all'
+  const [upcomingScheduleCategory, setUpcomingScheduleCategory] = useState('all'); // 'all', 'exam', 'paper', 'schedule'
   const [motivationalQuote, setMotivationalQuote] = useState('');
   const [goalConfig, setGoalConfig] = useState({ monday: 12, tuesday: 12, wednesday: 12, thursday: 12, friday: 12, saturday: 12, sunday: 0, autoLogoutTime: '22:00', autoLogoutEnabled: true });
   const [goalConfigs, setGoalConfigs] = useState([]);
@@ -1431,6 +1433,8 @@ function Dashboard({ user, onLogout }) {
       if (isAdminOrStaff) {
         fetchStudentsData();
         fetchPapers();
+        fetchSchedules();
+        fetchExamSchedules();
       }
       if (user.role === 'student') {
         fetchPaymentConfig();
@@ -3772,6 +3776,238 @@ function Dashboard({ user, onLogout }) {
                       <div className="value">{stats.lowHoursMonth.length} {stats.lowHoursMonth.length === 1 ? 'day' : 'days'}</div>
                     </div>
                   </div>
+
+                  {/* STUDENT UPCOMING EXAMS & SCHEDULES (NEXT 3 DAYS) */}
+                  <div className="upcoming-exams-model3-card" style={{ marginTop: '1.5rem' }}>
+                    <div className="upcoming-header-row">
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                          <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span>📅</span> My Upcoming Exams & Schedules
+                          </h3>
+                          <span className="upcoming-range-badge">
+                            ⚡ Next 3 Days
+                          </span>
+                        </div>
+                        <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>
+                          Tests, assessments, and study schedule milestones scheduled for you in the next 72 hours.
+                        </p>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          className="upcoming-quick-btn"
+                          onClick={() => setActiveTab('papers')}
+                        >
+                          <span>📄</span> Question Papers
+                        </button>
+                        <button
+                          type="button"
+                          className="upcoming-quick-btn"
+                          onClick={() => setActiveTab('schedules')}
+                        >
+                          <span>📋</span> My Schedules
+                        </button>
+                      </div>
+                    </div>
+
+                    {(() => {
+                      const todayMid = new Date();
+                      todayMid.setHours(0, 0, 0, 0);
+
+                      const myItems = [];
+
+                      // 1. Exam schedules for student
+                      if (Array.isArray(examSchedules)) {
+                        examSchedules.forEach(item => {
+                          if (!item.date) return;
+                          const matchesStudent = item.studentId === user.userId ||
+                            (item.studentName && user.name && item.studentName.toLowerCase().trim() === user.name.toLowerCase().trim());
+                          if (!matchesStudent) return;
+
+                          const itemDate = new Date(item.date);
+                          const dayStart = new Date(itemDate);
+                          dayStart.setHours(0, 0, 0, 0);
+                          const diffDays = Math.round((dayStart.getTime() - todayMid.getTime()) / (1000 * 3600 * 24));
+
+                          if (diffDays >= -1 && diffDays <= 3) {
+                            myItems.push({
+                              id: `stu-exam-${item._id || Math.random()}`,
+                              title: item.examName || (item.type === 'Exam' ? 'Scheduled Exam' : 'Study Plan Milestone'),
+                              date: itemDate,
+                              diffDays,
+                              displayType: item.type || 'Exam',
+                              icon: item.type === 'Exam' ? '📝' : '🗓️',
+                              targetTab: 'papers'
+                            });
+                          }
+                        });
+                      }
+
+                      // 2. Question papers for student
+                      if (Array.isArray(papers)) {
+                        papers.forEach(p => {
+                          const dateVal = p.scheduledTime || p.createdAt;
+                          if (!dateVal) return;
+                          const isTarget = p.target === user.userId || p.target === 'ALL' || (user.course && p.course === user.course);
+                          if (!isTarget) return;
+
+                          const itemDate = new Date(dateVal);
+                          const dayStart = new Date(itemDate);
+                          dayStart.setHours(0, 0, 0, 0);
+                          const diffDays = Math.round((dayStart.getTime() - todayMid.getTime()) / (1000 * 3600 * 24));
+
+                          if (diffDays >= -1 && diffDays <= 3) {
+                            myItems.push({
+                              id: `stu-paper-${p._id || Math.random()}`,
+                              title: p.title || 'Question Paper',
+                              date: itemDate,
+                              diffDays,
+                              duration: p.examDuration || 180,
+                              displayType: 'Paper',
+                              icon: '📄',
+                              targetTab: 'papers'
+                            });
+                          }
+                        });
+                      }
+
+                      // 3. Schedules for student
+                      if (Array.isArray(schedules)) {
+                        schedules.forEach(s => {
+                          if (!s.date) return;
+                          const isTarget = s.target === user.userId || s.target === 'ALL' || (user.course && s.course === user.course);
+                          if (!isTarget) return;
+
+                          const itemDate = new Date(s.date);
+                          const dayStart = new Date(itemDate);
+                          dayStart.setHours(0, 0, 0, 0);
+                          const diffDays = Math.round((dayStart.getTime() - todayMid.getTime()) / (1000 * 3600 * 24));
+
+                          if (diffDays >= -1 && diffDays <= 3) {
+                            myItems.push({
+                              id: `stu-sched-${s._id || Math.random()}`,
+                              title: s.title || 'Study Schedule',
+                              date: itemDate,
+                              diffDays,
+                              displayType: 'Schedule',
+                              icon: '📋',
+                              targetTab: 'schedules'
+                            });
+                          }
+                        });
+                      }
+
+                      myItems.sort((a, b) => {
+                        if (a.diffDays !== b.diffDays) return a.diffDays - b.diffDays;
+                        return a.date.getTime() - b.date.getTime();
+                      });
+
+                      if (myItems.length === 0) {
+                        return (
+                          <div className="upcoming-empty-card" style={{ padding: '2rem 1.5rem' }}>
+                            <div style={{ fontSize: '2.2rem', marginBottom: '0.4rem' }}>🌟</div>
+                            <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>
+                              No Exams or Schedules in the Next 3 Days
+                            </h4>
+                            <p style={{ margin: '0.3rem 0 1rem 0', fontSize: '0.82rem', color: '#64748b' }}>
+                              You are currently caught up with your examination milestones. Keep practicing!
+                            </p>
+                            <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                              <button
+                                type="button"
+                                className="upcoming-primary-action-btn"
+                                onClick={() => setActiveTab('papers')}
+                              >
+                                View All Question Papers →
+                              </button>
+                              <button
+                                type="button"
+                                className="upcoming-secondary-action-btn"
+                                onClick={() => setActiveTab('schedules')}
+                              >
+                                View My Study Schedules →
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="upcoming-items-grid">
+                          {myItems.map(item => {
+                            let urgencyBadge = { text: '🟣 In 3 Days', bg: '#f5f3ff', color: '#7c3aed', border: '#ddd6fe' };
+                            if (item.diffDays < 0) {
+                              urgencyBadge = { text: '🔴 Due Today / Active', bg: '#fef2f2', color: '#dc2626', border: '#fecaca' };
+                            } else if (item.diffDays === 0) {
+                              urgencyBadge = { text: '🔥 Due Today', bg: '#fff1f2', color: '#e11d48', border: '#fecdd3' };
+                            } else if (item.diffDays === 1) {
+                              urgencyBadge = { text: '⚡ Tomorrow', bg: '#fffbeb', color: '#d97706', border: '#fde68a' };
+                            } else if (item.diffDays === 2) {
+                              urgencyBadge = { text: '🔵 In 2 Days', bg: '#f0f9ff', color: '#0284c7', border: '#bae6fd' };
+                            }
+
+                            const dateFormatted = item.date.toLocaleDateString(undefined, {
+                              weekday: 'short',
+                              month: 'short',
+                              day: 'numeric'
+                            });
+                            const timeFormatted = item.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                            return (
+                              <div key={item.id} className="upcoming-item-row">
+                                <div className="upcoming-item-left">
+                                  <div className="upcoming-item-icon-box">
+                                    <span>{item.icon}</span>
+                                  </div>
+                                  <div className="upcoming-item-details">
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.2rem' }}>
+                                      <span
+                                        style={{
+                                          fontSize: '0.72rem',
+                                          fontWeight: 700,
+                                          padding: '2px 8px',
+                                          borderRadius: '6px',
+                                          background: urgencyBadge.bg,
+                                          color: urgencyBadge.color,
+                                          border: `1px solid ${urgencyBadge.border}`,
+                                          letterSpacing: '0.2px'
+                                        }}
+                                      >
+                                        {urgencyBadge.text}
+                                      </span>
+                                      <span className="upcoming-type-tag">
+                                        {item.displayType}
+                                      </span>
+                                      {item.duration && (
+                                        <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>
+                                          ⏱️ {item.duration}m
+                                        </span>
+                                      )}
+                                    </div>
+                                    <h4 className="upcoming-item-title">{item.title}</h4>
+                                    <div className="upcoming-item-meta">
+                                      <span>🗓️ {dateFormatted} {timeFormatted !== '12:00 AM' && `at ${timeFormatted}`}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="upcoming-item-right">
+                                  <button
+                                    type="button"
+                                    className="upcoming-item-action-btn"
+                                    onClick={() => setActiveTab(item.targetTab)}
+                                  >
+                                    Open {item.displayType} →
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </>
               );
             })()}
@@ -3889,56 +4125,341 @@ function Dashboard({ user, onLogout }) {
                     </div>
                   </div>
 
-                  {/* INTERACTIVE STUDY SEATS (A1-C9) CARD */}
-                  <div className="seats-model3-card">
-                    <div className="seats-model3-header">
+                  {/* UPCOMING EXAMS & SCHEDULES (NEXT 3 DAYS) */}
+                  <div className="upcoming-exams-model3-card">
+                    <div className="upcoming-header-row">
                       <div>
-                        <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#0f172a' }}>
-                          Interactive Study Seats (A1–C9)
-                        </h3>
-                        <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: '#64748b' }}>
-                          Model 3 clean grid with status badges
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                          <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span>📅</span> Upcoming Exams & Schedules
+                          </h3>
+                          <span className="upcoming-range-badge">
+                            ⚡ {upcomingScheduleRange === '3days' ? 'Next 3 Days Window' : upcomingScheduleRange === '7days' ? 'Next 7 Days' : 'All Upcoming'}
+                          </span>
+                        </div>
+                        <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>
+                          Immediate assessments, question papers, and study milestones due nearby.
                         </p>
                       </div>
 
-                      <div className="seats-legend-row">
-                        <span style={{ display: 'flex', alignItems: 'center' }}>
-                          <span className="seats-legend-dot" style={{ background: '#10b981' }}></span> Occupied
-                        </span>
-                        <span style={{ display: 'flex', alignItems: 'center' }}>
-                          <span className="seats-legend-dot" style={{ background: '#f43f5e' }}></span> Outside
-                        </span>
-                        <span style={{ display: 'flex', alignItems: 'center' }}>
-                          <span className="seats-legend-dot" style={{ background: '#cbd5e1' }}></span> Vacant
-                        </span>
+                      {/* Header controls: Range pills & Quick Actions */}
+                      <div className="upcoming-controls-row">
+                        {/* Range toggle */}
+                        <div className="range-segmented-control">
+                          <button
+                            type="button"
+                            className={`range-seg-btn ${upcomingScheduleRange === '3days' ? 'active' : ''}`}
+                            onClick={() => setUpcomingScheduleRange('3days')}
+                          >
+                            3 Days
+                          </button>
+                          <button
+                            type="button"
+                            className={`range-seg-btn ${upcomingScheduleRange === '7days' ? 'active' : ''}`}
+                            onClick={() => setUpcomingScheduleRange('7days')}
+                          >
+                            7 Days
+                          </button>
+                          <button
+                            type="button"
+                            className={`range-seg-btn ${upcomingScheduleRange === 'all' ? 'active' : ''}`}
+                            onClick={() => setUpcomingScheduleRange('all')}
+                          >
+                            All
+                          </button>
+                        </div>
+
+                        {/* Quick Action navigation */}
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            className="upcoming-quick-btn"
+                            onClick={() => setActiveTab('exam_scheduler')}
+                            title="Open Exam Scheduler"
+                          >
+                            <span>🗓️</span> Scheduler
+                          </button>
+                          <button
+                            type="button"
+                            className="upcoming-quick-btn"
+                            onClick={() => setActiveTab('papers')}
+                            title="Manage Question Papers"
+                          >
+                            <span>📄</span> Papers
+                          </button>
+                          <button
+                            type="button"
+                            className="upcoming-quick-btn"
+                            onClick={() => setActiveTab('schedules')}
+                            title="Manage Schedules"
+                          >
+                            <span>📋</span> Timetables
+                          </button>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="seats-zones-layout">
-                      {/* ZONE A */}
-                      <div className="zone-container-box">
-                        <div className="zone-box-title">Zone A (9 Desks)</div>
-                        <div className="zone-grid-desks">
-                          {zoneA.map(renderSeatTile)}
-                        </div>
-                      </div>
+                    {/* Filter Categories Chips */}
+                    {(() => {
+                      // Process all candidates
+                      const todayMid = new Date();
+                      todayMid.setHours(0, 0, 0, 0);
 
-                      {/* ZONE B */}
-                      <div className="zone-container-box">
-                        <div className="zone-box-title">Zone B (12 Desks)</div>
-                        <div className="zone-grid-desks">
-                          {zoneB.map(renderSeatTile)}
-                        </div>
-                      </div>
+                      const maxDays = upcomingScheduleRange === '3days' ? 3 : upcomingScheduleRange === '7days' ? 7 : 365;
 
-                      {/* ZONE C */}
-                      <div className="zone-container-box">
-                        <div className="zone-box-title">Zone C (9 Desks)</div>
-                        <div className="zone-grid-desks">
-                          {zoneC.map(renderSeatTile)}
-                        </div>
-                      </div>
-                    </div>
+                      const items = [];
+
+                      // 1. Exam Schedules from scheduler
+                      if (Array.isArray(examSchedules)) {
+                        examSchedules.forEach(item => {
+                          if (!item.date) return;
+                          const itemDate = new Date(item.date);
+                          const dayStart = new Date(itemDate);
+                          dayStart.setHours(0, 0, 0, 0);
+                          const diffDays = Math.round((dayStart.getTime() - todayMid.getTime()) / (1000 * 3600 * 24));
+                          if (diffDays >= -1 && diffDays <= maxDays) {
+                            items.push({
+                              id: `exam-${item._id || Math.random()}`,
+                              title: item.examName || (item.type === 'Exam' ? 'Scheduled Exam' : 'Study Plan Milestone'),
+                              studentName: item.studentName || 'Student',
+                              studentId: item.studentId,
+                              date: itemDate,
+                              diffDays,
+                              category: item.type === 'Exam' ? 'exam' : 'schedule',
+                              displayType: item.type === 'Exam' ? 'Exam' : 'Schedule',
+                              icon: item.type === 'Exam' ? '📝' : '🗓️',
+                              targetTab: 'exam_scheduler'
+                            });
+                          }
+                        });
+                      }
+
+                      // 2. Question Papers
+                      if (Array.isArray(papers)) {
+                        papers.forEach(p => {
+                          const dateVal = p.scheduledTime || p.createdAt;
+                          if (!dateVal) return;
+                          const itemDate = new Date(dateVal);
+                          const dayStart = new Date(itemDate);
+                          dayStart.setHours(0, 0, 0, 0);
+                          const diffDays = Math.round((dayStart.getTime() - todayMid.getTime()) / (1000 * 3600 * 24));
+                          if (diffDays >= -1 && diffDays <= maxDays) {
+                            const targetStudent = Array.isArray(students) ? students.find(s => s.userId === p.target) : null;
+                            const targetLabel = targetStudent ? targetStudent.name : (p.target === 'ALL' ? 'All Students' : p.target || 'General');
+                            items.push({
+                              id: `paper-${p._id || Math.random()}`,
+                              title: p.title || 'Question Paper',
+                              studentName: targetLabel,
+                              studentId: p.target,
+                              date: itemDate,
+                              diffDays,
+                              duration: p.examDuration || 180,
+                              category: 'paper',
+                              displayType: 'Paper',
+                              icon: '📄',
+                              targetTab: 'papers'
+                            });
+                          }
+                        });
+                      }
+
+                      // 3. Timetable / Study Schedules
+                      if (Array.isArray(schedules)) {
+                        schedules.forEach(s => {
+                          if (!s.date) return;
+                          const itemDate = new Date(s.date);
+                          const dayStart = new Date(itemDate);
+                          dayStart.setHours(0, 0, 0, 0);
+                          const diffDays = Math.round((dayStart.getTime() - todayMid.getTime()) / (1000 * 3600 * 24));
+                          if (diffDays >= -1 && diffDays <= maxDays) {
+                            const targetStudent = Array.isArray(students) ? students.find(st => st.userId === s.target) : null;
+                            const targetLabel = targetStudent ? targetStudent.name : (s.target || 'General');
+                            items.push({
+                              id: `sched-${s._id || Math.random()}`,
+                              title: s.title || 'Study Schedule',
+                              studentName: targetLabel,
+                              studentId: s.target,
+                              date: itemDate,
+                              diffDays,
+                              category: 'schedule',
+                              displayType: 'Schedule',
+                              icon: '📋',
+                              targetTab: 'schedules'
+                            });
+                          }
+                        });
+                      }
+
+                      // Sort ascending by diffDays and date
+                      items.sort((a, b) => {
+                        if (a.diffDays !== b.diffDays) return a.diffDays - b.diffDays;
+                        return a.date.getTime() - b.date.getTime();
+                      });
+
+                      const totalAll = items.length;
+                      const totalExams = items.filter(i => i.category === 'exam').length;
+                      const totalPapers = items.filter(i => i.category === 'paper').length;
+                      const totalSchedules = items.filter(i => i.category === 'schedule').length;
+
+                      const filteredItems = upcomingScheduleCategory === 'all'
+                        ? items
+                        : items.filter(i => i.category === upcomingScheduleCategory);
+
+                      return (
+                        <>
+                          {/* Filter Tabs */}
+                          <div className="upcoming-category-chips">
+                            <button
+                              type="button"
+                              className={`upcoming-chip ${upcomingScheduleCategory === 'all' ? 'active' : ''}`}
+                              onClick={() => setUpcomingScheduleCategory('all')}
+                            >
+                              All Items ({totalAll})
+                            </button>
+                            <button
+                              type="button"
+                              className={`upcoming-chip ${upcomingScheduleCategory === 'exam' ? 'active' : ''}`}
+                              onClick={() => setUpcomingScheduleCategory('exam')}
+                            >
+                              📝 Exams ({totalExams})
+                            </button>
+                            <button
+                              type="button"
+                              className={`upcoming-chip ${upcomingScheduleCategory === 'paper' ? 'active' : ''}`}
+                              onClick={() => setUpcomingScheduleCategory('paper')}
+                            >
+                              📄 Papers ({totalPapers})
+                            </button>
+                            <button
+                              type="button"
+                              className={`upcoming-chip ${upcomingScheduleCategory === 'schedule' ? 'active' : ''}`}
+                              onClick={() => setUpcomingScheduleCategory('schedule')}
+                            >
+                              📋 Schedules ({totalSchedules})
+                            </button>
+                          </div>
+
+                          {/* List of items or Empty State */}
+                          {filteredItems.length === 0 ? (
+                            <div className="upcoming-empty-card">
+                              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🎉</div>
+                              <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>
+                                No Exams or Schedules in the {upcomingScheduleRange === '3days' ? 'Next 3 Days' : upcomingScheduleRange === '7days' ? 'Next 7 Days' : 'Selected Period'}
+                              </h4>
+                              <p style={{ margin: '0.4rem 0 1.25rem 0', fontSize: '0.85rem', color: '#64748b', maxWidth: '420px', lineHeight: 1.5 }}>
+                                Everything is currently on track. You can schedule upcoming tests or distribute new papers using the shortcuts below.
+                              </p>
+                              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                <button
+                                  type="button"
+                                  className="upcoming-primary-action-btn"
+                                  onClick={() => setActiveTab('exam_scheduler')}
+                                >
+                                  + Schedule New Exam
+                                </button>
+                                <button
+                                  type="button"
+                                  className="upcoming-secondary-action-btn"
+                                  onClick={() => setActiveTab('papers')}
+                                >
+                                  + Upload Question Paper
+                                </button>
+                                <button
+                                  type="button"
+                                  className="upcoming-secondary-action-btn"
+                                  onClick={() => setActiveTab('seats')}
+                                >
+                                  View Seat Matrix (A1–C9) →
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="upcoming-items-grid">
+                              {filteredItems.map(item => {
+                                let urgencyBadge = { text: '🟣 In 3 Days', bg: '#f5f3ff', color: '#7c3aed', border: '#ddd6fe' };
+                                if (item.diffDays < 0) {
+                                  urgencyBadge = { text: '🔴 Due Today / Active', bg: '#fef2f2', color: '#dc2626', border: '#fecaca' };
+                                } else if (item.diffDays === 0) {
+                                  urgencyBadge = { text: '🔥 Due Today', bg: '#fff1f2', color: '#e11d48', border: '#fecdd3' };
+                                } else if (item.diffDays === 1) {
+                                  urgencyBadge = { text: '⚡ Tomorrow', bg: '#fffbeb', color: '#d97706', border: '#fde68a' };
+                                } else if (item.diffDays === 2) {
+                                  urgencyBadge = { text: '🔵 In 2 Days', bg: '#f0f9ff', color: '#0284c7', border: '#bae6fd' };
+                                }
+
+                                const dateFormatted = item.date.toLocaleDateString(undefined, {
+                                  weekday: 'short',
+                                  month: 'short',
+                                  day: 'numeric'
+                                });
+                                const timeFormatted = item.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                                return (
+                                  <div key={item.id} className="upcoming-item-row">
+                                    <div className="upcoming-item-left">
+                                      <div className="upcoming-item-icon-box">
+                                        <span>{item.icon}</span>
+                                      </div>
+                                      <div className="upcoming-item-details">
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.2rem' }}>
+                                          <span
+                                            style={{
+                                              fontSize: '0.72rem',
+                                              fontWeight: 700,
+                                              padding: '2px 8px',
+                                              borderRadius: '6px',
+                                              background: urgencyBadge.bg,
+                                              color: urgencyBadge.color,
+                                              border: `1px solid ${urgencyBadge.border}`,
+                                              letterSpacing: '0.2px'
+                                            }}
+                                          >
+                                            {urgencyBadge.text}
+                                          </span>
+                                          <span className="upcoming-type-tag">
+                                            {item.displayType}
+                                          </span>
+                                          {item.duration && (
+                                            <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>
+                                              ⏱️ {item.duration}m
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        <h4 className="upcoming-item-title" title={item.title}>
+                                          {item.title}
+                                        </h4>
+
+                                        <div className="upcoming-item-meta">
+                                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            👤 <strong>{item.studentName}</strong>
+                                            {item.studentId && item.studentId !== 'ALL' && <span style={{ color: '#94a3b8' }}>({item.studentId})</span>}
+                                          </span>
+                                          <span>•</span>
+                                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            🗓️ {dateFormatted} {timeFormatted !== '12:00 AM' && `at ${timeFormatted}`}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div className="upcoming-item-right">
+                                      <button
+                                        type="button"
+                                        className="upcoming-item-action-btn"
+                                        onClick={() => setActiveTab(item.targetTab)}
+                                      >
+                                        View Details →
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </>
               );
@@ -3993,46 +4514,6 @@ function Dashboard({ user, onLogout }) {
                 </div>
               );
             })()}
-
-            {(user.role === 'admin' || user.role === 'staff') && (
-              <div className="charts-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
-                <div className="card" style={{ padding: '2rem' }}>
-                  <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-main)', fontSize: '1.2rem', fontWeight: '600' }}>Attendance Distribution</h3>
-                  <div style={{ position: 'relative', height: '220px', display: 'flex', justifyContent: 'center' }}>
-                    {Array.isArray(data) && data.length > 0 ? (() => {
-                      const todayDate = getLocalDateString();
-                      const todayData = data.filter(d => d.date === todayDate);
-                      const present = todayData.length;
-                      const absent = Math.max(0, (Array.isArray(students) ? students.length : 0) - present);
-                      return <Doughnut
-                        data={{
-                          labels: ['Present', 'Absent'],
-                          datasets: [{ data: [present, absent], backgroundColor: ['#10b981', '#ef4444'], borderWidth: 0, cutout: '75%' }]
-                        }}
-                        options={{ maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }}
-                      />;
-                    })() : <p style={{ color: 'var(--text-muted)', margin: 'auto' }}>No attendance logged today.</p>}
-                  </div>
-                </div>
-
-                <div className="card" style={{ padding: '2rem' }}>
-                  <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-main)', fontSize: '1.2rem', fontWeight: '600' }}>Students by Course</h3>
-                  <div style={{ position: 'relative', height: '220px' }}>
-                    {Array.isArray(students) && students.length > 0 ? (() => {
-                      const interCount = students.filter(s => s.course === 'INTER').length;
-                      const finalCount = students.filter(s => s.course === 'FINAL').length;
-                      return <Bar
-                        data={{
-                          labels: ['INTER', 'FINAL'],
-                          datasets: [{ label: 'Students', data: [interCount, finalCount], backgroundColor: ['var(--primary-color)', 'var(--secondary-color)'], borderRadius: 6 }]
-                        }}
-                        options={{ maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } } }}
-                      />;
-                    })() : <p style={{ color: 'var(--text-muted)', margin: 'auto', textAlign: 'center' }}>No students found.</p>}
-                  </div>
-                </div>
-              </div>
-            )}
 
             <section className="recent-activity" id="today-summary-section">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
