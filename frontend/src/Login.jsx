@@ -17,97 +17,37 @@ function Login({ onLoginSuccess }) {
   const [tempToken, setTempToken] = useState(null);
   const [resetRole, setResetRole] = useState('student');
 
-  // Dynamic Daily Ads & Spotlight Carousel
-  const [currentAdIndex, setCurrentAdIndex] = useState(0);
-
-  const instituteAds = [
+  // Abstract & Attractive Highlights Extracted from Official Posters
+  const posterHighlights = [
     {
-      badge: '🚀 ADMISSIONS OPEN 2026–27',
-      badgeColor: '#38bdf8',
-      title: 'Target CA Intermediate & Final: Fast-Track Mentorship Batches',
-      desc: 'Join South India\'s premier CA mentoring ecosystem with personalized 1-on-1 faculty guidance, daily chapter-wise test series, and dedicated study cabins.',
-      features: [
-        '✨ Dedicated Personal Study Cabins',
-        '📚 Curated ICAI Question Bank & Notes',
-        '🎯 100% Supervised Daily Study Hours'
-      ],
-      tag: '🔥 Limited Seats Remaining'
+      icon: '🎯',
+      title: 'CA Inter & Final Workout Batches',
+      desc: 'The Final Push: Personalised study plans, daily targets & cumulative revision.',
+      badge: 'Admissions Open',
+      badgeClass: 'amber'
     },
     {
-      badge: '🏆 PROVEN TRACK RECORD',
-      badgeColor: '#facc15',
-      title: 'Over 95% Pass Rate in Chartered Mentor Test Series',
-      desc: 'Our disciplined 3-tier revision blueprint has consistently produced All India Rank holders and first-attempt qualifiers across CA Foundation, Inter, and Final.',
-      features: [
-        '🥇 Mentoring from Qualified Chartered Accountants',
-        '📈 Continuous Performance & Percentile Analytics',
-        '🎯 Targeted Rank Improvement Masterclasses'
-      ],
-      tag: '⭐ Excellence in CA Coaching'
+      icon: '👨‍💼',
+      title: 'Individual Guidance by Qualified CAs',
+      desc: '360° feedback, expert paper valuation, and instant 1-on-1 doubt clearing.',
+      badge: 'Expert Faculty',
+      badgeClass: 'blue'
     },
     {
-      badge: '✍️ SAME-DAY PAPER EVALUATION',
-      badgeColor: '#4ade80',
-      title: 'Daily Answer Writing Evaluated Within 24 Hours',
-      desc: 'Every mock exam paper is meticulously evaluated with step-wise marks, presentation critiques, and actionable feedback before your next study session.',
-      features: [
-        '📝 ICAI Standard Step-by-Step Marking',
-        '💡 Presentation & Working Note Polishing',
-        '🔍 Direct 1-on-1 Error Rectification'
-      ],
-      tag: '⚡ 24-Hour Feedback Turnaround'
+      icon: '🪑',
+      title: 'Dedicated Study Cabins & Campus Space',
+      desc: 'Complete silence personal cabins, group study zones & technology-enabled tracking.',
+      badge: 'Only 30 Seats/Batch',
+      badgeClass: 'green'
     },
     {
-      badge: '💺 WORLD-CLASS STUDY ENVIRONMENT',
-      badgeColor: '#c084fc',
-      title: 'Silent Individual Cabins & Full Campus Amenities',
-      desc: 'Experience complete focus in ergonomic air-conditioned cabins, high-speed fiber internet, reference libraries, and hygienic dining facilities.',
-      features: [
-        '🤫 100% Distraction-Free Silent Study Zones',
-        '🌐 High-Speed Research WiFi & Power Hubs',
-        '☕ Refreshment Lounges & Break Areas'
-      ],
-      tag: '📍 Elite Campus Infrastructure'
-    },
-    {
-      badge: '🎯 ICAI EXAM SIMULATION',
-      badgeColor: '#fb923c',
-      title: 'Full-Length 3-Hour Mock Exams with Invigilation',
-      desc: 'Master exam temperament with exact hall simulation, strict invigilation, suggested answer keys, and comparative rank lists.',
-      features: [
-        '⏱️ Authentic 3-Hour Exam Hall Environment',
-        '📊 Percentile Benchmarking Across Cohorts',
-        '🏅 Model Answer Sheets for High Scorers'
-      ],
-      tag: '📅 Scheduled Exam Simulation'
+      icon: '📑',
+      title: 'Comprehensive Test Series & 1.5-Day Strategy',
+      desc: 'ICAI simulation mock tests, smart exam temperament & step-marking evaluation.',
+      badge: 'Residential / Online',
+      badgeClass: 'purple'
     }
   ];
-
-  // Auto-rotate ads every 5.5 seconds
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentAdIndex((prev) => (prev + 1) % instituteAds.length);
-    }, 5500);
-    return () => clearInterval(timer);
-  }, [instituteAds.length]);
-
-  // Daily Date & Google-Style Day-of-the-Week Focus
-  const today = new Date();
-  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  const currentDayName = dayNames[today.getDay()];
-  const formattedDate = `${currentDayName}, ${today.getDate()} ${monthNames[today.getMonth()]} ${today.getFullYear()}`;
-
-  const dailyThemes = {
-    Sunday: '✨ Sunday Master Strategy: Concept Consolidation & Target Setting',
-    Monday: '🚀 Monday Power Launch: High-Yield Chapter Targets for the Week',
-    Tuesday: '💡 Tuesday Practical Drill: Problem Solving & Question Formulations',
-    Wednesday: '⚡ Midweek Momentum: Intensive Answer Speed & Working Notes',
-    Thursday: '🎯 Thursday Deep Dive: ICAI Case Scenarios & Standards on Auditing',
-    Friday: '📊 Friday Review: Faculty Evaluation & 1-on-1 Feedback',
-    Saturday: '📝 Saturday Mock Marathon: Full 3-Hour Exam Hall Simulation'
-  };
-  const todaySpecial = dailyThemes[currentDayName] || '🎯 Precision Mentorship & Daily Evaluation';
 
   useEffect(() => {
     // Check if user is clicking a setup link from their email
@@ -267,90 +207,58 @@ function Login({ onLoginSuccess }) {
     <div className="login-split-layout">
       {/* Left Showcase Hero Panel (PC Only: >= 960px) */}
       <aside className="login-hero-panel">
-        <div className="login-hero-circle login-hero-circle-1" />
-        <div className="login-hero-circle login-hero-circle-2" />
-        
         <div className="login-hero-inner">
-          {/* Top Brand Bar: Prominent Official Logo & Dynamic Live Date */}
+          {/* Top Brand Bar: Official Authentic Logo & Contact */}
           <div className="login-hero-brand">
-            <div className="login-hero-logo-box">
-              <img 
-                src="/logo.png" 
-                alt="Chartered Mentor" 
-                className="login-hero-brand-logo" 
-              />
-            </div>
-            <div className="login-hero-daily-pill">
-              <span className="live-pulse-dot" />
-              <span>{formattedDate}</span>
+            <img 
+              src="/logo.png" 
+              alt="Chartered Mentor" 
+              className="login-hero-brand-logo" 
+            />
+            <div className="login-hero-contact-pill">
+              <span>📍 Palarivattom, Cochin</span>
+              <span className="contact-divider">•</span>
+              <span>📞 9496540849</span>
             </div>
           </div>
 
-          {/* Daily Google-Style Doodle / Today's Special Focus Banner */}
-          <div className="login-hero-day-spotlight">
-            <span className="spotlight-badge">Daily Focus</span>
-            <span className="spotlight-text">{todaySpecial}</span>
+          {/* Headline & Abstract Tag */}
+          <div className="login-hero-headline">
+            <span className="hero-subheading-tag">A STRONGER CA TOMORROW</span>
+            <h1 className="hero-main-title">
+              Personalised Mentorship for CA Inter & Final
+            </h1>
+            <p className="hero-main-desc">
+              Structured workout batches, individual CA guidance, and dedicated study cabins designed to turn aspirations into qualifications.
+            </p>
           </div>
 
-          {/* Dynamic Rotating Institute Ad Card */}
-          <div className="login-hero-ad-container">
-            <div className="ad-card-wrapper" key={currentAdIndex}>
-              <div className="ad-card-header">
-                <span 
-                  className="ad-card-badge" 
-                  style={{ color: instituteAds[currentAdIndex].badgeColor, borderColor: instituteAds[currentAdIndex].badgeColor }}
-                >
-                  {instituteAds[currentAdIndex].badge}
-                </span>
-                <span className="ad-card-tag">
-                  {instituteAds[currentAdIndex].tag}
-                </span>
+          {/* 4 Concise & Abstract Highlight Cards from Official Posters */}
+          <div className="hero-highlights-grid">
+            {posterHighlights.map((item, idx) => (
+              <div key={idx} className="hero-abstract-card">
+                <div className="abstract-card-top">
+                  <span className="abstract-card-icon">{item.icon}</span>
+                  <span className={`abstract-card-badge ${item.badgeClass}`}>{item.badge}</span>
+                </div>
+                <h3 className="abstract-card-title">{item.title}</h3>
+                <p className="abstract-card-desc">{item.desc}</p>
               </div>
+            ))}
+          </div>
 
-              <h2 className="ad-card-title">
-                {instituteAds[currentAdIndex].title}
-              </h2>
-              
-              <p className="ad-card-desc">
-                {instituteAds[currentAdIndex].desc}
-              </p>
-
-              <div className="ad-card-features">
-                {instituteAds[currentAdIndex].features.map((feat, idx) => (
-                  <div key={idx} className="ad-feature-pill">
-                    {feat}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Carousel Navigation: Dots & Manual Next */}
-            <div className="ad-carousel-nav">
-              <div className="ad-dots">
-                {instituteAds.map((_, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    className={`ad-dot ${idx === currentAdIndex ? 'active' : ''}`}
-                    onClick={() => setCurrentAdIndex(idx)}
-                    aria-label={`View Highlight ${idx + 1}`}
-                  />
-                ))}
-              </div>
-              <button 
-                type="button" 
-                className="ad-next-btn"
-                onClick={() => setCurrentAdIndex((prev) => (prev + 1) % instituteAds.length)}
-              >
-                Next Highlight ❯
-              </button>
-            </div>
+          {/* Quick Batch Options */}
+          <div className="hero-batch-options">
+            <span className="batch-pill">🏡 Residential Batch</span>
+            <span className="batch-pill">💻 Online Batch</span>
+            <span className="batch-pill">🚶 Dayscholar Option</span>
+            <span className="batch-pill highlight-pill">⚡ Limited Seats Available</span>
           </div>
 
           {/* Footer Note */}
           <div className="login-hero-footer-note">
             <span>Chartered Mentor • Educate. Elevate. Excel.</span>
-            <span className="footer-contact">Admissions & Support: +91 90726 22204</span>
+            <span className="footer-contact">Admissions & Enquiries: +91 9496540849</span>
           </div>
         </div>
       </aside>
