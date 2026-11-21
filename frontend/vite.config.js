@@ -8,24 +8,36 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['logo.png', 'pwa-icon.png'],
+      includeAssets: ['logo.png', 'pwa-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
         name: 'Chartered Mentor',
         short_name: 'Chartered Mentor',
         description: 'Chartered Mentor Student and Admin Portal',
-        theme_color: '#ffffff',
+        start_url: '/',
+        scope: '/',
+        id: '/',
+        theme_color: '#0284c7',
         background_color: '#ffffff',
         display: 'standalone',
+        orientation: 'portrait-primary',
         icons: [
           {
-            src: '/pwa-icon.png',
+            src: '/pwa-192x192.png',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any'
           },
           {
-            src: '/pwa-icon.png',
+            src: '/pwa-512x512.png',
             sizes: '512x512',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: '/pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
           }
         ]
       }
