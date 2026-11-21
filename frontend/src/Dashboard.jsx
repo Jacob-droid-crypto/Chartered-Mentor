@@ -718,6 +718,7 @@ function Dashboard({ user, onLogout }) {
   const [todayAttendanceFilter, setTodayAttendanceFilter] = useState('all'); // all, present, absent
   const [upcomingScheduleRange, setUpcomingScheduleRange] = useState('3days'); // '3days', '7days', 'all'
   const [upcomingScheduleCategory, setUpcomingScheduleCategory] = useState('all'); // 'all', 'exam', 'paper', 'schedule'
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [motivationalQuote, setMotivationalQuote] = useState('');
   const [goalConfig, setGoalConfig] = useState({ monday: 12, tuesday: 12, wednesday: 12, thursday: 12, friday: 12, saturday: 12, sunday: 0, autoLogoutTime: '22:00', autoLogoutEnabled: true });
   const [goalConfigs, setGoalConfigs] = useState([]);
@@ -3215,19 +3216,28 @@ function Dashboard({ user, onLogout }) {
             {(user.role === 'admin' || user.role === 'staff') && (
               <button
                 type="button"
-                className="quick-action-btn-blue"
-                onClick={() => {
-                  if (activeTab === 'students') {
-                    setShowAddStudentModal(true);
-                  } else if (activeTab === 'attendance') {
-                    setShowExportModal(true);
-                  } else {
-                    fetchDashboardData();
-                    alert('Refreshing latest live campus data...');
+                className="refresh-btn-clean"
+                disabled={isRefreshing}
+                onClick={async () => {
+                  try {
+                    setIsRefreshing(true);
+                    await Promise.all([
+                      fetchDashboardData(),
+                      fetchStudentsData(),
+                      fetchPapers(),
+                      fetchSchedules(),
+                      fetchExamSchedules()
+                    ]);
+                  } catch (e) {
+                    console.error('Refresh error:', e);
+                  } finally {
+                    setTimeout(() => setIsRefreshing(false), 500);
                   }
                 }}
+                title="Refresh live data across academy"
               >
-                <span>+</span> Quick Action
+                <span className={`refresh-btn-icon ${isRefreshing ? 'spin-active' : ''}`}>🔄</span>
+                <span>{isRefreshing ? 'Syncing...' : 'Refresh'}</span>
               </button>
             )}
 

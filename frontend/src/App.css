@@ -803,6 +803,54 @@ button.primary:hover, .btn-primary:hover {
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
 }
 
+.refresh-btn-clean {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  padding: 0.45rem 1rem;
+  border-radius: 50px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: all 0.2s ease;
+}
+
+.refresh-btn-clean:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0284c7;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.06);
+}
+
+.refresh-btn-clean:active {
+  transform: translateY(0);
+}
+
+.refresh-btn-clean:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.refresh-btn-icon {
+  display: inline-block;
+  font-size: 0.95rem;
+  transition: transform 0.2s ease;
+}
+
+.refresh-btn-icon.spin-active {
+  animation: refresh-spin 0.8s linear infinite;
+}
+
+@keyframes refresh-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .quick-action-btn-blue {
   background: #0284c7;
   color: #ffffff;
