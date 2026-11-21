@@ -256,6 +256,12 @@ function Login({ onLoginSuccess }) {
             <span className="batch-strip-highlight">⚡ Limited 30 Seats/Batch</span>
           </div>
 
+          <div className="hero-apk-download-bar">
+            <a href="/CharteredMentor.apk" download="CharteredMentor.apk" className="hero-apk-btn">
+              <span>📱</span> Download Android App for Students (.apk)
+            </a>
+          </div>
+
           {/* Footer Note */}
           <div className="login-hero-footer-note">
             <span>Chartered Mentor Institute</span>
@@ -482,7 +488,17 @@ function Login({ onLoginSuccess }) {
 
         {view === 'login' && (
           <div className="login-card-help-footer">
-            <span>Need help signing in? Contact Campus Desk: <strong>+91 9496540849</strong></span>
+            <a 
+              href="/CharteredMentor.apk" 
+              download="CharteredMentor.apk" 
+              className="download-apk-link-btn"
+              title="Download Android APK"
+            >
+              <span>📱</span> Download Android App (.apk)
+            </a>
+            <div className="login-card-help-text">
+              <span>Need help signing in? Contact Campus Desk: <strong>+91 9496540849</strong></span>
+            </div>
           </div>
         )}
         </div>
