@@ -3318,9 +3318,20 @@ function Dashboard({ user, onLogout }) {
               const isCurrentlyCheckedIn = lastLog && lastLog.type === 'IN';
               const unpaidFinesList = (data?.fines || []).filter(f => !f.status || f.status === 'Unpaid');
 
-              const recentAdjustments = (data?.attendanceAdjustments && data.attendanceAdjustments.length > 0)
+              const todayStrForAdj = getLocalDateString(getSyncedNow());
+              const todayMidnight = new Date(todayStrForAdj + "T00:00:00").getTime();
+
+              const recentAdjustments = ((data?.attendanceAdjustments && data.attendanceAdjustments.length > 0)
                 ? data.attendanceAdjustments
-                : (data?.attendanceSummary || []).filter(a => (a.deductionMinutes > 0 || a.addedMinutes > 0 || a.adjustmentMinutes > 0)).sort((a, b) => b.date.localeCompare(a.date));
+                : (data?.attendanceSummary || []).filter(a => (a.deductionMinutes > 0 || a.addedMinutes > 0 || a.adjustmentMinutes > 0)))
+                .filter(a => {
+                  if (!a.date) return false;
+                  const adjMidnight = new Date(a.date + "T00:00:00").getTime();
+                  const diffDays = Math.floor((todayMidnight - adjMidnight) / (1000 * 60 * 60 * 24));
+                  // Auto-expire after 2 days (48 hours)
+                  return diffDays >= 0 && diffDays <= 2;
+                })
+                .sort((a, b) => b.date.localeCompare(a.date));
 
               const recentDeductions = recentAdjustments.filter(a => (a.type === 'DEDUCT' || (!a.type && a.deductionMinutes > 0)));
               const recentAdditions = recentAdjustments.filter(a => (a.type === 'ADD' || (!a.type && a.addedMinutes > 0)));
