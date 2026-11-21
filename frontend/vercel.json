@@ -7,6 +7,14 @@
     {
       "source": "/student/:match*",
       "destination": "https://chartered-mentor-nifm.vercel.app/student/:match*"
+    },
+    {
+      "source": "/qr/:match*",
+      "destination": "https://chartered-mentor-nifm.vercel.app/qr/:match*"
+    },
+    {
+      "source": "/((?!assets/|CharteredMentor\\.apk|logo\\.png|abstract_bg\\.png|icons\\.svg|pwa|manifest\\.webmanifest|sw\\.js|workbox).*)",
+      "destination": "/index.html"
     }
   ]
 }

@@ -257,6 +257,7 @@
 .login-form-panel {
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 2rem 1.5rem;
@@ -266,6 +267,157 @@
     radial-gradient(circle at 90% 80%, rgba(2, 132, 199, 0.05) 0%, transparent 40%);
   position: relative;
   min-height: 100vh;
+}
+
+/* Prominent Top App Downloader Banner */
+.login-top-apk-banner {
+  max-width: 440px;
+  width: 100%;
+  margin-bottom: 0.85rem;
+  padding: 0.65rem 0.95rem;
+  background: #ffffff;
+  border: 1.5px solid #bfdbfe;
+  border-radius: 16px;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  z-index: 10;
+}
+
+.top-apk-banner-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.apk-banner-badge {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #1d4ed8;
+  background: #dbeafe;
+  padding: 1px 6px;
+  border-radius: 4px;
+  display: inline-block;
+  width: fit-content;
+}
+
+.apk-banner-title {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.top-apk-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.top-install-pwa-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  background: #f0fdf4;
+  color: #166534;
+  border: 1.5px solid #bbf7d0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border-radius: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.top-install-pwa-btn:hover {
+  background: #dcfce7;
+  border-color: #86efac;
+  transform: translateY(-1px);
+}
+
+.top-apk-banner-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  background: #2563eb;
+  color: #ffffff !important;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border-radius: 10px;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.top-apk-banner-btn:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+/* In-Card App Download Box */
+.login-card-apk-box {
+  margin-bottom: 1.25rem;
+}
+
+.card-apk-cta-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);
+  border: 1.5px solid #93c5fd;
+  border-radius: 14px;
+  text-decoration: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
+}
+
+.card-apk-cta-btn:hover {
+  border-color: #2563eb;
+  background: linear-gradient(135deg, #dbeafe 0%, #dcfce7 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.15);
+}
+
+.apk-btn-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.apk-android-icon {
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.apk-cta-main {
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: #1e3a8a;
+  line-height: 1.2;
+}
+
+.apk-cta-sub {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #475569;
+  margin-top: 2px;
+}
+
+.apk-cta-pill {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #15803d;
+  background: #dcfce7;
+  border: 1px solid #bbf7d0;
+  padding: 3px 8px;
+  border-radius: 8px;
+  white-space: nowrap;
 }
 
 /* Crisp White Card */

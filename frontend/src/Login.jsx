@@ -18,6 +18,26 @@ function Login({ onLoginSuccess }) {
   const [otp, setOtp] = useState('');
   const [tempToken, setTempToken] = useState(null);
   const [resetRole, setResetRole] = useState('student');
+  const [installPrompt, setInstallPrompt] = useState(null);
+
+  useEffect(() => {
+    const handleBeforeInstall = (e) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (installPrompt) {
+      installPrompt.prompt();
+      const choice = await installPrompt.userChoice;
+      if (choice && choice.outcome === 'accepted') {
+        setInstallPrompt(null);
+      }
+    }
+  };
 
   // Abstract & Attractive Highlights Extracted from Official Posters (Compact 3-Row Set)
   const posterHighlights = [
@@ -272,6 +292,34 @@ function Login({ onLoginSuccess }) {
 
       {/* Right Form Panel (PC & Mobile) */}
       <main className="login-form-panel">
+        {/* Prominent App Downloader Top Bar (Highly visible on mobile & desktop) */}
+        <div className="login-top-apk-banner">
+          <div className="top-apk-banner-info">
+            <span className="apk-banner-badge">OFFICIAL APP</span>
+            <span className="apk-banner-title">Chartered Mentor for Android</span>
+          </div>
+          <div className="top-apk-banner-actions">
+            {installPrompt && (
+              <button 
+                type="button" 
+                onClick={handleInstallClick} 
+                className="top-install-pwa-btn"
+                title="Install Chartered Mentor Web App"
+              >
+                <span>📲</span> Install
+              </button>
+            )}
+            <a 
+              href="/CharteredMentor.apk" 
+              download="CharteredMentor.apk" 
+              className="top-apk-banner-btn"
+              title="Download Chartered Mentor Android APK"
+            >
+              <span>📱</span> Download APK
+            </a>
+          </div>
+        </div>
+
         <div className="login-card">
           <div className="login-card-header">
             <div className="login-portal-badge">PORTAL ACCESS</div>
@@ -298,6 +346,27 @@ function Login({ onLoginSuccess }) {
                 : 'Create a secure password to use for login.'}
             </p>
           </div>
+
+          {/* Prominent in-card App Downloader CTA */}
+          {view === 'login' && (
+            <div className="login-card-apk-box">
+              <a 
+                href="/CharteredMentor.apk" 
+                download="CharteredMentor.apk" 
+                className="card-apk-cta-btn"
+                title="Download Android App APK"
+              >
+                <div className="apk-btn-left">
+                  <span className="apk-android-icon">📱</span>
+                  <div>
+                    <div className="apk-cta-main">Download Android App (.apk)</div>
+                    <div className="apk-cta-sub">Install directly on your phone &bull; 1.4 MB</div>
+                  </div>
+                </div>
+                <span className="apk-cta-pill">⬇️ Download</span>
+              </a>
+            </div>
+          )}
 
           {error && <div className="error-msg">{error}</div>}
           {msg && <div className="success-msg">{msg}</div>}

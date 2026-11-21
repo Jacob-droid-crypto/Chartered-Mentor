@@ -2891,6 +2891,16 @@ function Dashboard({ user, onLogout }) {
           </button>
         </div>
 
+        {/* Mobile Quick Action Strip (Download APK & Sign Out) */}
+        <div className="sidebar-mobile-quick-actions">
+          <a href="/CharteredMentor.apk" download="CharteredMentor.apk" className="sidebar-quick-apk-btn">
+            <span>📱</span> Download APK
+          </a>
+          <button type="button" onClick={onLogout} className="sidebar-quick-logout-btn">
+            <span>🚪</span> Sign Out
+          </button>
+        </div>
+
         {/* Scrollable Nav Groups */}
         <div className="sidebar-nav-scroll">
           {(user.role === 'admin' || user.role === 'staff') ? (
@@ -3240,19 +3250,42 @@ function Dashboard({ user, onLogout }) {
                 title="Refresh live data across academy"
               >
                 <span className={`refresh-btn-icon ${isRefreshing ? 'spin-active' : ''}`}>🔄</span>
-                <span>{isRefreshing ? 'Syncing...' : 'Refresh'}</span>
+                <span className="refresh-btn-text">{isRefreshing ? 'Syncing...' : 'Refresh'}</span>
               </button>
             )}
 
+            {/* Direct App Download Button in Header (Always visible on mobile & desktop) */}
+            <a 
+              href="/CharteredMentor.apk" 
+              download="CharteredMentor.apk" 
+              className="header-apk-btn"
+              title="Download Android App (.apk)"
+            >
+              <span className="header-btn-icon">📱</span>
+              <span className="header-btn-text">App</span>
+            </a>
+
+            {/* Direct Header Logout Button (Always visible on mobile & desktop) */}
+            <button 
+              type="button" 
+              onClick={onLogout} 
+              className="header-logout-btn"
+              title="Sign Out / Logout"
+            >
+              <span className="header-btn-icon">🚪</span>
+              <span className="header-btn-text">Sign Out</span>
+            </button>
+
+            {/* User Profile Pill */}
             <div 
-              style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '50px', padding: '0.35rem 0.85rem 0.35rem 0.5rem', cursor: 'pointer' }}
+              className="header-profile-pill"
               onClick={() => setActiveTab('profile')}
               title="View Profile"
             >
               <div className="avatar" style={{ width: '28px', height: '28px', fontSize: '0.8rem' }}>
                 {user.name ? user.name.charAt(0).toUpperCase() : '?'}
               </div>
-              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>
+              <span className="header-profile-name">
                 {user.role === 'admin' ? 'Admin' : user.name?.split(' ')[0] || 'Student'}
               </span>
             </div>
