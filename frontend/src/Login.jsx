@@ -17,7 +17,7 @@ function Login({ onLoginSuccess }) {
   const [tempToken, setTempToken] = useState(null);
   const [resetRole, setResetRole] = useState('student');
 
-  // Abstract & Attractive Highlights Extracted from Official Posters
+  // Abstract & Attractive Highlights Extracted from Official Posters (Compact 3-Row Set)
   const posterHighlights = [
     {
       icon: '🎯',
@@ -29,23 +29,16 @@ function Login({ onLoginSuccess }) {
     {
       icon: '👨‍💼',
       title: 'Individual Guidance by Qualified CAs',
-      desc: '360° feedback, expert paper valuation, and instant 1-on-1 doubt clearing.',
+      desc: '360° feedback, expert paper valuation & 1-on-1 doubt clearing.',
       badge: 'Expert Faculty',
       badgeClass: 'blue'
     },
     {
       icon: '🪑',
       title: 'Dedicated Study Cabins & Campus Space',
-      desc: 'Complete silence personal cabins, group study zones & technology-enabled tracking.',
-      badge: 'Only 30 Seats/Batch',
+      desc: 'Complete silence personal cabins, group study zone & app tracking.',
+      badge: 'Only 30 Seats',
       badgeClass: 'green'
-    },
-    {
-      icon: '📑',
-      title: 'Comprehensive Test Series & 1.5-Day Strategy',
-      desc: 'ICAI simulation mock tests, smart exam temperament & step-marking evaluation.',
-      badge: 'Residential / Online',
-      badgeClass: 'purple'
     }
   ];
 
@@ -233,32 +226,37 @@ function Login({ onLoginSuccess }) {
             </p>
           </div>
 
-          {/* 4 Concise & Abstract Highlight Cards from Official Posters */}
-          <div className="hero-highlights-grid">
+          {/* 3 Sleek Compact Highlight Rows */}
+          <div className="hero-compact-highlights">
             {posterHighlights.map((item, idx) => (
-              <div key={idx} className="hero-abstract-card">
-                <div className="abstract-card-top">
-                  <span className="abstract-card-icon">{item.icon}</span>
-                  <span className={`abstract-card-badge ${item.badgeClass}`}>{item.badge}</span>
+              <div key={idx} className="hero-compact-row">
+                <span className="compact-row-icon">{item.icon}</span>
+                <div className="compact-row-content">
+                  <div className="compact-row-header">
+                    <span className="compact-row-title">{item.title}</span>
+                    <span className={`compact-row-badge ${item.badgeClass}`}>{item.badge}</span>
+                  </div>
+                  <p className="compact-row-desc">{item.desc}</p>
                 </div>
-                <h3 className="abstract-card-title">{item.title}</h3>
-                <p className="abstract-card-desc">{item.desc}</p>
               </div>
             ))}
           </div>
 
-          {/* Quick Batch Options */}
-          <div className="hero-batch-options">
-            <span className="batch-pill">🏡 Residential Batch</span>
-            <span className="batch-pill">💻 Online Batch</span>
-            <span className="batch-pill">🚶 Dayscholar Option</span>
-            <span className="batch-pill highlight-pill">⚡ Limited Seats Available</span>
+          {/* Quick Batch Options Strip */}
+          <div className="hero-batch-strip">
+            <span className="batch-strip-item">🏡 Residential</span>
+            <span className="batch-strip-dot">•</span>
+            <span className="batch-strip-item">💻 Online</span>
+            <span className="batch-strip-dot">•</span>
+            <span className="batch-strip-item">🚶 Dayscholar</span>
+            <span className="batch-strip-dot">•</span>
+            <span className="batch-strip-highlight">⚡ Limited 30 Seats/Batch</span>
           </div>
 
           {/* Footer Note */}
           <div className="login-hero-footer-note">
-            <span>Chartered Mentor • Educate. Elevate. Excel.</span>
-            <span className="footer-contact">Admissions & Enquiries: +91 9496540849</span>
+            <span>Chartered Mentor Institute</span>
+            <span className="footer-contact">Admissions & Enquiries: 9496540849</span>
           </div>
         </div>
       </aside>
@@ -267,6 +265,7 @@ function Login({ onLoginSuccess }) {
       <main className="login-form-panel">
         <div className="login-card">
           <div className="login-card-header">
+            <div className="login-portal-badge">PORTAL ACCESS</div>
             <div className="login-card-brand">
               <img 
                 src="/logo.png" 
@@ -475,6 +474,12 @@ function Login({ onLoginSuccess }) {
               </button>
             </div>
           </form>
+        )}
+
+        {view === 'login' && (
+          <div className="login-card-help-footer">
+            <span>Need help signing in? Contact Campus Desk: <strong>+91 9496540849</strong></span>
+          </div>
         )}
         </div>
       </main>
