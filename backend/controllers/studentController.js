@@ -888,6 +888,15 @@ const downloadPaper = async (req, res) => {
       return res.status(404).json({ message: "Question Paper not found" });
     }
 
+    // Security check: If student requests paper, enforce schedule date lock in IST
+    if (req.user && req.user.role === 'student') {
+      const todayStr = getISTDateString();
+      const scheduledStr = getISTDateString(new Date(paper.scheduledTime));
+      if (todayStr < scheduledStr) {
+        return res.status(400).json({ message: `Question paper is locked until the scheduled date (${scheduledStr})` });
+      }
+    }
+
     const buffer = Buffer.from(paper.fileData, "base64");
 
     res.setHeader("Content-Type", paper.fileType);
@@ -1007,9 +1016,9 @@ const startStudentExam = async (req, res) => {
       return res.status(404).json({ message: "Question Paper not found" });
     }
 
-    // Date comparison (midnight local time or date string splitting)
+    // Date comparison in IST (Indian Standard Time)
     const todayStr = getISTDateString();
-    const scheduledStr = new Date(paper.scheduledTime).toISOString().split("T")[0];
+    const scheduledStr = getISTDateString(new Date(paper.scheduledTime));
 
     // If today is before the scheduled date, it's locked
     if (todayStr < scheduledStr) {
@@ -1161,6 +1170,13 @@ const downloadScheduleFile = async (req, res) => {
       return res.status(404).json({ message: "Schedule not found or unauthorized" });
     }
 
+    // Security check: Enforce schedule date lock in IST (cannot download before scheduled date)
+    const todayStr = getISTDateString();
+    const scheduledStr = getISTDateString(new Date(schedule.date));
+    if (todayStr < scheduledStr) {
+      return res.status(400).json({ message: `Schedule is locked until the scheduled date (${scheduledStr})` });
+    }
+
     if (!schedule.fileData) {
       return res.status(404).json({ message: "No file associated with this schedule" });
     }
@@ -1190,6 +1206,13 @@ const markScheduleOpened = async (req, res) => {
     const schedule = await Schedule.findOne({ _id: id, target: user.userId });
     if (!schedule) {
       return res.status(404).json({ message: "Schedule not found or unauthorized" });
+    }
+
+    // Security check: Cannot mark as opened before scheduled date in IST
+    const todayStr = getISTDateString();
+    const scheduledStr = getISTDateString(new Date(schedule.date));
+    if (todayStr < scheduledStr) {
+      return res.status(400).json({ message: `Schedule is locked until the scheduled date (${scheduledStr})` });
     }
 
     if (!schedule.openedAt) {

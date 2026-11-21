@@ -138,7 +138,7 @@ function StudentPaperCard({ paper, user, onRefresh, showConfirm }) {
   // Parse time
   const scheduledDate = new Date(paper.scheduledTime);
   const todayStr = getLocalDateString(getSyncedNow());
-  const scheduledStr = scheduledDate.toISOString().split("T")[0];
+  const scheduledStr = getLocalDateString(scheduledDate);
   const isLocked = todayStr < scheduledStr;
 
   const totalDurationMins = paper.examDuration + paper.uploadDuration;
@@ -1664,12 +1664,13 @@ function Dashboard({ user, onLogout }) {
       });
     }
 
-    // 2. Question Paper Upload Notifications (within last 48 hours)
+    // 2. Question Paper Upload Notifications (within last 48 hours, and only if scheduled date has arrived)
     if (Array.isArray(papers)) {
       const fortyEightHoursAgo = Date.now() - 48 * 60 * 60 * 1000;
       papers.forEach(paper => {
         const uploadTime = new Date(paper.createdAt).getTime();
-        if (uploadTime >= fortyEightHoursAgo) {
+        const paperDateStr = getLocalDateString(new Date(paper.scheduledTime));
+        if (paperDateStr <= todayStr && uploadTime >= fortyEightHoursAgo) {
           const dateStr = new Date(paper.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' });
           const timeStr = new Date(paper.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           notifications.push({
@@ -1684,12 +1685,13 @@ function Dashboard({ user, onLogout }) {
       });
     }
 
-    // 3. Schedule Upload Notifications (within last 48 hours)
+    // 3. Schedule Upload Notifications (within last 48 hours, and only if schedule date has arrived)
     if (Array.isArray(schedules)) {
       const fortyEightHoursAgo = Date.now() - 48 * 60 * 60 * 1000;
       schedules.forEach(sch => {
         const uploadTime = new Date(sch.createdAt).getTime();
-        if (uploadTime >= fortyEightHoursAgo) {
+        const schDateStr = getLocalDateString(new Date(sch.date));
+        if (schDateStr <= todayStr && uploadTime >= fortyEightHoursAgo) {
           const dateStr = new Date(sch.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' });
           const timeStr = new Date(sch.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           notifications.push({
@@ -5678,6 +5680,11 @@ function Dashboard({ user, onLogout }) {
 
                   <div className="activity-list">
                     {schedules.map((sched) => {
+                      const todayStr = getLocalDateString(getSyncedNow());
+                      const schedDate = new Date(sched.date);
+                      const schedDateStr = getLocalDateString(schedDate);
+                      const isLocked = todayStr < schedDateStr;
+
                       return (
                         <div key={sched._id} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', width: '100%' }}>
                           <div className="activity-item" style={{
@@ -5685,20 +5692,26 @@ function Dashboard({ user, onLogout }) {
                             justifyContent: 'space-between',
                             alignItems: 'center',
                             padding: '1.2rem',
-                            background: 'white',
-                            border: '1px solid var(--glass-border)',
+                            background: isLocked ? 'rgba(0,0,0,0.02)' : 'white',
+                            border: isLocked ? '1px dashed var(--glass-border)' : '1px solid var(--glass-border)',
                             borderRadius: '12px',
                             transition: 'all 0.2s ease',
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.01)'
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.01)',
+                            opacity: isLocked ? 0.85 : 1
                           }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
                               <div style={{ flex: 1 }}>
-                                <strong style={{ fontSize: '1.1rem', color: 'var(--text-main)' }}>
-                                  {sched.title}
+                                <strong style={{ fontSize: '1.1rem', color: isLocked ? 'var(--text-muted)' : 'var(--text-main)' }}>
+                                  {isLocked ? `🔒 ${sched.title}` : sched.title}
                                 </strong>
-                                <div style={{ display: 'flex', gap: '1rem', marginTop: '0.4rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                                  <span>📅 Start Date: {new Date(sched.date).toLocaleDateString()}</span>
-                                  {sched.openedAt && (
+                                <div style={{ display: 'flex', gap: '1rem', marginTop: '0.4rem', fontSize: '0.85rem', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
+                                  <span>📅 Scheduled Date: <strong>{schedDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
+                                  {isLocked && (
+                                    <span style={{ color: '#dc2626', fontWeight: '700' }}>
+                                      ⏳ Unlocks on scheduled date
+                                    </span>
+                                  )}
+                                  {sched.openedAt && !isLocked && (
                                     <span style={{ color: '#10b981', fontWeight: '500' }}>
                                       👁️ Opened: {new Date(sched.openedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                     </span>
@@ -5707,41 +5720,58 @@ function Dashboard({ user, onLogout }) {
                               </div>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                              {sched.fileName && (
-                                <button
-                                  onClick={async () => {
-                                    try {
-                                      const res = await fetch(`/student/schedule/${sched._id}/download`, {
-                                        headers: { 'Authorization': `Bearer ${user.token}` }
-                                      });
-                                      if (!res.ok) throw new Error("Failed to download");
-                                      const blob = await res.blob();
-                                      const url = window.URL.createObjectURL(blob);
-                                      const a = document.createElement('a');
-                                      a.href = url;
-                                      a.download = sched.fileName || 'schedule.pdf';
-                                      document.body.appendChild(a);
-                                      a.click();
-                                      a.remove();
-                                      fetchSchedules();
-                                    } catch (err) {
-                                      alert("Error downloading schedule: " + err.message);
-                                    }
-                                  }}
-                                  style={{
-                                    padding: '0.55rem 1.2rem',
-                                    background: 'var(--primary-color)',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '0.85rem',
-                                    fontWeight: 'bold',
-                                    cursor: 'pointer',
-                                    boxShadow: '0 4px 10px rgba(59, 130, 246, 0.2)'
-                                  }}
-                                >
-                                  Download PDF 📥
-                                </button>
+                              {isLocked ? (
+                                <span style={{
+                                  padding: '0.45rem 0.85rem',
+                                  background: '#fef2f2',
+                                  color: '#dc2626',
+                                  border: '1px solid #fecaca',
+                                  borderRadius: '8px',
+                                  fontSize: '0.82rem',
+                                  fontWeight: '700'
+                                }}>
+                                  🔒 Locked
+                                </span>
+                              ) : (
+                                sched.fileName && (
+                                  <button
+                                    onClick={async () => {
+                                      try {
+                                        const res = await fetch(`/student/schedule/${sched._id}/download`, {
+                                          headers: { 'Authorization': `Bearer ${user.token}` }
+                                        });
+                                        if (!res.ok) {
+                                          const errData = await res.json().catch(() => ({}));
+                                          throw new Error(errData.message || "Failed to download");
+                                        }
+                                        const blob = await res.blob();
+                                        const url = window.URL.createObjectURL(blob);
+                                        const a = document.createElement('a');
+                                        a.href = url;
+                                        a.download = sched.fileName || 'schedule.pdf';
+                                        document.body.appendChild(a);
+                                        a.click();
+                                        a.remove();
+                                        fetchSchedules();
+                                      } catch (err) {
+                                        alert("Error downloading schedule: " + err.message);
+                                      }
+                                    }}
+                                    style={{
+                                      padding: '0.55rem 1.2rem',
+                                      background: 'var(--primary-color)',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: '8px',
+                                      fontSize: '0.85rem',
+                                      fontWeight: 'bold',
+                                      cursor: 'pointer',
+                                      boxShadow: '0 4px 10px rgba(59, 130, 246, 0.2)'
+                                    }}
+                                  >
+                                    Download PDF 📥
+                                  </button>
+                                )
                               )}
                             </div>
                           </div>
