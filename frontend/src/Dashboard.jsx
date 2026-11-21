@@ -3206,7 +3206,7 @@ function Dashboard({ user, onLogout }) {
                   : 'Campus Overview'}
               </h1>
               <p>
-                {activeTab === 'dashboard' ? 'Model 3 Minimalist Theme applied cleanly across all existing tabs'
+                {activeTab === 'dashboard' ? 'Live Kochi Campus Overview & Real-Time Monitoring'
                   : `Real-time management for ${activeTab.replace('_', ' ')}`}
               </p>
             </div>
@@ -10333,7 +10333,7 @@ function Dashboard({ user, onLogout }) {
         );
       })()}
       
-{/* Mobile Bottom Navigation Bar (app-like structure) */}
+{/* Mobile Bottom Navigation Bar (Streamlined Native App 5-Dock) */}
       <nav className="mobile-bottom-nav">
         <ul className="mobile-bottom-nav-list">
           <li
@@ -10347,38 +10347,17 @@ function Dashboard({ user, onLogout }) {
             }}
           >
             <span className="nav-icon">📊</span>
-            <span className="nav-text">Dashboard</span>
+            <span className="nav-text">Overview</span>
           </li>
 
           {(user.role === 'admin' || user.role === 'staff') ? (
             <>
               <li
-                className={`mobile-bottom-nav-item ${activeTab === 'profile' ? 'active' : ''}`}
-                onClick={() => setActiveTab('profile')}
+                className={`mobile-bottom-nav-item ${activeTab === 'attendance' ? 'active' : ''}`}
+                onClick={() => setActiveTab('attendance')}
               >
-                <span className="nav-icon">👤</span>
-                <span className="nav-text">Profile</span>
-              </li>
-              <li
-                className={`mobile-bottom-nav-item ${activeTab === 'students' ? 'active' : ''}`}
-                onClick={() => setActiveTab('students')}
-              >
-                <span className="nav-icon">🎓</span>
-                <span className="nav-text">Students</span>
-              </li>
-              <li
-                className={`mobile-bottom-nav-item ${activeTab === 'inside' ? 'active' : ''}`}
-                onClick={() => setActiveTab('inside')}
-              >
-                <span className="nav-icon">🟢</span>
-                <span className="nav-text">Inside</span>
-              </li>
-              <li
-                className={`mobile-bottom-nav-item ${activeTab === 'outside' ? 'active' : ''}`}
-                onClick={() => setActiveTab('outside')}
-              >
-                <span className="nav-icon">🔴</span>
-                <span className="nav-text">Outside</span>
+                <span className="nav-icon">⏱️</span>
+                <span className="nav-text">Attendance</span>
               </li>
               <li
                 className={`mobile-bottom-nav-item ${activeTab === 'seats' ? 'active' : ''}`}
@@ -10388,72 +10367,12 @@ function Dashboard({ user, onLogout }) {
                 <span className="nav-text">Seats</span>
               </li>
               <li
-                className={`mobile-bottom-nav-item ${activeTab === 'attendance' ? 'active' : ''}`}
-                onClick={() => setActiveTab('attendance')}
-              >
-                <span className="nav-icon">📅</span>
-                <span className="nav-text">Attendance</span>
-              </li>
-              <li
-                className={`mobile-bottom-nav-item ${activeTab === 'papers' ? 'active' : ''}`}
-                onClick={() => setActiveTab('papers')}
-              >
-                <span className="nav-icon">📄</span>
-                <span className="nav-text">Question Papers</span>
-              </li>
-              <li
-                className={`mobile-bottom-nav-item ${activeTab === 'schedules' ? 'active' : ''}`}
-                onClick={() => setActiveTab('schedules')}
-              >
-                <span className="nav-icon">🗓️</span>
-                <span className="nav-text">Schedules</span>
-              </li>
-              <li
                 className={`mobile-bottom-nav-item ${activeTab === 'exam_scheduler' ? 'active' : ''}`}
                 onClick={() => setActiveTab('exam_scheduler')}
               >
                 <span className="nav-icon">📅</span>
                 <span className="nav-text">Scheduler</span>
               </li>
-              <li
-                className={`mobile-bottom-nav-item ${activeTab === 'due_students' ? 'active' : ''}`}
-                onClick={() => setActiveTab('due_students')}
-              >
-                <span className="nav-icon">⏳</span>
-                <span className="nav-text">Dues</span>
-              </li>
-              <li
-                className={`mobile-bottom-nav-item ${activeTab === 'fines' ? 'active' : ''}`}
-                onClick={() => setActiveTab('fines')}
-              >
-                <span className="nav-icon">💸</span>
-                <span className="nav-text">Fines</span>
-              </li>
-              {user.role === 'admin' && (
-                <>
-                  <li
-                    className={`mobile-bottom-nav-item ${activeTab === 'payments' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('payments')}
-                  >
-                    <span className="nav-icon">💳</span>
-                    <span className="nav-text">Payments</span>
-                  </li>
-                  <li
-                    className={`mobile-bottom-nav-item ${(activeTab === 'settings' || activeTab === 'campus_qr') ? 'active' : ''}`}
-                    onClick={() => setActiveTab('settings')}
-                  >
-                    <span className="nav-icon">⚙️</span>
-                    <span className="nav-text">Settings</span>
-                  </li>
-                  <li
-                    className={`mobile-bottom-nav-item ${activeTab === 'goal_settings' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('goal_settings')}
-                  >
-                    <span className="nav-icon">🎯</span>
-                    <span className="nav-text">Goal Set</span>
-                  </li>
-                </>
-              )}
             </>
           ) : (
             <>
@@ -10467,7 +10386,7 @@ function Dashboard({ user, onLogout }) {
                   setActiveTab('attendance');
                 }}
               >
-                <span className="nav-icon">📅</span>
+                <span className="nav-icon">⏱️</span>
                 <span className="nav-text">Attendance</span>
               </li>
               <li
@@ -10481,7 +10400,7 @@ function Dashboard({ user, onLogout }) {
                 }}
               >
                 <span className="nav-icon">📄</span>
-                <span className="nav-text">Question Papers</span>
+                <span className="nav-text">Papers</span>
               </li>
               <li
                 className={`mobile-bottom-nav-item ${activeTab === 'schedules' ? 'active' : ''}`}
@@ -10496,48 +10415,16 @@ function Dashboard({ user, onLogout }) {
                 <span className="nav-icon">🗓️</span>
                 <span className="nav-text">Schedules</span>
               </li>
-              <li
-                className={`mobile-bottom-nav-item ${activeTab === 'payments' ? 'active' : ''}`}
-                onClick={() => {
-                  if (data && !data.profileCompleted) {
-                    alert('Please complete your profile details first to unlock all dashboard features.');
-                    return;
-                  }
-                  setActiveTab('payments');
-                }}
-              >
-                <span className="nav-icon">💳</span>
-                <span className="nav-text">Payments</span>
-              </li>
-              <li
-                className={`mobile-bottom-nav-item ${activeTab === 'study_tracker' ? 'active' : ''}`}
-                onClick={() => {
-                  if (data && !data.profileCompleted) {
-                    alert('Please complete your profile details first to unlock all dashboard features.');
-                    return;
-                  }
-                  setActiveTab('study_tracker');
-                }}
-              >
-                <span className="nav-icon">⏱️</span>
-                <span className="nav-text">Goal Tracker</span>
-              </li>
-              <li
-                className={`mobile-bottom-nav-item ${activeTab === 'profile' ? 'active' : ''}`}
-                onClick={() => setActiveTab('profile')}
-              >
-                <span className="nav-icon">👤</span>
-                <span className="nav-text">Profile</span>
-              </li>
             </>
           )}
 
+          {/* 5th Tab: 'More' Menu smoothly opens the complete categorized sidebar drawer */}
           <li
-            className="mobile-bottom-nav-item danger"
-            onClick={onLogout}
+            className={`mobile-bottom-nav-item ${(!['dashboard', 'attendance', 'seats', 'exam_scheduler', 'papers', 'schedules'].includes(activeTab)) ? 'active' : ''}`}
+            onClick={() => setMobileSidebarOpen(true)}
           >
-            <span className="nav-icon">🚪</span>
-            <span className="nav-text">Logout</span>
+            <span className="nav-icon">☰</span>
+            <span className="nav-text">More</span>
           </li>
         </ul>
       </nav>

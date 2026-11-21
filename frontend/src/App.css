@@ -457,82 +457,81 @@ button.primary:hover, .btn-primary:hover {
     flex-direction: column;
   }
   
-  .main-content {
-    padding: 1rem 0.85rem;
-    padding-bottom: 100px !important;
-    gap: 1.25rem;
-  }
-  
-  .top-header {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-  }
-  
-  .welcome-text h1 {
-    font-size: 1.35rem;
-  }
-  
-  .welcome-text p {
-    display: none;
-  }
-
   .mobile-bottom-nav {
-    display: block;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    background: #ffffff;
-    border-top: 1px solid #e2e8f0;
-    z-index: 2000;
-    box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.08);
+    display: block !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 58px !important;
+    background: #ffffff !important;
+    border-top: 1px solid #e2e8f0 !important;
+    z-index: 2000 !important;
+    box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.06) !important;
     padding-bottom: env(safe-area-inset-bottom);
   }
   
   .mobile-bottom-nav-list {
-    display: flex;
-    flex-direction: row;
-    list-style: none;
-    padding: 0.5rem 0.35rem;
-    margin: 0;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    gap: 0.25rem;
-    justify-content: flex-start;
-  }
-  
-  .mobile-bottom-nav-list::-webkit-scrollbar {
-    display: none;
+    display: flex !important;
+    flex-direction: row !important;
+    list-style: none !important;
+    padding: 0 0.25rem !important;
+    margin: 0 !important;
+    height: 100% !important;
+    width: 100% !important;
+    align-items: center !important;
+    justify-content: space-around !important;
+    overflow: hidden !important;
   }
   
   .mobile-bottom-nav-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 0.45rem 0.35rem;
-    font-size: 0.72rem;
-    font-weight: 600;
-    color: #64748b;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    border-bottom: 3px solid transparent;
-    flex-shrink: 0;
-    min-width: 70px;
-    text-align: center;
-    gap: 0.2rem;
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0.3rem 0.15rem !important;
+    font-size: 0.68rem !important;
+    font-weight: 600 !important;
+    color: #64748b !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+    border-bottom: none !important;
+    min-width: 0 !important;
+    gap: 2px !important;
+    user-select: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+  
+  .mobile-bottom-nav-item .nav-icon {
+    font-size: 1.25rem !important;
+    line-height: 1 !important;
+    display: block !important;
+    transition: transform 0.15s ease !important;
+  }
+
+  .mobile-bottom-nav-item .nav-text {
+    font-size: 0.68rem !important;
+    letter-spacing: -0.2px !important;
+  }
+
+  .mobile-bottom-nav-item:active .nav-icon {
+    transform: scale(0.9) !important;
   }
   
   .mobile-bottom-nav-item:hover {
-    color: #2563eb;
+    color: #2563eb !important;
   }
 
   .mobile-bottom-nav-item.active {
     color: #2563eb !important;
-    border-bottom: 3px solid #2563eb !important;
-    background: #eff6ff !important;
-    border-radius: 10px 10px 0 0;
+    font-weight: 700 !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+  }
+
+  .mobile-bottom-nav-item.active .nav-icon {
+    transform: translateY(-1px) !important;
   }
 }
 
@@ -1388,5 +1387,273 @@ button.primary:hover, .btn-primary:hover {
 
   .main-content-scroll {
     padding: 1.25rem 1rem 90px 1rem;
+  }
+}
+
+/* ========================================================
+   COMPREHENSIVE MOBILE & APK DE-CONGESTION RULES (< 768px)
+   Native Mobile App Feel, Compact Grids, Touch Comfort
+   ======================================================== */
+
+@media screen and (max-width: 768px) {
+  /* 1. Main Viewport & Breathing Room */
+  .main-content-scroll {
+    padding: 0.85rem 0.75rem calc(75px + env(safe-area-inset-bottom)) 0.75rem !important;
+    gap: 0.75rem !important;
+  }
+
+  /* 2. Top Header Bar De-congestion */
+  .top-header-clean {
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 0.5rem !important;
+    margin-bottom: 0.85rem !important;
+    padding-bottom: 0.65rem !important;
+  }
+
+  .header-title-clean h1 {
+    font-size: 1.18rem !important;
+    max-width: 180px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    line-height: 1.25 !important;
+  }
+
+  /* Hide long subtitles on mobile to save ~25px vertical space */
+  .header-title-clean p {
+    display: none !important;
+  }
+
+  /* Hide redundant tab pill on mobile (title already shows it) */
+  .active-tab-badge {
+    display: none !important;
+  }
+
+  .header-controls-clean {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.45rem !important;
+  }
+
+  .refresh-btn-clean {
+    padding: 0.4rem 0.7rem !important;
+    font-size: 0.78rem !important;
+    border-radius: 8px !important;
+  }
+
+  .mobile-hamburger-btn {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 9px !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 1.15rem !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+  }
+
+  /* 3. 2x2 KPI Metrics Grid (Solves 500px vertical scrolling) */
+  .kpi-metrics-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.65rem !important;
+    margin-bottom: 0.85rem !important;
+  }
+
+  .kpi-clean-card {
+    padding: 0.75rem 0.85rem !important;
+    border-radius: 12px !important;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03) !important;
+  }
+
+  .kpi-header-row {
+    margin-bottom: 0.35rem !important;
+  }
+
+  .kpi-label {
+    font-size: 0.76rem !important;
+    font-weight: 700 !important;
+  }
+
+  .kpi-pill-badge {
+    font-size: 0.66rem !important;
+    padding: 2px 6px !important;
+  }
+
+  .kpi-number-stat {
+    font-size: 1.45rem !important;
+    margin-bottom: 0.15rem !important;
+    letter-spacing: -0.4px !important;
+  }
+
+  .kpi-sub-description {
+    font-size: 0.7rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* 4. Upcoming Exams & Schedules Card */
+  .seats-model3-card, 
+  .upcoming-exams-model3-card {
+    padding: 0.95rem 0.85rem !important;
+    border-radius: 14px !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .seats-model3-header {
+    margin-bottom: 0.85rem !important;
+    gap: 0.5rem !important;
+  }
+
+  .upcoming-header-left h2 {
+    font-size: 1.05rem !important;
+  }
+
+  .upcoming-header-left p {
+    font-size: 0.78rem !important;
+  }
+
+  .upcoming-filter-pills {
+    display: flex !important;
+    gap: 0.35rem !important;
+    overflow-x: auto !important;
+    flex-wrap: nowrap !important;
+    padding-bottom: 4px !important;
+    -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
+  }
+
+  .upcoming-pill-filter-btn {
+    padding: 4px 10px !important;
+    font-size: 0.76rem !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+
+  .upcoming-item-row {
+    padding: 0.75rem 0.8rem !important;
+    gap: 0.6rem !important;
+    border-radius: 10px !important;
+  }
+
+  .upcoming-item-left {
+    min-width: 0 !important;
+    gap: 0.65rem !important;
+  }
+
+  .upcoming-item-icon-box {
+    width: 36px !important;
+    height: 36px !important;
+    font-size: 1.1rem !important;
+    border-radius: 8px !important;
+  }
+
+  .upcoming-item-title {
+    font-size: 0.88rem !important;
+    line-height: 1.3 !important;
+  }
+
+  .upcoming-item-meta {
+    font-size: 0.74rem !important;
+    gap: 0.35rem !important;
+  }
+
+  .upcoming-item-action-btn {
+    padding: 5px 10px !important;
+    font-size: 0.76rem !important;
+  }
+
+  /* 5. Interactive Desk Zones on Mobile */
+  .seats-zones-layout {
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem !important;
+  }
+
+  .zone-container-box {
+    padding: 0.85rem !important;
+    border-radius: 12px !important;
+  }
+
+  .zone-box-title {
+    font-size: 0.8rem !important;
+    margin-bottom: 0.65rem !important;
+  }
+
+  .zone-grid-desks {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 0.45rem !important;
+  }
+
+  .seat-model3-btn {
+    min-height: 36px !important;
+    font-size: 0.75rem !important;
+    padding: 4px 6px !important;
+  }
+
+  /* 6. Mobile Tables & Scroll Containers */
+  .table-responsive,
+  .table-container {
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    margin: 0.5rem 0 !important;
+    border-radius: 12px !important;
+  }
+
+  table {
+    border-radius: 10px !important;
+    margin: 0.5rem 0 !important;
+  }
+
+  thead th, tbody td {
+    padding: 0.55rem 0.65rem !important;
+    font-size: 0.8rem !important;
+    white-space: nowrap !important;
+  }
+
+  /* 7. Input & Touch Form Optimization (Prevents iOS zoom, eases touch) */
+  input[type="text"], 
+  input[type="password"], 
+  input[type="date"], 
+  select, 
+  textarea {
+    font-size: 16px !important;
+    padding: 0.55rem 0.75rem !important;
+  }
+
+  /* 8. Full Mobile Modals */
+  .modal-content, 
+  .student-form-modal {
+    width: 95% !important;
+    max-width: 95% !important;
+    padding: 1.25rem 1rem !important;
+    border-radius: 16px !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+  }
+}
+
+/* ========================================================
+   STANDALONE APK / PWA MODE OPTIMIZATIONS
+   ======================================================== */
+@media all and (display-mode: standalone) {
+  body {
+    overscroll-behavior-y: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  input, textarea {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  .top-header-clean {
+    padding-top: max(0.4rem, env(safe-area-inset-top));
   }
 }

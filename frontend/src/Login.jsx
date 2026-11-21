@@ -172,38 +172,92 @@ function Login({ onLoginSuccess }) {
   };
 
   return (
-    <div className="login-container">
-      <div className="login-card">
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <img 
-            src="/logo.png" 
-            alt="Chartered Mentor Logo" 
-            style={{ 
-              maxWidth: '280px', 
-              width: '100%',
-              height: 'auto', 
-              margin: '0 auto 1.5rem auto',
-              display: 'block'
-            }} 
-          />
-          <h2>
-            {view === 'login' ? 'Welcome Back' 
-              : view === 'google_verify' ? 'Verify Identity' 
-              : view.startsWith('forgot') ? 'Reset Password' 
-              : 'Set New Password'}
-          </h2>
-          <p>
-            {view === 'login' ? 'Sign in to access your campus dashboard & study records' 
-              : view === 'google_verify' ? 'Use your registered Google account to verify.' 
-              : view === 'forgot_role_select' ? 'Who are you resetting the password for?'
-              : view === 'forgot_email' ? 'Enter your ID to receive an OTP.'
-              : view === 'forgot_otp' ? 'Enter the OTP sent to your email.'
-              : 'Create a secure password to use for login.'}
-          </p>
-        </div>
+    <div className="login-split-layout">
+      {/* Left Showcase Hero Panel (PC Only: >= 960px) */}
+      <aside className="login-hero-panel">
+        <div className="login-hero-circle login-hero-circle-1" />
+        <div className="login-hero-circle login-hero-circle-2" />
+        
+        <div className="login-hero-inner">
+          <div className="login-hero-brand">
+            <div className="login-hero-logo-capsule">
+              <img 
+                src="/logo.png" 
+                alt="Chartered Mentor" 
+                className="login-hero-brand-logo" 
+              />
+            </div>
+            <span className="login-hero-campus-pill">Kochi Campus</span>
+          </div>
 
-        {error && <div className="error-msg">{error}</div>}
-        {msg && <div className="success-msg">{msg}</div>}
+          <div className="login-hero-main-copy">
+            <h1 className="login-hero-title">
+              Excellence in Chartered Accountancy Coaching
+            </h1>
+            <p className="login-hero-desc">
+              Centralized digital campus portal for live library desk allocation, biometric attendance, question papers, and scheduled mock exam countdowns.
+            </p>
+          </div>
+
+          <div className="login-hero-feature-list">
+            <div className="hero-feature-card">
+              <span className="hero-feature-icon">🪑</span>
+              <div>
+                <h4>Interactive Desk Matrix</h4>
+                <p>Real-time seat occupancy and reservations across Zones A, B, and C.</p>
+              </div>
+            </div>
+            <div className="hero-feature-card">
+              <span className="hero-feature-icon">⏱️</span>
+              <div>
+                <h4>Biometrics & Attendance Tracking</h4>
+                <p>Live campus entry, break durations, and automated leave management.</p>
+              </div>
+            </div>
+            <div className="hero-feature-card">
+              <span className="hero-feature-icon">📑</span>
+              <div>
+                <h4>Exam Schedules & Question Papers</h4>
+                <p>Instant access to CA Foundation, Inter & Final papers with 3-day countdowns.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="login-hero-footer-note">
+            <span>Chartered Mentor • Guiding Aspirants with Precision</span>
+          </div>
+        </div>
+      </aside>
+
+      {/* Right Form Panel (PC & Mobile) */}
+      <main className="login-form-panel">
+        <div className="login-card">
+          <div className="login-card-header">
+            <div className="login-card-brand">
+              <img 
+                src="/logo.png" 
+                alt="Chartered Mentor Logo" 
+                className="login-card-logo-img" 
+              />
+            </div>
+            <h2>
+              {view === 'login' ? 'Welcome Back' 
+                : view === 'google_verify' ? 'Verify Identity' 
+                : view.startsWith('forgot') ? 'Reset Password' 
+                : 'Set New Password'}
+            </h2>
+            <p>
+              {view === 'login' ? 'Sign in to access your campus dashboard & study records' 
+                : view === 'google_verify' ? 'Use your registered Google account to verify.' 
+                : view === 'forgot_role_select' ? 'Who are you resetting the password for?'
+                : view === 'forgot_email' ? 'Enter your ID to receive an OTP.'
+                : view === 'forgot_otp' ? 'Enter the OTP sent to your email.'
+                : 'Create a secure password to use for login.'}
+            </p>
+          </div>
+
+          {error && <div className="error-msg">{error}</div>}
+          {msg && <div className="success-msg">{msg}</div>}
 
         {view === 'login' && (
           <form onSubmit={handleSubmit}>
@@ -388,7 +442,8 @@ function Login({ onLoginSuccess }) {
             </div>
           </form>
         )}
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
