@@ -7,6 +7,8 @@ import { Bar, Doughnut } from 'react-chartjs-2';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { QRCodeSVG } from 'qrcode.react';
 import * as XLSX from 'xlsx';
+import cmLogo from './assets/logo.png';
+import { CM_LOGO_DATA } from './assets/logoData';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, ArcElement);
 
@@ -2873,9 +2875,10 @@ function Dashboard({ user, onLogout }) {
         <div className="sidebar-brand-wrapper">
           <div className="sidebar-brand-logo" onClick={() => setActiveTab('dashboard')} title="Chartered Mentor">
             <img 
-              src="/logo.png" 
+              src={cmLogo || CM_LOGO_DATA} 
               alt="Chartered Mentor" 
               className="sidebar-brand-logo-img" 
+              onError={(e) => { e.currentTarget.src = CM_LOGO_DATA; }}
             />
           </div>
           <button 

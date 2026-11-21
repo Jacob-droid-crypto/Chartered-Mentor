@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import './Login.css';
+import cmLogo from './assets/logo.png';
+import { CM_LOGO_DATA } from './assets/logoData';
 
 function Login({ onLoginSuccess }) {
   const [userId, setUserId] = useState('');
@@ -204,9 +206,10 @@ function Login({ onLoginSuccess }) {
           {/* Top Brand Bar: Official Authentic Logo & Contact */}
           <div className="login-hero-brand">
             <img 
-              src="/logo.png" 
+              src={cmLogo || CM_LOGO_DATA} 
               alt="Chartered Mentor" 
               className="login-hero-brand-logo" 
+              onError={(e) => { e.currentTarget.src = CM_LOGO_DATA; }}
             />
             <div className="login-hero-contact-pill">
               <span>📍 Palarivattom, Cochin</span>
@@ -268,9 +271,10 @@ function Login({ onLoginSuccess }) {
             <div className="login-portal-badge">PORTAL ACCESS</div>
             <div className="login-card-brand">
               <img 
-                src="/logo.png" 
+                src={cmLogo || CM_LOGO_DATA} 
                 alt="Chartered Mentor Logo" 
                 className="login-card-logo-img" 
+                onError={(e) => { e.currentTarget.src = CM_LOGO_DATA; }}
               />
             </div>
             <h2>
