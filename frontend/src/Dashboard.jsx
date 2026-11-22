@@ -4329,10 +4329,10 @@ function Dashboard({ user, onLogout }) {
                     <div 
                       className="kpi-clean-card"
                       onClick={() => setActiveTab('due_students')}
-                      title="Click to view detailed dues and installment schedules"
+                      title="Click to view student dues and fee status"
                     >
                       <div className="kpi-header-row">
-                        <span className="kpi-label">Pending Dues & Fines</span>
+                        <span className="kpi-label">Overdue Dues</span>
                         {overdueDuesTotal === 0 ? (
                           <span className="kpi-pill-badge green">All Clear</span>
                         ) : (
@@ -4340,20 +4340,15 @@ function Dashboard({ user, onLogout }) {
                         )}
                       </div>
                       <div 
-                        className={`kpi-number-stat ${overdueDuesTotal === 0 ? 'green-text' : 'amber-text'}`}
+                        className={`kpi-number-stat ${overdueDuesTotal === 0 ? 'green-text' : 'red-text'}`}
                       >
                         ₹{overdueDuesTotal.toLocaleString('en-IN')}
                       </div>
                       <div className="kpi-sub-description">
-                        {overdueDuesTotal === 0 ? (
-                          upcomingDuesTotal > 0 ? (
-                            `No overdue dues • ₹${upcomingDuesTotal.toLocaleString('en-IN')} upcoming`
-                          ) : (
-                            'All fees cleared • No pending dues'
-                          )
-                        ) : (
-                          `${overdueDuesCount} student${overdueDuesCount > 1 ? 's' : ''} overdue • ₹${upcomingDuesTotal.toLocaleString('en-IN')} upcoming`
-                        )}
+                        {overdueDuesTotal === 0 
+                          ? 'All dues cleared • No overdue fees'
+                          : `${overdueDuesCount} student${overdueDuesCount > 1 ? 's' : ''} overdue for payment`
+                        }
                       </div>
                     </div>
                   </div>
