@@ -19,6 +19,7 @@ function Login({ onLoginSuccess }) {
   const [tempToken, setTempToken] = useState(null);
   const [resetRole, setResetRole] = useState('student');
   const [installPrompt, setInstallPrompt] = useState(null);
+  const [showInstallHelpModal, setShowInstallHelpModal] = useState(false);
 
   useEffect(() => {
     const handleBeforeInstall = (e) => {
@@ -35,6 +36,13 @@ function Login({ onLoginSuccess }) {
       const choice = await installPrompt.userChoice;
       if (choice && choice.outcome === 'accepted') {
         setInstallPrompt(null);
+      }
+    } else {
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+      if (isStandalone) {
+        alert('Chartered Mentor is already installed and running on your device!');
+      } else {
+        setShowInstallHelpModal(true);
       }
     }
   };
@@ -276,10 +284,10 @@ function Login({ onLoginSuccess }) {
             <span className="batch-strip-highlight">⚡ Limited 30 Seats/Batch</span>
           </div>
 
-          <div className="hero-apk-download-bar">
-            <a href="/CharteredMentor.apk" download="CharteredMentor.apk" className="hero-apk-btn">
-              <span>📱</span> Download Android App for Students (.apk)
-            </a>
+          <div className="hero-pwa-download-bar">
+            <button type="button" onClick={handleInstallClick} className="hero-pwa-btn">
+              <span>📲</span> Install Official Web App on your Device
+            </button>
           </div>
 
           {/* Footer Note */}
@@ -292,31 +300,21 @@ function Login({ onLoginSuccess }) {
 
       {/* Right Form Panel (PC & Mobile) */}
       <main className="login-form-panel">
-        {/* Prominent App Downloader Top Bar (Highly visible on mobile & desktop) */}
-        <div className="login-top-apk-banner">
-          <div className="top-apk-banner-info">
-            <span className="apk-banner-badge">OFFICIAL APP</span>
-            <span className="apk-banner-title">Chartered Mentor for Android</span>
+        {/* Prominent Web App Downloader Top Bar (Highly visible on mobile & desktop) */}
+        <div className="login-top-pwa-banner">
+          <div className="top-pwa-banner-info">
+            <span className="pwa-banner-badge">OFFICIAL APP</span>
+            <span className="pwa-banner-title">Chartered Mentor App</span>
           </div>
-          <div className="top-apk-banner-actions">
-            {installPrompt && (
-              <button 
-                type="button" 
-                onClick={handleInstallClick} 
-                className="top-install-pwa-btn"
-                title="Install Chartered Mentor Web App"
-              >
-                <span>📲</span> Install
-              </button>
-            )}
-            <a 
-              href="/CharteredMentor.apk" 
-              download="CharteredMentor.apk" 
-              className="top-apk-banner-btn"
-              title="Download Chartered Mentor Android APK"
+          <div className="top-pwa-banner-actions">
+            <button 
+              type="button" 
+              onClick={handleInstallClick} 
+              className="top-pwa-banner-btn"
+              title="Install Chartered Mentor Web App"
             >
-              <span>📱</span> Download APK
-            </a>
+              <span>📲</span> Install App
+            </button>
           </div>
         </div>
 
@@ -347,24 +345,24 @@ function Login({ onLoginSuccess }) {
             </p>
           </div>
 
-          {/* Prominent in-card App Downloader CTA */}
+          {/* Prominent in-card Web App Downloader CTA */}
           {view === 'login' && (
-            <div className="login-card-apk-box">
-              <a 
-                href="/CharteredMentor.apk" 
-                download="CharteredMentor.apk" 
-                className="card-apk-cta-btn"
-                title="Download Android App APK"
+            <div className="login-card-pwa-box">
+              <button 
+                type="button"
+                onClick={handleInstallClick} 
+                className="card-pwa-cta-btn"
+                title="Install Chartered Mentor App"
               >
-                <div className="apk-btn-left">
-                  <span className="apk-android-icon">📱</span>
+                <div className="pwa-btn-left">
+                  <span className="pwa-app-icon">📲</span>
                   <div>
-                    <div className="apk-cta-main">Download Android App (.apk)</div>
-                    <div className="apk-cta-sub">Install directly on your phone &bull; 1.4 MB</div>
+                    <div className="pwa-cta-main">Install Chartered Mentor App</div>
+                    <div className="pwa-cta-sub">Fast &bull; One-Tap Access &bull; Works Offline</div>
                   </div>
                 </div>
-                <span className="apk-cta-pill">⬇️ Download</span>
-              </a>
+                <span className="pwa-cta-pill">📲 Install</span>
+              </button>
             </div>
           )}
 
@@ -557,14 +555,14 @@ function Login({ onLoginSuccess }) {
 
         {view === 'login' && (
           <div className="login-card-help-footer">
-            <a 
-              href="/CharteredMentor.apk" 
-              download="CharteredMentor.apk" 
-              className="download-apk-link-btn"
-              title="Download Android APK"
+            <button 
+              type="button"
+              onClick={handleInstallClick} 
+              className="download-pwa-link-btn"
+              title="Install Official Web App"
             >
-              <span>📱</span> Download Android App (.apk)
-            </a>
+              <span>📲</span> Install Official Web App
+            </button>
             <div className="login-card-help-text">
               <span>Need help signing in? Contact Campus Desk: <strong>+91 9496540849</strong></span>
             </div>
@@ -572,6 +570,39 @@ function Login({ onLoginSuccess }) {
         )}
         </div>
       </main>
+
+      {/* Universal PWA Install Guide Modal */}
+      {showInstallHelpModal && (
+        <div className="install-modal-overlay" onClick={() => setShowInstallHelpModal(false)}>
+          <div className="install-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="install-modal-header">
+              <div className="install-modal-icon">📲</div>
+              <h3>Install Chartered Mentor</h3>
+              <button type="button" className="install-modal-close" onClick={() => setShowInstallHelpModal(false)}>✕</button>
+            </div>
+            <p className="install-modal-intro">
+              Install the official web app directly on your phone or PC for full-screen view, fast loading, and real-time updates.
+            </p>
+            <div className="install-steps-list">
+              <div className="install-step-item">
+                <span className="step-badge">Android (Chrome)</span>
+                <p>Tap the <strong>three dots (⋮)</strong> at top right, then tap <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.</p>
+              </div>
+              <div className="install-step-item">
+                <span className="step-badge">iPhone / iPad (Safari)</span>
+                <p>Tap the <strong>Share button (⎋)</strong> at the bottom of the screen, scroll down, and tap <strong>"Add to Home Screen"</strong>.</p>
+              </div>
+              <div className="install-step-item">
+                <span className="step-badge">Desktop (Chrome / Edge)</span>
+                <p>Click the <strong>Install icon (⊞ / 📲)</strong> in your browser address bar at the top right.</p>
+              </div>
+            </div>
+            <button type="button" className="install-modal-ok-btn" onClick={() => setShowInstallHelpModal(false)}>
+              Got It
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -757,6 +757,34 @@ function Dashboard({ user, onLogout }) {
   }, []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [showInstallModal, setShowInstallModal] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstall = (e) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (installPrompt) {
+      installPrompt.prompt();
+      const choice = await installPrompt.userChoice;
+      if (choice && choice.outcome === 'accepted') {
+        setInstallPrompt(null);
+      }
+    } else {
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+      if (isStandalone) {
+        alert('Chartered Mentor is already installed and running on your device!');
+      } else {
+        setShowInstallModal(true);
+      }
+    }
+  };
 
   // Add student form state
   const [showAddForm, setShowAddForm] = useState(false);
@@ -2887,7 +2915,16 @@ function Dashboard({ user, onLogout }) {
       <aside className={`dashboard-sidebar ${mobileSidebarOpen ? 'open' : ''}`}>
         {/* Brand Header */}
         <div className="sidebar-brand-wrapper">
-          <div className="sidebar-brand-logo" onClick={() => setActiveTab('dashboard')} title="Chartered Mentor">
+          <div 
+            className="sidebar-brand-logo" 
+            onClick={() => {
+              setActiveTab('dashboard');
+              setViewingProfileStudent(null);
+              setMobileSidebarOpen(false);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }} 
+            title="Chartered Mentor - Go to Dashboard"
+          >
             <img 
               src={cmLogo || CM_LOGO_DATA} 
               alt="Chartered Mentor" 
@@ -2905,11 +2942,11 @@ function Dashboard({ user, onLogout }) {
           </button>
         </div>
 
-        {/* Mobile Quick Action Strip (Download APK & Sign Out) */}
+        {/* Mobile Quick Action Strip (Install App & Sign Out) */}
         <div className="sidebar-mobile-quick-actions">
-          <a href="/CharteredMentor.apk" download="CharteredMentor.apk" className="sidebar-quick-apk-btn">
-            <span>📱</span> Download APK
-          </a>
+          <button type="button" onClick={handleInstallApp} className="sidebar-quick-install-btn" title="Install Web App">
+            <span>📲</span> Install App
+          </button>
           <button type="button" onClick={onLogout} className="sidebar-quick-logout-btn">
             <span>🚪</span> Sign Out
           </button>
@@ -3163,6 +3200,18 @@ function Dashboard({ user, onLogout }) {
           )}
         </div>
 
+        {/* Sidebar Install App CTA */}
+        <div style={{ padding: '0 1rem', marginBottom: '0.5rem' }}>
+          <button 
+            type="button" 
+            onClick={handleInstallApp} 
+            className="sidebar-install-pwa-btn"
+            title="Install Chartered Mentor on your device"
+          >
+            <span>📲</span> Install Web App
+          </button>
+        </div>
+
         {/* Sidebar Footer User Info & Sign Out */}
         <div className="sidebar-footer-card">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
@@ -3201,7 +3250,7 @@ function Dashboard({ user, onLogout }) {
       <main className="main-content-scroll">
         {/* Top Header Bar */}
         <div className="top-header-clean">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div className="top-header-left" style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
             <button
               type="button"
               className="mobile-hamburger-btn"
@@ -3210,6 +3259,25 @@ function Dashboard({ user, onLogout }) {
             >
               <span style={{ fontSize: '1.25rem' }}>☰</span>
             </button>
+
+            {/* Clickable Brand Logo (ALWAYS present on mobile and desktop) */}
+            <div 
+              className="header-brand-logo" 
+              onClick={() => {
+                setActiveTab('dashboard');
+                setViewingProfileStudent(null);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              title="Chartered Mentor - Go to Dashboard"
+            >
+              <img 
+                src={cmLogo || CM_LOGO_DATA} 
+                alt="Chartered Mentor" 
+                className="header-brand-logo-img" 
+                onError={(e) => { e.currentTarget.src = CM_LOGO_DATA; }}
+              />
+            </div>
+
             <div className="header-title-clean">
               <h1>
                 {activeTab === 'dashboard' ? 'Campus Live Overview'
@@ -3268,16 +3336,16 @@ function Dashboard({ user, onLogout }) {
               </button>
             )}
 
-            {/* Direct App Download Button in Header (Always visible on mobile & desktop) */}
-            <a 
-              href="/CharteredMentor.apk" 
-              download="CharteredMentor.apk" 
-              className="header-apk-btn"
-              title="Download Android App (.apk)"
+            {/* Direct Web App Install Button in Header (Always visible on mobile & desktop) */}
+            <button 
+              type="button" 
+              onClick={handleInstallApp} 
+              className="header-install-btn"
+              title="Install Chartered Mentor Web App"
             >
-              <span className="header-btn-icon">📱</span>
-              <span className="header-btn-text">App</span>
-            </a>
+              <span className="header-btn-icon">📲</span>
+              <span className="header-btn-text">Install App</span>
+            </button>
 
             {/* Direct Header Logout Button (Always visible on mobile & desktop) */}
             <button 
@@ -10654,6 +10722,39 @@ function Dashboard({ user, onLogout }) {
                 Confirm
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Universal PWA Install Guide Modal */}
+      {showInstallModal && (
+        <div className="install-modal-overlay" onClick={() => setShowInstallModal(false)}>
+          <div className="install-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="install-modal-header">
+              <div className="install-modal-icon">📲</div>
+              <h3>Install Chartered Mentor</h3>
+              <button type="button" className="install-modal-close" onClick={() => setShowInstallModal(false)}>✕</button>
+            </div>
+            <p className="install-modal-intro">
+              Install the official web app directly on your phone or PC for full-screen view, fast loading, and real-time updates.
+            </p>
+            <div className="install-steps-list">
+              <div className="install-step-item">
+                <span className="step-badge">Android (Chrome)</span>
+                <p>Tap the <strong>three dots (⋮)</strong> at top right, then tap <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.</p>
+              </div>
+              <div className="install-step-item">
+                <span className="step-badge">iPhone / iPad (Safari)</span>
+                <p>Tap the <strong>Share button (⎋)</strong> at the bottom of the screen, scroll down, and tap <strong>"Add to Home Screen"</strong>.</p>
+              </div>
+              <div className="install-step-item">
+                <span className="step-badge">Desktop (Chrome / Edge)</span>
+                <p>Click the <strong>Install icon (⊞ / 📲)</strong> in your browser address bar at the top right.</p>
+              </div>
+            </div>
+            <button type="button" className="install-modal-ok-btn" onClick={() => setShowInstallModal(false)}>
+              Got It
+            </button>
           </div>
         </div>
       )}

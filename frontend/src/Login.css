@@ -270,7 +270,8 @@
 }
 
 /* Prominent Top App Downloader Banner */
-.login-top-apk-banner {
+.login-top-apk-banner,
+.login-top-pwa-banner {
   max-width: 440px;
   width: 100%;
   margin-bottom: 0.85rem;
@@ -286,13 +287,15 @@
   z-index: 10;
 }
 
-.top-apk-banner-info {
+.top-apk-banner-info,
+.top-pwa-banner-info {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.apk-banner-badge {
+.apk-banner-badge,
+.pwa-banner-badge {
   font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0.5px;
@@ -304,67 +307,53 @@
   width: fit-content;
 }
 
-.apk-banner-title {
+.apk-banner-title,
+.pwa-banner-title {
   font-size: 0.84rem;
   font-weight: 700;
   color: #0f172a;
 }
 
-.top-apk-banner-actions {
+.top-apk-banner-actions,
+.top-pwa-banner-actions {
   display: flex;
   align-items: center;
   gap: 0.45rem;
 }
 
-.top-install-pwa-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.45rem 0.85rem;
-  background: #f0fdf4;
-  color: #166534;
-  border: 1.5px solid #bbf7d0;
-  font-size: 0.8rem;
-  font-weight: 700;
-  border-radius: 10px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.15s ease;
-}
-
-.top-install-pwa-btn:hover {
-  background: #dcfce7;
-  border-color: #86efac;
-  transform: translateY(-1px);
-}
-
-.top-apk-banner-btn {
+.top-install-pwa-btn,
+.top-pwa-banner-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
   padding: 0.45rem 0.85rem;
   background: #2563eb;
   color: #ffffff !important;
+  border: none;
   font-size: 0.8rem;
   font-weight: 700;
   border-radius: 10px;
-  text-decoration: none;
+  cursor: pointer;
   white-space: nowrap;
   box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
-  transition: transform 0.15s ease, background 0.15s ease;
+  transition: all 0.15s ease;
 }
 
-.top-apk-banner-btn:hover {
+.top-install-pwa-btn:hover,
+.top-pwa-banner-btn:hover {
   background: #1d4ed8;
   transform: translateY(-1px);
 }
 
 /* In-Card App Download Box */
-.login-card-apk-box {
+.login-card-apk-box,
+.login-card-pwa-box {
   margin-bottom: 1.25rem;
 }
 
-.card-apk-cta-btn {
+.card-apk-cta-btn,
+.card-pwa-cta-btn {
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -373,43 +362,51 @@
   border: 1.5px solid #93c5fd;
   border-radius: 14px;
   text-decoration: none;
+  cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
 }
 
-.card-apk-cta-btn:hover {
+.card-apk-cta-btn:hover,
+.card-pwa-cta-btn:hover {
   border-color: #2563eb;
   background: linear-gradient(135deg, #dbeafe 0%, #dcfce7 100%);
   transform: translateY(-1px);
   box-shadow: 0 4px 14px rgba(37, 99, 235, 0.15);
 }
 
-.apk-btn-left {
+.apk-btn-left,
+.pwa-btn-left {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  text-align: left;
 }
 
-.apk-android-icon {
+.apk-android-icon,
+.pwa-app-icon {
   font-size: 1.45rem;
   line-height: 1;
 }
 
-.apk-cta-main {
+.apk-cta-main,
+.pwa-cta-main {
   font-size: 0.86rem;
   font-weight: 800;
   color: #1e3a8a;
   line-height: 1.2;
 }
 
-.apk-cta-sub {
+.apk-cta-sub,
+.pwa-cta-sub {
   font-size: 0.72rem;
   font-weight: 600;
   color: #475569;
   margin-top: 2px;
 }
 
-.apk-cta-pill {
+.apk-cta-pill,
+.pwa-cta-pill {
   font-size: 0.75rem;
   font-weight: 800;
   color: #15803d;
@@ -509,7 +506,8 @@
   font-weight: 700;
 }
 
-.download-apk-link-btn {
+.download-apk-link-btn,
+.download-pwa-link-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -523,12 +521,14 @@
   font-size: 0.84rem;
   font-weight: 700;
   text-decoration: none;
+  cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
   margin-bottom: 0.75rem;
 }
 
-.download-apk-link-btn:hover {
+.download-apk-link-btn:hover,
+.download-pwa-link-btn:hover {
   background: #2563eb;
   color: #ffffff;
   border-color: #2563eb;
@@ -542,11 +542,13 @@
   line-height: 1.4;
 }
 
-.hero-apk-download-bar {
+.hero-apk-download-bar,
+.hero-pwa-download-bar {
   margin-top: 0.25rem;
 }
 
-.hero-apk-btn {
+.hero-apk-btn,
+.hero-pwa-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
@@ -558,14 +560,139 @@
   font-size: 0.78rem;
   font-weight: 700;
   text-decoration: none;
+  cursor: pointer;
   transition: all 0.15s ease;
 }
 
-.hero-apk-btn:hover {
+.hero-apk-btn:hover,
+.hero-pwa-btn:hover {
   background: #dbeafe;
   border-color: #93c5fd;
   color: #1e40af;
   transform: translateY(-1px);
+}
+
+/* Install App Guide Modal */
+.install-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  animation: fadeInModal 0.2s ease;
+}
+
+.install-modal-card {
+  background: #ffffff;
+  border-radius: 20px;
+  max-width: 440px;
+  width: 100%;
+  padding: 1.5rem;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
+  border: 1px solid #e2e8f0;
+  animation: slideUpModal 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.install-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  position: relative;
+  margin-bottom: 0.75rem;
+}
+
+.install-modal-icon {
+  font-size: 1.75rem;
+}
+
+.install-modal-header h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.install-modal-close {
+  position: absolute;
+  right: -0.25rem;
+  top: -0.25rem;
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0.25rem;
+}
+
+.install-modal-intro {
+  font-size: 0.85rem;
+  color: #475569;
+  line-height: 1.45;
+  margin-bottom: 1rem;
+}
+
+.install-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-bottom: 1.25rem;
+}
+
+.install-step-item {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.65rem 0.85rem;
+}
+
+.step-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #1d4ed8;
+  background: #dbeafe;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-bottom: 0.25rem;
+}
+
+.install-step-item p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #1e293b;
+  line-height: 1.4;
+}
+
+.install-modal-ok-btn {
+  width: 100%;
+  padding: 0.75rem;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.install-modal-ok-btn:hover {
+  background: #1d4ed8;
+}
+
+@keyframes fadeInModal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUpModal {
+  from { transform: translateY(12px) scale(0.97); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
 }
 
 .login-card h2 {
