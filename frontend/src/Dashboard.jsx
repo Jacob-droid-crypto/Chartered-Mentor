@@ -757,32 +757,125 @@ function Dashboard({ user, onLogout }) {
   }, []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [installPrompt, setInstallPrompt] = useState(null);
-  const [showInstallModal, setShowInstallModal] = useState(false);
+  // Logical and role-aware page header title & subtitle resolver
+  const getPageHeaderInfo = () => {
+    const isAdmin = user.role === 'admin' || user.role === 'staff';
 
-  useEffect(() => {
-    const handleBeforeInstall = (e) => {
-      e.preventDefault();
-      setInstallPrompt(e);
-    };
-    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
-    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
-  }, []);
-
-  const handleInstallApp = async () => {
-    if (installPrompt) {
-      installPrompt.prompt();
-      const choice = await installPrompt.userChoice;
-      if (choice && choice.outcome === 'accepted') {
-        setInstallPrompt(null);
-      }
-    } else {
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-      if (isStandalone) {
-        alert('Chartered Mentor is already installed and running on your device!');
-      } else {
-        setShowInstallModal(true);
-      }
+    switch (activeTab) {
+      case 'dashboard':
+        return {
+          title: isAdmin ? 'Campus Live Overview' : 'My Study Dashboard',
+          subtitle: isAdmin
+            ? 'Real-time monitoring of campus study halls, active desks, breaks, and academy metrics'
+            : 'Track your personal daily study hours, biometric logs, upcoming exams, and academic milestones'
+        };
+      case 'attendance':
+        return {
+          title: isAdmin ? 'Attendance Management' : 'My Attendance History',
+          subtitle: isAdmin
+            ? 'Biometric punch logs, daily student durations, campus presence, and manual adjustments'
+            : 'Detailed log of your biometric check-in & check-out times, study hours, and penalty deductions'
+        };
+      case 'inside':
+        return {
+          title: 'Students Inside Campus',
+          subtitle: 'Live roster of students currently present and studying in academic halls'
+        };
+      case 'outside':
+        return {
+          title: 'Students on Break',
+          subtitle: 'Real-time tracking of students currently outside campus, departure times, and break durations'
+        };
+      case 'seats':
+        return {
+          title: 'Seat Matrix & Desk Allocation',
+          subtitle: 'Interactive layout of campus desks (A1–C9), live occupancy status, and student assignments'
+        };
+      case 'students':
+        return {
+          title: 'Student Admissions & Directory',
+          subtitle: 'Enrollment records, contact information, academic batches, and student profile management'
+        };
+      case 'schedules':
+        return {
+          title: isAdmin ? 'Study Schedules & Timetables' : 'My Study Schedules',
+          subtitle: isAdmin
+            ? 'Publish, organize, and allocate daily study target sheets and faculty timetables'
+            : 'View and download your official study targets, revision schedules, and subject timetables'
+        };
+      case 'papers':
+        return {
+          title: isAdmin ? 'Question Papers Repository' : 'Question Papers & Tests',
+          subtitle: isAdmin
+            ? 'Upload, organize, and release assessment papers, mock tests, and answer keys'
+            : 'Access official question papers, mock exam tests, and revision series'
+        };
+      case 'exam_scheduler':
+        return {
+          title: 'Academic Exam Scheduler',
+          subtitle: 'Plan exam timetables, assessment dates, publishing deadlines, and batch schedules'
+        };
+      case 'due_students':
+        return {
+          title: 'Pending Fee Dues',
+          subtitle: 'Outstanding fee balances, overdue installment follow-ups, and student payment reminders'
+        };
+      case 'fines':
+        return {
+          title: isAdmin ? 'Fine & Penalty Management' : 'My Fines & Penalties',
+          subtitle: isAdmin
+            ? 'Issue disciplinary study hour penalties, review student remittance proofs, and manage settlements'
+            : 'Review issued attendance or disciplinary deductions and submit payment proofs for clearance'
+        };
+      case 'batches':
+        return {
+          title: 'Batch & Course Management',
+          subtitle: 'Organize academic batches, course streams, study modes, and group seat caps'
+        };
+      case 'payments':
+        return {
+          title: isAdmin ? 'Payment Approvals & Settlements' : 'Fee Payment History',
+          subtitle: isAdmin
+            ? 'Verify submitted student UPI, Bank Transfer, and cash receipts to approve installments'
+            : 'Review your submitted tuition fee receipts, approval status, and remaining fee balance'
+        };
+      case 'study_tracker':
+        return {
+          title: 'Study Goal Tracker',
+          subtitle: 'Personal study consistency tracker, daily target achievements, and cumulative hours'
+        };
+      case 'goal_settings':
+        return {
+          title: 'Study Goal Settings',
+          subtitle: 'Configure daily study hour benchmarks (Sunday–Saturday) and student-specific requirements'
+        };
+      case 'campus_qr':
+        return {
+          title: 'Campus Attendance QR Terminal',
+          subtitle: 'Live dynamic rotating QR code display for secure campus check-in and check-out scanning'
+        };
+      case 'scan_qr':
+        return {
+          title: 'Scan Campus Attendance QR',
+          subtitle: 'Align your camera with the campus QR terminal to record your arrival or departure'
+        };
+      case 'profile':
+        return {
+          title: isAdmin ? 'Account Profile Settings' : 'My Student Profile',
+          subtitle: isAdmin
+            ? 'Manage administrative credentials, campus preferences, and security settings'
+            : 'Personal information, contact details, parent information, and course registration'
+        };
+      case 'settings':
+        return {
+          title: 'System & Institute Settings',
+          subtitle: 'Institute payment accounts, attendance thresholds, biometric policies, and system controls'
+        };
+      default:
+        return {
+          title: 'Campus Overview',
+          subtitle: 'Chartered Mentor Institute monitoring and academic operations'
+        };
     }
   };
 
@@ -2913,24 +3006,10 @@ function Dashboard({ user, onLogout }) {
           MODEL 3 BLUE & WHITE LEFT SIDEBAR
           ======================================================== */}
       <aside className={`dashboard-sidebar ${mobileSidebarOpen ? 'open' : ''}`}>
-        {/* Brand Header */}
-        <div className="sidebar-brand-wrapper">
-          <div 
-            className="sidebar-brand-logo" 
-            onClick={() => {
-              setActiveTab('dashboard');
-              setViewingProfileStudent(null);
-              setMobileSidebarOpen(false);
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }} 
-            title="Chartered Mentor - Go to Dashboard"
-          >
-            <img 
-              src={cmLogo || CM_LOGO_DATA} 
-              alt="Chartered Mentor" 
-              className="sidebar-brand-logo-img" 
-              onError={(e) => { e.currentTarget.src = CM_LOGO_DATA; }}
-            />
+        {/* Mobile Sidebar Close Strip */}
+        <div className="sidebar-mobile-header">
+          <div className="sidebar-role-badge">
+            {(user.role === 'admin' || user.role === 'staff') ? 'Campus Administration' : 'Student Portal'}
           </div>
           <button 
             type="button" 
@@ -2939,16 +3018,6 @@ function Dashboard({ user, onLogout }) {
             aria-label="Close sidebar"
           >
             ✕
-          </button>
-        </div>
-
-        {/* Mobile Quick Action Strip (Install App & Sign Out) */}
-        <div className="sidebar-mobile-quick-actions">
-          <button type="button" onClick={handleInstallApp} className="sidebar-quick-install-btn" title="Install Web App">
-            <span>📲</span> Install App
-          </button>
-          <button type="button" onClick={onLogout} className="sidebar-quick-logout-btn">
-            <span>🚪</span> Sign Out
           </button>
         </div>
 
@@ -3200,18 +3269,6 @@ function Dashboard({ user, onLogout }) {
           )}
         </div>
 
-        {/* Sidebar Install App CTA */}
-        <div style={{ padding: '0 1rem', marginBottom: '0.5rem' }}>
-          <button 
-            type="button" 
-            onClick={handleInstallApp} 
-            className="sidebar-install-pwa-btn"
-            title="Install Chartered Mentor on your device"
-          >
-            <span>📲</span> Install Web App
-          </button>
-        </div>
-
         {/* Sidebar Footer User Info & Sign Out */}
         <div className="sidebar-footer-card">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
@@ -3278,33 +3335,15 @@ function Dashboard({ user, onLogout }) {
               />
             </div>
 
-            <div className="header-title-clean">
-              <h1>
-                {activeTab === 'dashboard' ? 'Campus Live Overview'
-                  : activeTab === 'attendance' ? 'Attendance Records'
-                  : activeTab === 'inside' ? 'Inside Campus Students'
-                  : activeTab === 'outside' ? 'Outside Campus (Break)'
-                  : activeTab === 'seats' ? 'Seat Matrix & Desk Allocation (A1–C9)'
-                  : activeTab === 'students' ? 'Students Directory'
-                  : activeTab === 'papers' ? 'Question Papers'
-                  : activeTab === 'schedules' ? 'Study Schedules'
-                  : activeTab === 'exam_scheduler' ? 'Exam Scheduler'
-                  : activeTab === 'due_students' ? 'Pending Dues'
-                  : activeTab === 'fines' ? 'Fines & Penalties'
-                  : activeTab === 'batches' ? 'Batches Management'
-                  : activeTab === 'payments' ? 'Payment Approvals'
-                  : activeTab === 'settings' ? 'Settings'
-                  : activeTab === 'goal_settings' ? 'Study Goal Settings'
-                  : activeTab === 'study_tracker' ? 'Study Goal Tracker'
-                  : activeTab === 'scan_qr' ? 'Scan Attendance QR'
-                  : activeTab === 'profile' ? 'Profile Details'
-                  : 'Campus Overview'}
-              </h1>
-              <p>
-                {activeTab === 'dashboard' ? 'Live Kochi Campus Overview & Real-Time Monitoring'
-                  : `Real-time management for ${activeTab.replace('_', ' ')}`}
-              </p>
-            </div>
+            {(() => {
+              const pageHeader = getPageHeaderInfo();
+              return (
+                <div className="header-title-clean">
+                  <h1>{pageHeader.title}</h1>
+                  <p>{pageHeader.subtitle}</p>
+                </div>
+              );
+            })()}
           </div>
 
           <div className="header-controls-clean">
@@ -3335,17 +3374,6 @@ function Dashboard({ user, onLogout }) {
                 <span className="refresh-btn-text">{isRefreshing ? 'Syncing...' : 'Refresh'}</span>
               </button>
             )}
-
-            {/* Direct Web App Install Button in Header (Always visible on mobile & desktop) */}
-            <button 
-              type="button" 
-              onClick={handleInstallApp} 
-              className="header-install-btn"
-              title="Install Chartered Mentor Web App"
-            >
-              <span className="header-btn-icon">📲</span>
-              <span className="header-btn-text">Install App</span>
-            </button>
 
             {/* Direct Header Logout Button (Always visible on mobile & desktop) */}
             <button 
@@ -10722,39 +10750,6 @@ function Dashboard({ user, onLogout }) {
                 Confirm
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Universal PWA Install Guide Modal */}
-      {showInstallModal && (
-        <div className="install-modal-overlay" onClick={() => setShowInstallModal(false)}>
-          <div className="install-modal-card" onClick={(e) => e.stopPropagation()}>
-            <div className="install-modal-header">
-              <div className="install-modal-icon">📲</div>
-              <h3>Install Chartered Mentor</h3>
-              <button type="button" className="install-modal-close" onClick={() => setShowInstallModal(false)}>✕</button>
-            </div>
-            <p className="install-modal-intro">
-              Install the official web app directly on your phone or PC for full-screen view, fast loading, and real-time updates.
-            </p>
-            <div className="install-steps-list">
-              <div className="install-step-item">
-                <span className="step-badge">Android (Chrome)</span>
-                <p>Tap the <strong>three dots (⋮)</strong> at top right, then tap <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.</p>
-              </div>
-              <div className="install-step-item">
-                <span className="step-badge">iPhone / iPad (Safari)</span>
-                <p>Tap the <strong>Share button (⎋)</strong> at the bottom of the screen, scroll down, and tap <strong>"Add to Home Screen"</strong>.</p>
-              </div>
-              <div className="install-step-item">
-                <span className="step-badge">Desktop (Chrome / Edge)</span>
-                <p>Click the <strong>Install icon (⊞ / 📲)</strong> in your browser address bar at the top right.</p>
-              </div>
-            </div>
-            <button type="button" className="install-modal-ok-btn" onClick={() => setShowInstallModal(false)}>
-              Got It
-            </button>
           </div>
         </div>
       )}

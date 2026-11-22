@@ -18,34 +18,6 @@ function Login({ onLoginSuccess }) {
   const [otp, setOtp] = useState('');
   const [tempToken, setTempToken] = useState(null);
   const [resetRole, setResetRole] = useState('student');
-  const [installPrompt, setInstallPrompt] = useState(null);
-  const [showInstallHelpModal, setShowInstallHelpModal] = useState(false);
-
-  useEffect(() => {
-    const handleBeforeInstall = (e) => {
-      e.preventDefault();
-      setInstallPrompt(e);
-    };
-    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
-    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
-  }, []);
-
-  const handleInstallClick = async () => {
-    if (installPrompt) {
-      installPrompt.prompt();
-      const choice = await installPrompt.userChoice;
-      if (choice && choice.outcome === 'accepted') {
-        setInstallPrompt(null);
-      }
-    } else {
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-      if (isStandalone) {
-        alert('Chartered Mentor is already installed and running on your device!');
-      } else {
-        setShowInstallHelpModal(true);
-      }
-    }
-  };
 
   // Abstract & Attractive Highlights Extracted from Official Posters (Compact 3-Row Set)
   const posterHighlights = [
@@ -76,9 +48,9 @@ function Login({ onLoginSuccess }) {
     // Check if user is clicking a setup link from their email
     const params = new URLSearchParams(window.location.search);
     if (params.get('setup') === 'true') {
-       setView('google_verify');
-       if (params.get('userId')) setUserId(params.get('userId'));
-       setMsg('Welcome! Please verify your identity with Google to set up your account.');
+      setView('google_verify');
+      if (params.get('userId')) setUserId(params.get('userId'));
+      setMsg('Welcome! Please verify your identity with Google to set up your account.');
     }
   }, []);
 
@@ -98,7 +70,7 @@ function Login({ onLoginSuccess }) {
 
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Login failed');
-      
+
       if (data.firstLogin && role === 'student') {
         setView('force_reset');
         setMsg('This is your first login. Please set a new password to continue.');
@@ -113,7 +85,7 @@ function Login({ onLoginSuccess }) {
         userId: data.studentId || userId,
         name: data.name || (role === 'admin' ? 'Admin' : 'Student'),
       });
-      
+
     } catch (err) {
       setError(err.message);
     } finally {
@@ -233,10 +205,10 @@ function Login({ onLoginSuccess }) {
         <div className="login-hero-inner">
           {/* Top Brand Bar: Official Authentic Logo & Contact */}
           <div className="login-hero-brand">
-            <img 
-              src={cmLogo || CM_LOGO_DATA} 
-              alt="Chartered Mentor" 
-              className="login-hero-brand-logo" 
+            <img
+              src={cmLogo || CM_LOGO_DATA}
+              alt="Chartered Mentor"
+              className="login-hero-brand-logo"
               onError={(e) => { e.currentTarget.src = CM_LOGO_DATA; }}
             />
             <div className="login-hero-contact-pill">
@@ -284,12 +256,6 @@ function Login({ onLoginSuccess }) {
             <span className="batch-strip-highlight">⚡ Limited 30 Seats/Batch</span>
           </div>
 
-          <div className="hero-pwa-download-bar">
-            <button type="button" onClick={handleInstallClick} className="hero-pwa-btn">
-              <span>📲</span> Install Official Web App on your Device
-            </button>
-          </div>
-
           {/* Footer Note */}
           <div className="login-hero-footer-note">
             <span>Chartered Mentor Institute</span>
@@ -300,309 +266,229 @@ function Login({ onLoginSuccess }) {
 
       {/* Right Form Panel (PC & Mobile) */}
       <main className="login-form-panel">
-        {/* Prominent Web App Downloader Top Bar (Highly visible on mobile & desktop) */}
-        <div className="login-top-pwa-banner">
-          <div className="top-pwa-banner-info">
-            <span className="pwa-banner-badge">OFFICIAL APP</span>
-            <span className="pwa-banner-title">Chartered Mentor App</span>
-          </div>
-          <div className="top-pwa-banner-actions">
-            <button 
-              type="button" 
-              onClick={handleInstallClick} 
-              className="top-pwa-banner-btn"
-              title="Install Chartered Mentor Web App"
-            >
-              <span>📲</span> Install App
-            </button>
-          </div>
-        </div>
-
         <div className="login-card">
           <div className="login-card-header">
             <div className="login-portal-badge">PORTAL ACCESS</div>
             <div className="login-card-brand">
-              <img 
-                src={cmLogo || CM_LOGO_DATA} 
-                alt="Chartered Mentor Logo" 
-                className="login-card-logo-img" 
+              <img
+                src={cmLogo || CM_LOGO_DATA}
+                alt="Chartered Mentor Logo"
+                className="login-card-logo-img"
                 onError={(e) => { e.currentTarget.src = CM_LOGO_DATA; }}
               />
             </div>
             <h2>
-              {view === 'login' ? 'Welcome Back' 
-                : view === 'google_verify' ? 'Verify Identity' 
-                : view.startsWith('forgot') ? 'Reset Password' 
-                : 'Set New Password'}
+              {view === 'login' ? 'Welcome Back'
+                : view === 'google_verify' ? 'Verify Identity'
+                  : view.startsWith('forgot') ? 'Reset Password'
+                    : 'Set New Password'}
             </h2>
             <p>
-              {view === 'login' ? 'Sign in to access your campus dashboard & study records' 
-                : view === 'google_verify' ? 'Use your registered Google account to verify.' 
-                : view === 'forgot_role_select' ? 'Who are you resetting the password for?'
-                : view === 'forgot_email' ? 'Enter your ID to receive an OTP.'
-                : view === 'forgot_otp' ? 'Enter the OTP sent to your email.'
-                : 'Create a secure password to use for login.'}
+              {view === 'login' ? 'Sign in to access your campus dashboard & study records'
+                : view === 'google_verify' ? 'Use your registered Google account to verify.'
+                  : view === 'forgot_role_select' ? 'Who are you resetting the password for?'
+                    : view === 'forgot_email' ? 'Enter your ID to receive an OTP.'
+                      : view === 'forgot_otp' ? 'Enter the OTP sent to your email.'
+                        : 'Create a secure password to use for login.'}
             </p>
           </div>
-
-          {/* Prominent in-card Web App Downloader CTA */}
-          {view === 'login' && (
-            <div className="login-card-pwa-box">
-              <button 
-                type="button"
-                onClick={handleInstallClick} 
-                className="card-pwa-cta-btn"
-                title="Install Chartered Mentor App"
-              >
-                <div className="pwa-btn-left">
-                  <span className="pwa-app-icon">📲</span>
-                  <div>
-                    <div className="pwa-cta-main">Install Chartered Mentor App</div>
-                    <div className="pwa-cta-sub">Fast &bull; One-Tap Access &bull; Works Offline</div>
-                  </div>
-                </div>
-                <span className="pwa-cta-pill">📲 Install</span>
-              </button>
-            </div>
-          )}
 
           {error && <div className="error-msg">{error}</div>}
           {msg && <div className="success-msg">{msg}</div>}
 
-        {view === 'login' && (
-          <form onSubmit={handleSubmit}>
-            <div className="role-toggle">
-              <button 
-                type="button"
-                className={`role-btn ${role === 'student' ? 'active' : ''}`}
-                onClick={() => setRole('student')}
-              >
-                <span>🎓</span> Student
-              </button>
-              <button 
-                type="button"
-                className={`role-btn ${role === 'admin' ? 'active' : ''}`}
-                onClick={() => setRole('admin')}
-              >
-                <span>🛡️</span> Admin
-              </button>
-            </div>
+          {view === 'login' && (
+            <form onSubmit={handleSubmit}>
+              <div className="role-toggle">
+                <button
+                  type="button"
+                  className={`role-btn ${role === 'student' ? 'active' : ''}`}
+                  onClick={() => setRole('student')}
+                >
+                  <span>🎓</span> Student
+                </button>
+                <button
+                  type="button"
+                  className={`role-btn ${role === 'admin' ? 'active' : ''}`}
+                  onClick={() => setRole('admin')}
+                >
+                  <span>🛡️</span> Admin
+                </button>
+              </div>
 
-            <div className="input-group">
-              <label>User ID</label>
-              <input 
-                type="text" 
-                value={userId}
-                onChange={(e) => setUserId(e.target.value)}
-                placeholder={role === 'admin' ? 'e.g. ADMIN001' : 'Student ID'}
-                required
-              />
-            </div>
+              <div className="input-group">
+                <label>User ID</label>
+                <input
+                  type="text"
+                  value={userId}
+                  onChange={(e) => setUserId(e.target.value)}
+                  placeholder={role === 'admin' ? 'e.g. ADMIN001' : 'Student ID'}
+                  required
+                />
+              </div>
 
-            <div className="input-group">
-              <label>Password</label>
-              <input 
-                type="password" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-              />
-              <div style={{ textAlign: 'right', marginTop: '0.75rem' }}>
-                <button type="button" onClick={() => {
-                  if (role === 'admin') {
-                    setView('forgot_role_select');
-                  } else {
-                    setResetRole('student');
-                    setView('forgot_email');
-                  }
-                }} className="forgot-link">
-                  Forgot Password?
+              <div className="input-group">
+                <label>Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                />
+                <div style={{ textAlign: 'right', marginTop: '0.75rem' }}>
+                  <button type="button" onClick={() => {
+                    if (role === 'admin') {
+                      setView('forgot_role_select');
+                    } else {
+                      setResetRole('student');
+                      setView('forgot_email');
+                    }
+                  }} className="forgot-link">
+                    Forgot Password?
+                  </button>
+                </div>
+              </div>
+
+              <button type="submit" className="submit-btn" disabled={loading}>
+                {loading ? 'Signing In...' : 'Sign In'}
+              </button>
+            </form>
+          )}
+
+          {view === 'forgot_role_select' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <button
+                type="button"
+                className="submit-btn"
+                onClick={() => { setResetRole('admin'); setView('forgot_email'); }}
+                style={{ background: '#3b82f6' }}
+              >
+                Reset Admin Password
+              </button>
+              <button
+                type="button"
+                className="submit-btn"
+                onClick={() => { setResetRole('student'); setView('forgot_email'); }}
+              >
+                Reset Student Password
+              </button>
+              <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+                <button type="button" onClick={() => setView('login')} className="forgot-link" style={{ color: '#64748b' }}>
+                  Back to Login
                 </button>
               </div>
             </div>
+          )}
 
-            <button type="submit" className="submit-btn" disabled={loading}>
-              {loading ? 'Signing In...' : 'Sign In'}
-            </button>
-          </form>
-        )}
-
-        {view === 'forgot_role_select' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <button 
-              type="button" 
-              className="submit-btn" 
-              onClick={() => { setResetRole('admin'); setView('forgot_email'); }}
-              style={{ background: '#3b82f6' }}
-            >
-              Reset Admin Password
-            </button>
-            <button 
-              type="button" 
-              className="submit-btn" 
-              onClick={() => { setResetRole('student'); setView('forgot_email'); }}
-            >
-              Reset Student Password
-            </button>
-            <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-              <button type="button" onClick={() => setView('login')} className="forgot-link" style={{ color: '#64748b' }}>
-                Back to Login
+          {view === 'forgot_email' && (
+            <form onSubmit={handleSendOtp}>
+              <div className="input-group">
+                <label>{resetRole === 'admin' ? 'Admin ID' : 'Student ID'}</label>
+                <input
+                  type="text"
+                  value={userId}
+                  onChange={(e) => setUserId(e.target.value)}
+                  placeholder="Enter your ID"
+                  required
+                />
+              </div>
+              <button type="submit" className="submit-btn" disabled={loading}>
+                {loading ? 'Sending Email...' : 'Send OTP'}
               </button>
-            </div>
-          </div>
-        )}
+              <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+                <button type="button" onClick={() => setView('login')} className="forgot-link" style={{ color: '#64748b' }}>
+                  Back to Login
+                </button>
+              </div>
+            </form>
+          )}
 
-        {view === 'forgot_email' && (
-          <form onSubmit={handleSendOtp}>
-            <div className="input-group">
-              <label>{resetRole === 'admin' ? 'Admin ID' : 'Student ID'}</label>
-              <input 
-                type="text" 
-                value={userId}
-                onChange={(e) => setUserId(e.target.value)}
-                placeholder="Enter your ID"
-                required
+          {view === 'forgot_otp' && (
+            <form onSubmit={handleVerifyOtpAndReset}>
+              <div className="input-group">
+                <label>6-Digit OTP</label>
+                <input
+                  type="text"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  placeholder="Enter OTP from email"
+                  required
+                />
+              </div>
+              <div className="input-group">
+                <label>New Password</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+              <button type="submit" className="submit-btn" disabled={loading}>
+                {loading ? 'Resetting...' : 'Reset Password'}
+              </button>
+              <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+                <button type="button" onClick={() => setView('login')} className="forgot-link" style={{ color: '#64748b' }}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+
+          {view === 'google_verify' && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', marginTop: '20px' }}>
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => {
+                  setError('Google Login Failed. Please try again.');
+                }}
+                useOneTap
+                theme="filled_blue"
+                shape="pill"
+                text="continue_with"
               />
+              <div style={{ textAlign: 'center', marginTop: '1.5rem', width: '100%' }}>
+                <button type="button" onClick={() => setView('login')} className="forgot-link" style={{ color: '#64748b' }}>
+                  Back to Login
+                </button>
+              </div>
             </div>
-            <button type="submit" className="submit-btn" disabled={loading}>
-              {loading ? 'Sending Email...' : 'Send OTP'}
-            </button>
-            <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-              <button type="button" onClick={() => setView('login')} className="forgot-link" style={{ color: '#64748b' }}>
-                Back to Login
+          )}
+
+          {view === 'force_reset' && (
+            <form onSubmit={handleForceResetPassword}>
+              <div className="input-group">
+                <label>New Password</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+
+              <button type="submit" className="submit-btn" disabled={loading}>
+                {loading ? 'Processing...' : 'Save Password'}
               </button>
-            </div>
-          </form>
-        )}
+              <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+                <button type="button" onClick={() => setView('login')} className="forgot-link" style={{ color: '#64748b' }}>
+                  Back to Login
+                </button>
+              </div>
+            </form>
+          )}
 
-        {view === 'forgot_otp' && (
-          <form onSubmit={handleVerifyOtpAndReset}>
-            <div className="input-group">
-              <label>6-Digit OTP</label>
-              <input 
-                type="text" 
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                placeholder="Enter OTP from email"
-                required
-              />
+          {view === 'login' && (
+            <div className="login-card-help-footer">
+              <div className="login-card-help-text">
+                <span>Need help signing in? Contact Campus Desk: <strong>+91 9496540849</strong></span>
+              </div>
             </div>
-            <div className="input-group">
-              <label>New Password</label>
-              <input 
-                type="password" 
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-              />
-            </div>
-            <button type="submit" className="submit-btn" disabled={loading}>
-              {loading ? 'Resetting...' : 'Reset Password'}
-            </button>
-            <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-              <button type="button" onClick={() => setView('login')} className="forgot-link" style={{ color: '#64748b' }}>
-                Cancel
-              </button>
-            </div>
-          </form>
-        )}
-
-        {view === 'google_verify' && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', marginTop: '20px' }}>
-            <GoogleLogin
-              onSuccess={handleGoogleSuccess}
-              onError={() => {
-                setError('Google Login Failed. Please try again.');
-              }}
-              useOneTap
-              theme="filled_blue"
-              shape="pill"
-              text="continue_with"
-            />
-            <div style={{ textAlign: 'center', marginTop: '1.5rem', width: '100%' }}>
-              <button type="button" onClick={() => setView('login')} className="forgot-link" style={{ color: '#64748b' }}>
-                Back to Login
-              </button>
-            </div>
-          </div>
-        )}
-
-        {view === 'force_reset' && (
-          <form onSubmit={handleForceResetPassword}>
-            <div className="input-group">
-              <label>New Password</label>
-              <input 
-                type="password" 
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-              />
-            </div>
-
-            <button type="submit" className="submit-btn" disabled={loading}>
-              {loading ? 'Processing...' : 'Save Password'}
-            </button>
-            <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
-              <button type="button" onClick={() => setView('login')} className="forgot-link" style={{ color: '#64748b' }}>
-                Back to Login
-              </button>
-            </div>
-          </form>
-        )}
-
-        {view === 'login' && (
-          <div className="login-card-help-footer">
-            <button 
-              type="button"
-              onClick={handleInstallClick} 
-              className="download-pwa-link-btn"
-              title="Install Official Web App"
-            >
-              <span>📲</span> Install Official Web App
-            </button>
-            <div className="login-card-help-text">
-              <span>Need help signing in? Contact Campus Desk: <strong>+91 9496540849</strong></span>
-            </div>
-          </div>
-        )}
+          )}
         </div>
       </main>
-
-      {/* Universal PWA Install Guide Modal */}
-      {showInstallHelpModal && (
-        <div className="install-modal-overlay" onClick={() => setShowInstallHelpModal(false)}>
-          <div className="install-modal-card" onClick={(e) => e.stopPropagation()}>
-            <div className="install-modal-header">
-              <div className="install-modal-icon">📲</div>
-              <h3>Install Chartered Mentor</h3>
-              <button type="button" className="install-modal-close" onClick={() => setShowInstallHelpModal(false)}>✕</button>
-            </div>
-            <p className="install-modal-intro">
-              Install the official web app directly on your phone or PC for full-screen view, fast loading, and real-time updates.
-            </p>
-            <div className="install-steps-list">
-              <div className="install-step-item">
-                <span className="step-badge">Android (Chrome)</span>
-                <p>Tap the <strong>three dots (⋮)</strong> at top right, then tap <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.</p>
-              </div>
-              <div className="install-step-item">
-                <span className="step-badge">iPhone / iPad (Safari)</span>
-                <p>Tap the <strong>Share button (⎋)</strong> at the bottom of the screen, scroll down, and tap <strong>"Add to Home Screen"</strong>.</p>
-              </div>
-              <div className="install-step-item">
-                <span className="step-badge">Desktop (Chrome / Edge)</span>
-                <p>Click the <strong>Install icon (⊞ / 📲)</strong> in your browser address bar at the top right.</p>
-              </div>
-            </div>
-            <button type="button" className="install-modal-ok-btn" onClick={() => setShowInstallHelpModal(false)}>
-              Got It
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

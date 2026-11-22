@@ -564,34 +564,35 @@ button.primary:hover, .btn-primary:hover {
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.sidebar-brand-wrapper {
+.sidebar-mobile-header {
   padding: 1.15rem 1.25rem;
   border-bottom: 1px solid #f1f5f9;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 72px;
+  min-height: 58px;
 }
 
-.sidebar-brand-logo {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  cursor: pointer;
+.sidebar-role-badge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.75px;
+  color: #0284c7;
+  background: #e0f2fe;
+  padding: 4px 10px;
+  border-radius: 6px;
+  display: inline-block;
 }
 
-.sidebar-brand-logo-img {
-  width: 100%;
-  max-width: 220px;
-  height: 50px;
-  object-fit: contain;
-  object-position: left center;
-  display: block;
-  transition: transform 0.2s ease, filter 0.2s ease;
+@media (min-width: 992px) {
+  .sidebar-mobile-header .sidebar-close-btn {
+    display: none !important;
+  }
 }
 
-.sidebar-brand-logo:hover .sidebar-brand-logo-img {
-  transform: scale(1.02);
+.sidebar-brand-wrapper {
+  display: none;
 }
 
 .brand-badge-cm {
