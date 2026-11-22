@@ -4208,19 +4208,53 @@ function Dashboard({ user, onLogout }) {
               const allocatedCount = Object.keys(seatOccupantMap).length;
               const vacantCount = Math.max(0, ALL_SEATS.length - allocatedCount);
 
-              // Dues & Fines
-              let pendingDuesTotal = 0;
-              let pendingDuesCount = 0;
-              residentialStudents.forEach(st => {
-                const balance = Math.max(0, (st.totalFees || 0) - (st.feesPaid || 0));
+              // Dues & Fines: accurate calculation of overdue dues vs upcoming installments
+              const todayStrForDues = getLocalDateString(getSyncedNow());
+              let overdueDuesTotal = 0;
+              const overdueStudentIds = new Set();
+              let upcomingDuesTotal = 0;
+              const upcomingStudentIds = new Set();
+
+              (students || []).forEach(st => {
+                if (st.role !== 'student') return;
+                const insts = st.installments || [];
+                const unpaidInsts = insts.filter(i => i.status !== 'Paid');
                 const finesSum = (st.fines || []).filter(f => f.status !== 'Paid').reduce((sum, f) => sum + (f.amount || 0), 0);
-                if (balance > 0 || finesSum > 0) {
-                  pendingDuesTotal += (balance + finesSum);
-                  pendingDuesCount++;
+
+                if (unpaidInsts.length > 0) {
+                  unpaidInsts.forEach(inst => {
+                    const amt = inst.adjustedAmount !== undefined ? inst.adjustedAmount : inst.amount;
+                    const dueDateStr = inst.dueDate ? getLocalDateString(new Date(inst.dueDate)) : '';
+                    if (dueDateStr && dueDateStr <= todayStrForDues) {
+                      overdueDuesTotal += (amt || 0);
+                      overdueStudentIds.add(st._id || st.userId);
+                    } else {
+                      upcomingDuesTotal += (amt || 0);
+                      upcomingStudentIds.add(st._id || st.userId);
+                    }
+                  });
+                } else {
+                  const remaining = Math.max(0, (st.totalFees || 0) - (st.feesPaid || 0));
+                  if (remaining > 0 && st.nextPaymentDueDate) {
+                    const dueDateStr = getLocalDateString(new Date(st.nextPaymentDueDate));
+                    if (dueDateStr && dueDateStr <= todayStrForDues) {
+                      overdueDuesTotal += remaining;
+                      overdueStudentIds.add(st._id || st.userId);
+                    } else {
+                      upcomingDuesTotal += remaining;
+                      upcomingStudentIds.add(st._id || st.userId);
+                    }
+                  }
+                }
+
+                if (finesSum > 0) {
+                  overdueDuesTotal += finesSum;
+                  overdueStudentIds.add(st._id || st.userId);
                 }
               });
-              if (pendingDuesTotal === 0) pendingDuesTotal = 3400;
-              if (pendingDuesCount === 0) pendingDuesCount = 4;
+
+              const overdueDuesCount = overdueStudentIds.size;
+              const upcomingDuesCount = upcomingStudentIds.size;
 
               const zoneA = ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9'];
               const zoneB = ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B9', 'B10', 'B11', 'B12'];
@@ -4295,12 +4329,32 @@ function Dashboard({ user, onLogout }) {
                     <div 
                       className="kpi-clean-card"
                       onClick={() => setActiveTab('due_students')}
+                      title="Click to view detailed dues and installment schedules"
                     >
                       <div className="kpi-header-row">
                         <span className="kpi-label">Pending Dues & Fines</span>
+                        {overdueDuesTotal === 0 ? (
+                          <span className="kpi-pill-badge green">All Clear</span>
+                        ) : (
+                          <span className="kpi-pill-badge red">{overdueDuesCount} Overdue</span>
+                        )}
                       </div>
-                      <div className="kpi-number-stat amber-text">₹{pendingDuesTotal.toLocaleString('en-IN')}</div>
-                      <div className="kpi-sub-description">{pendingDuesCount} students pending clearance</div>
+                      <div 
+                        className={`kpi-number-stat ${overdueDuesTotal === 0 ? 'green-text' : 'amber-text'}`}
+                      >
+                        ₹{overdueDuesTotal.toLocaleString('en-IN')}
+                      </div>
+                      <div className="kpi-sub-description">
+                        {overdueDuesTotal === 0 ? (
+                          upcomingDuesTotal > 0 ? (
+                            `No overdue dues • ₹${upcomingDuesTotal.toLocaleString('en-IN')} upcoming`
+                          ) : (
+                            'All fees cleared • No pending dues'
+                          )
+                        ) : (
+                          `${overdueDuesCount} student${overdueDuesCount > 1 ? 's' : ''} overdue • ₹${upcomingDuesTotal.toLocaleString('en-IN')} upcoming`
+                        )}
+                      </div>
                     </div>
                   </div>
 

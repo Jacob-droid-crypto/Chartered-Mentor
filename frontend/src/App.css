@@ -1176,6 +1176,14 @@ button.primary:hover, .btn-primary:hover {
   color: #d97706;
 }
 
+.kpi-number-stat.green-text {
+  color: #16a34a;
+}
+
+.kpi-number-stat.red-text {
+  color: #e11d48;
+}
+
 .kpi-sub-description {
   font-size: 0.8rem;
   color: #94a3b8;
