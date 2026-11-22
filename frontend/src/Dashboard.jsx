@@ -1168,7 +1168,7 @@ function Dashboard({ user, onLogout }) {
     }
   };
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (retryCount = 0) => {
     try {
       setLoading(true);
       let endpoint = (user.role === 'admin' || user.role === 'staff') ? '/admin/daily-summary' : `/student/dashboard/${user.userId}`;
@@ -1178,6 +1178,7 @@ function Dashboard({ user, onLogout }) {
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || 'Failed to fetch dashboard data');
       setData(result);
+      setError('');
 
       // Synced Server Time
       const serverDateHeader = response.headers.get('Date');
@@ -1208,13 +1209,17 @@ function Dashboard({ user, onLogout }) {
         }
       }
     } catch (err) {
+      if (retryCount < 1 && (err.name === 'TypeError' || (err.message && err.message.toLowerCase().includes('fetch')))) {
+        setTimeout(() => fetchDashboardData(retryCount + 1), 1500);
+        return;
+      }
       setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchStudentsData = async () => {
+  const fetchStudentsData = async (retryCount = 0) => {
     try {
       setLoading(true);
       const response = await fetch(`/admin/students`, {
@@ -1223,6 +1228,7 @@ function Dashboard({ user, onLogout }) {
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || 'Failed to fetch students');
       setStudents(result);
+      setError('');
       if (viewingProfileStudent) {
         const updated = result.find(s => s.userId === viewingProfileStudent.userId);
         if (updated) {
@@ -1230,6 +1236,10 @@ function Dashboard({ user, onLogout }) {
         }
       }
     } catch (err) {
+      if (retryCount < 1 && (err.name === 'TypeError' || (err.message && err.message.toLowerCase().includes('fetch')))) {
+        setTimeout(() => fetchStudentsData(retryCount + 1), 1500);
+        return;
+      }
       setError(err.message);
     } finally {
       setLoading(false);
@@ -1280,6 +1290,7 @@ function Dashboard({ user, onLogout }) {
       const result = await res.json();
       if (res.ok) {
         setStudentLogs(result);
+        setError('');
       } else {
         throw new Error(result.message || 'Failed to fetch student logs');
       }
@@ -1775,6 +1786,7 @@ function Dashboard({ user, onLogout }) {
       const resData = await res.json();
       if (!res.ok) throw new Error(resData.message);
       setProfileData(resData);
+      setError('');
       setProfileForm({
         name: resData.name || '',
         email: resData.email || '',
@@ -3298,7 +3310,18 @@ function Dashboard({ user, onLogout }) {
         {error && (
           <div className="sync-alert-banner">
             <span>⚠️ <strong>Live Sync Notice:</strong> Unable to reach live backend ({error}). Showing cached session.</span>
-            <button type="button" className="sync-alert-retry-btn" onClick={fetchDashboardData}>
+            <button
+              type="button"
+              className="sync-alert-retry-btn"
+              onClick={() => {
+                setError('');
+                fetchDashboardData();
+                if (isAdminOrStaff) {
+                  fetchStudentsData();
+                  fetchBatches();
+                }
+              }}
+            >
               Retry Sync
             </button>
           </div>
