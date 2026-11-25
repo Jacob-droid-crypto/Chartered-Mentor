@@ -1,724 +1,78 @@
-/* ========================================================
-   CHARTERED MENTOR - EXECUTIVE BLUE & WHITE LOGIN THEME
-   Responsive Split-Hero (PC) & Clean App View (Mobile)
-   ======================================================== */
-
-.login-split-layout {
+.login-container {
   display: flex;
+  justify-content: center;
+  align-items: center;
   min-height: 100vh;
   width: 100vw;
-  overflow-x: hidden;
-  background: #f8fafc;
-  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-/* ========================================================
-   LEFT SHOWCASE HERO PANEL (PC ONLY: >= 960px)
-   ======================================================== */
-.login-hero-panel {
-  display: none;
-}
-
-@media screen and (min-width: 960px) {
-  .login-hero-panel {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    flex: 1.1;
-    position: relative;
-    overflow: hidden;
-    background: #ffffff;
-    background-image: 
-      radial-gradient(circle at 10% 10%, rgba(37, 99, 235, 0.03) 0%, transparent 40%),
-      radial-gradient(circle at 90% 90%, rgba(245, 158, 11, 0.03) 0%, transparent 40%);
-    color: #0f172a;
-    padding: 2.25rem 2.5rem;
-    border-right: 1px solid #e2e8f0;
-    box-shadow: 2px 0 16px rgba(15, 23, 42, 0.03);
-    z-index: 2;
-  }
-
-  .login-hero-inner {
-    position: relative;
-    z-index: 5;
-    max-width: 520px;
-    width: 100%;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .login-hero-brand {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    flex-wrap: wrap;
-  }
-
-  .login-hero-brand-logo {
-    height: 44px;
-    width: auto;
-    max-width: 240px;
-    object-fit: contain;
-    display: block;
-  }
-
-  .login-hero-contact-pill {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    color: #475569;
-    font-size: 0.76rem;
-    font-weight: 600;
-    padding: 5px 11px;
-    border-radius: 20px;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-  }
-
-  .contact-divider {
-    color: #cbd5e1;
-  }
-
-  .login-hero-headline {
-    margin: 0;
-  }
-
-  .hero-subheading-tag {
-    background: #eff6ff;
-    color: #2563eb;
-    border: 1px solid #bfdbfe;
-    font-size: 0.72rem;
-    font-weight: 800;
-    padding: 2px 9px;
-    border-radius: 6px;
-    letter-spacing: 0.8px;
-    display: inline-block;
-    margin-bottom: 0.45rem;
-    text-transform: uppercase;
-  }
-
-  .hero-main-title {
-    font-size: 1.65rem;
-    font-weight: 800;
-    color: #0f172a;
-    line-height: 1.25;
-    letter-spacing: -0.4px;
-    margin: 0 0 0.35rem 0;
-  }
-
-  .hero-main-desc {
-    font-size: 0.88rem;
-    color: #64748b;
-    line-height: 1.45;
-    margin: 0;
-  }
-
-  /* 3 Sleek Compact Highlight Rows */
-  .hero-compact-highlights {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-  }
-
-  .hero-compact-row {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 0.65rem 0.85rem;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.02);
-    display: flex;
-    align-items: flex-start;
-    gap: 0.75rem;
-    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
-  }
-
-  .hero-compact-row:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
-    border-color: #cbd5e1;
-  }
-
-  .compact-row-icon {
-    font-size: 1.25rem;
-    line-height: 1;
-    margin-top: 2px;
-    flex-shrink: 0;
-  }
-
-  .compact-row-content {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .compact-row-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    margin-bottom: 0.15rem;
-  }
-
-  .compact-row-title {
-    font-size: 0.86rem;
-    font-weight: 700;
-    color: #0f172a;
-    line-height: 1.3;
-  }
-
-  .compact-row-badge {
-    font-size: 0.65rem;
-    font-weight: 700;
-    padding: 2px 7px;
-    border-radius: 6px;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-
-  .compact-row-badge.amber {
-    background: #fffbeb;
-    color: #b45309;
-    border: 1px solid #fde68a;
-  }
-
-  .compact-row-badge.blue {
-    background: #eff6ff;
-    color: #1d4ed8;
-    border: 1px solid #bfdbfe;
-  }
-
-  .compact-row-badge.green {
-    background: #ecfdf5;
-    color: #047857;
-    border: 1px solid #a7f3d0;
-  }
-
-  .compact-row-desc {
-    font-size: 0.77rem;
-    color: #64748b;
-    line-height: 1.4;
-    margin: 0;
-  }
-
-  /* Quick Batch Options Strip */
-  .hero-batch-strip {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    padding: 0.5rem 0.8rem;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    font-size: 0.76rem;
-    color: #475569;
-    font-weight: 600;
-  }
-
-  .batch-strip-dot {
-    color: #cbd5e1;
-  }
-
-  .batch-strip-highlight {
-    color: #92400e;
-    font-weight: 700;
-    background: #fef3c7;
-    border: 1px solid #fde68a;
-    padding: 1px 7px;
-    border-radius: 6px;
-  }
-
-  /* Footer Note */
-  .login-hero-footer-note {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.78rem;
-    color: #64748b;
-    font-weight: 600;
-    border-top: 1px solid #e2e8f0;
-    padding-top: 0.75rem;
-    margin-top: 0.1rem;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  .footer-contact {
-    color: #334155;
-    font-weight: 700;
-  }
-}
-
-/* ========================================================
-   RIGHT FORM PANEL (PC & MOBILE)
-   ======================================================== */
-.login-form-panel {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem 1.5rem;
-  background: #f8fafc;
-  background-image: 
-    radial-gradient(circle at 10% 20%, rgba(37, 99, 235, 0.04) 0%, transparent 40%),
-    radial-gradient(circle at 90% 80%, rgba(2, 132, 199, 0.05) 0%, transparent 40%);
+  background: transparent;
   position: relative;
-  min-height: 100vh;
+  overflow: hidden;
+  font-family: 'Outfit', sans-serif;
 }
 
-/* Prominent Top App Downloader Banner */
-.login-top-apk-banner,
-.login-top-pwa-banner {
-  max-width: 440px;
-  width: 100%;
-  margin-bottom: 0.85rem;
-  padding: 0.65rem 0.95rem;
-  background: #ffffff;
-  border: 1.5px solid #bfdbfe;
-  border-radius: 16px;
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.08);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  z-index: 10;
-}
-
-.top-apk-banner-info,
-.top-pwa-banner-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.apk-banner-badge,
-.pwa-banner-badge {
-  font-size: 0.62rem;
-  font-weight: 800;
-  letter-spacing: 0.5px;
-  color: #1d4ed8;
-  background: #dbeafe;
-  padding: 1px 6px;
-  border-radius: 4px;
-  display: inline-block;
-  width: fit-content;
-}
-
-.apk-banner-title,
-.pwa-banner-title {
-  font-size: 0.84rem;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.top-apk-banner-actions,
-.top-pwa-banner-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-}
-
-.top-install-pwa-btn,
-.top-pwa-banner-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.45rem 0.85rem;
-  background: #2563eb;
-  color: #ffffff !important;
-  border: none;
-  font-size: 0.8rem;
-  font-weight: 700;
-  border-radius: 10px;
-  cursor: pointer;
-  white-space: nowrap;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
-  transition: all 0.15s ease;
-}
-
-.top-install-pwa-btn:hover,
-.top-pwa-banner-btn:hover {
-  background: #1d4ed8;
-  transform: translateY(-1px);
-}
-
-/* In-Card App Download Box */
-.login-card-apk-box,
-.login-card-pwa-box {
-  margin-bottom: 1.25rem;
-}
-
-.card-apk-cta-btn,
-.card-pwa-cta-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem 1rem;
-  background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);
-  border: 1.5px solid #93c5fd;
-  border-radius: 14px;
-  text-decoration: none;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
-}
-
-.card-apk-cta-btn:hover,
-.card-pwa-cta-btn:hover {
-  border-color: #2563eb;
-  background: linear-gradient(135deg, #dbeafe 0%, #dcfce7 100%);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.15);
-}
-
-.apk-btn-left,
-.pwa-btn-left {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  text-align: left;
-}
-
-.apk-android-icon,
-.pwa-app-icon {
-  font-size: 1.45rem;
-  line-height: 1;
-}
-
-.apk-cta-main,
-.pwa-cta-main {
-  font-size: 0.86rem;
-  font-weight: 800;
-  color: #1e3a8a;
-  line-height: 1.2;
-}
-
-.apk-cta-sub,
-.pwa-cta-sub {
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: #475569;
-  margin-top: 2px;
-}
-
-.apk-cta-pill,
-.pwa-cta-pill {
-  font-size: 0.75rem;
-  font-weight: 800;
-  color: #15803d;
-  background: #dcfce7;
-  border: 1px solid #bbf7d0;
-  padding: 3px 8px;
-  border-radius: 8px;
-  white-space: nowrap;
-}
-
-/* Crisp White Card */
-.login-card {
-  max-width: 440px;
-  width: 100%;
-  padding: 2.25rem 2rem;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 24px;
-  box-shadow: 0 20px 45px -10px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(226, 232, 240, 0.5);
-  z-index: 10;
-  position: relative;
-  animation: cardEntrance 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-@media screen and (min-width: 960px) {
-  .login-card {
-    padding: 2.5rem 2.25rem;
-    min-height: 475px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-  }
-}
-
-@keyframes cardEntrance {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.login-card-header {
-  text-align: center;
-  margin-bottom: 1.5rem;
-}
-
-.login-portal-badge {
-  display: inline-block;
-  background: #f1f5f9;
-  color: #475569;
-  border: 1px solid #e2e8f0;
-  font-size: 0.68rem;
-  font-weight: 800;
-  padding: 3px 10px;
-  border-radius: 20px;
-  letter-spacing: 0.8px;
-  margin-bottom: 0.75rem;
-  text-transform: uppercase;
-}
-
-.login-card-brand {
-  margin-bottom: 1.25rem;
-}
-
-.login-card-logo-img {
-  max-width: 250px;
-  width: 100%;
-  height: 48px;
-  object-fit: contain;
-  margin: 0 auto;
-  display: block;
-}
-
-/* Hide logo inside card on PC since it is highlighted in the hero panel */
-@media screen and (min-width: 960px) {
-  .login-card-brand {
-    display: none;
-  }
-}
-
-.login-card-help-footer {
-  margin-top: 1.25rem;
-  padding-top: 1rem;
-  border-top: 1px solid #f1f5f9;
-  text-align: center;
-  font-size: 0.78rem;
-  color: #64748b;
-  line-height: 1.4;
-}
-
-.login-card-help-footer strong {
-  color: #0f172a;
-  font-weight: 700;
-}
-
-.download-apk-link-btn,
-.download-pwa-link-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  width: 100%;
-  padding: 0.7rem 1rem;
-  background: #f8fafc;
-  color: #0f172a;
-  border: 1.5px solid #cbd5e1;
-  border-radius: 12px;
-  font-size: 0.84rem;
-  font-weight: 700;
-  text-decoration: none;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
-  margin-bottom: 0.75rem;
-}
-
-.download-apk-link-btn:hover,
-.download-pwa-link-btn:hover {
-  background: #2563eb;
-  color: #ffffff;
-  border-color: #2563eb;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
-  transform: translateY(-1px);
-}
-
-.login-card-help-text {
-  font-size: 0.78rem;
-  color: #64748b;
-  line-height: 1.4;
-}
-
-.hero-apk-download-bar,
-.hero-pwa-download-bar {
-  margin-top: 0.25rem;
-}
-
-.hero-apk-btn,
-.hero-pwa-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.5rem 0.85rem;
-  background: #eff6ff;
-  color: #1d4ed8;
-  border: 1px solid #bfdbfe;
-  border-radius: 8px;
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-decoration: none;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.hero-apk-btn:hover,
-.hero-pwa-btn:hover {
-  background: #dbeafe;
-  border-color: #93c5fd;
-  color: #1e40af;
-  transform: translateY(-1px);
-}
-
-/* Install App Guide Modal */
-.install-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.65);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  z-index: 999999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  animation: fadeInModal 0.2s ease;
-}
-
-.install-modal-card {
-  background: #ffffff;
-  border-radius: 20px;
-  max-width: 440px;
-  width: 100%;
-  padding: 1.5rem;
-  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
-  border: 1px solid #e2e8f0;
-  animation: slideUpModal 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.install-modal-header {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  position: relative;
-  margin-bottom: 0.75rem;
-}
-
-.install-modal-icon {
-  font-size: 1.75rem;
-}
-
-.install-modal-header h3 {
-  margin: 0;
-  font-size: 1.15rem;
-  font-weight: 800;
-  color: #0f172a;
-}
-
-.install-modal-close {
+/* Anime Aesthetic Background with slow pan animation */
+.anime-background {
   position: absolute;
-  right: -0.25rem;
-  top: -0.25rem;
-  background: none;
-  border: none;
-  font-size: 1.25rem;
-  color: #94a3b8;
-  cursor: pointer;
-  padding: 0.25rem;
+  top: -10%;
+  left: -10%;
+  width: 120%;
+  height: 120%;
+  background-image: url('/abstract_bg.png');
+  background-size: cover;
+  background-position: center;
+  z-index: 0;
+  animation: slowPan 30s linear infinite alternate;
+  filter: brightness(1.05) saturate(1.1);
 }
 
-.install-modal-intro {
-  font-size: 0.85rem;
-  color: #475569;
-  line-height: 1.45;
-  margin-bottom: 1rem;
+/* Soft white overlay to ensure text readability while keeping anime bg visible */
+.login-container::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 100%);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 1;
 }
 
-.install-steps-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  margin-bottom: 1.25rem;
-}
-
-.install-step-item {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 0.65rem 0.85rem;
-}
-
-.step-badge {
-  display: inline-block;
-  font-size: 0.68rem;
-  font-weight: 800;
-  color: #1d4ed8;
-  background: #dbeafe;
-  padding: 2px 6px;
-  border-radius: 4px;
-  margin-bottom: 0.25rem;
-}
-
-.install-step-item p {
-  margin: 0;
-  font-size: 0.82rem;
-  color: #1e293b;
-  line-height: 1.4;
-}
-
-.install-modal-ok-btn {
+.login-card {
+  max-width: 420px;
   width: 100%;
-  padding: 0.75rem;
-  background: #2563eb;
-  color: #ffffff;
-  border: none;
-  border-radius: 12px;
-  font-size: 0.9rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.install-modal-ok-btn:hover {
-  background: #1d4ed8;
-}
-
-@keyframes fadeInModal {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes slideUpModal {
-  from { transform: translateY(12px) scale(0.97); opacity: 0; }
-  to { transform: translateY(0) scale(1); opacity: 1; }
+  padding: 2.5rem;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 24px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08), 
+              0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+  z-index: 10;
+  position: relative;
+  animation: cardEntrance 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .login-card h2 {
-  color: #0f172a;
-  font-size: 1.65rem;
-  font-weight: 800;
-  margin: 0 0 0.45rem 0;
+  color: #1e293b;
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
   letter-spacing: -0.5px;
 }
 
 .login-card p {
   color: #64748b;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 400;
-  line-height: 1.5;
-  margin: 0;
 }
 
-/* Crisp Segmented Role Switcher */
 .role-toggle {
   display: flex;
-  background: #f1f5f9;
+  background: rgba(241, 245, 249, 0.8);
   border-radius: 14px;
-  padding: 0.3rem;
+  padding: 0.35rem;
   margin-bottom: 1.5rem;
-  border: 1px solid #e2e8f0;
+  border: 1px solid rgba(0,0,0,0.03);
 }
 
 .role-btn {
@@ -726,31 +80,20 @@
   padding: 0.7rem;
   border: none;
   background: transparent;
-  border-radius: 11px;
+  border-radius: 10px;
   cursor: pointer;
   color: #64748b;
   font-weight: 600;
-  font-size: 0.9rem;
-  letter-spacing: 0.2px;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.role-btn:hover {
-  color: #0f172a;
+  font-size: 0.95rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .role-btn.active {
-  background: #2563eb;
-  color: #ffffff;
-  font-weight: 700;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+  background: white;
+  color: #4f46e5;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
 }
 
-/* Modern Input Groups */
 .input-group {
   margin-bottom: 1.25rem;
   text-align: left;
@@ -758,143 +101,133 @@
 
 .input-group label {
   display: block;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: #334155;
-  margin-bottom: 0.4rem;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
+  margin-bottom: 0.5rem;
+  color: #475569;
+  font-size: 0.9rem;
+  font-weight: 500;
 }
 
 .input-group input {
   width: 100%;
-  padding: 0.8rem 1rem;
+  padding: 0.9rem 1.2rem;
   border-radius: 12px;
   border: 1.5px solid #e2e8f0;
-  background: #ffffff;
-  color: #0f172a;
-  font-size: 0.95rem;
+  background: rgba(255, 255, 255, 0.9);
+  color: #1e293b;
+  font-size: 1rem;
   outline: none;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
-}
-
-.input-group input::placeholder {
-  color: #94a3b8;
+  transition: all 0.3s ease;
 }
 
 .input-group input:focus {
-  border-color: #2563eb;
-  background: #ffffff;
-  box-shadow: 0 0 0 3.5px rgba(37, 99, 235, 0.12);
+  border-color: #818cf8;
+  box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.15);
+  background: white;
 }
 
-/* Royal Blue Submit Button */
 .submit-btn {
   width: 100%;
-  padding: 0.85rem 1.5rem;
-  border-radius: 12px;
+  padding: 1rem;
+  background: linear-gradient(135deg, #6366f1, #ec4899);
+  color: white;
   border: none;
-  background: #2563eb;
-  color: #ffffff;
-  font-size: 0.98rem;
-  font-weight: 700;
-  letter-spacing: 0.2px;
+  border-radius: 12px;
+  font-size: 1.05rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
-  margin-top: 0.5rem;
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
+  margin-top: 1rem;
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.25);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
 }
 
-.submit-btn:hover {
-  background: #1d4ed8;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35);
+.submit-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 25px rgba(99, 102, 241, 0.35);
+  background: linear-gradient(135deg, #4f46e5, #db2777);
 }
 
-.submit-btn:active {
-  transform: translateY(0);
+.submit-btn:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .submit-btn:disabled {
-  opacity: 0.6;
+  background: #cbd5e1;
+  color: #f8fafc;
   cursor: not-allowed;
-  transform: none;
   box-shadow: none;
 }
 
-/* Links & Actions */
 .forgot-link {
-  background: none;
+  background: transparent;
   border: none;
-  color: #2563eb;
+  color: #ec4899;
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
-  text-decoration: none;
   padding: 0;
   transition: color 0.2s;
 }
 
 .forgot-link:hover {
-  color: #1d4ed8;
+  color: #db2777;
   text-decoration: underline;
 }
 
-/* Status Notifications */
 .error-msg {
   background: #fef2f2;
-  color: #dc2626;
-  padding: 0.8rem 1rem;
+  border: 1px solid #fecaca;
+  color: #ef4444;
+  padding: 0.85rem;
   border-radius: 12px;
-  font-size: 0.85rem;
-  margin-bottom: 1.25rem;
-  border: 1px solid #fee2e2;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+  text-align: left;
+  animation: shake 0.5s ease-in-out;
 }
 
 .success-msg {
-  background: #ecfdf5;
-  color: #059669;
-  padding: 0.8rem 1rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #10b981;
+  padding: 0.85rem;
   border-radius: 12px;
-  font-size: 0.85rem;
-  margin-bottom: 1.25rem;
-  border: 1px solid #d1fae5;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+  text-align: left;
 }
 
-/* Mobile Optimizations (< 768px) */
-@media screen and (max-width: 768px) {
-  .login-form-panel {
-    padding: 1.25rem 1rem;
-    align-items: center;
-  }
+/* Animations */
+@keyframes cardEntrance {
+  0% { opacity: 0; transform: translateY(30px) scale(0.98); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
 
-  .login-card {
-    padding: 2rem 1.5rem;
-    border-radius: 20px;
-    box-shadow: 0 8px 30px rgba(15, 23, 42, 0.06);
-  }
+@keyframes slowPan {
+  0% { transform: scale(1) translate(0, 0); }
+  100% { transform: scale(1.05) translate(-2%, -2%); }
+}
 
-  .login-card h2 {
-    font-size: 1.45rem;
-  }
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
 
-  .login-card p {
-    font-size: 0.85rem;
-  }
+/* Decorative sparkles/stars for the aesthetic anime feel */
+.sparkle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 0 10px 2px rgba(255,255,255,0.8);
+  animation: twinkle 3s infinite alternate;
+  z-index: 2;
+}
 
-  .login-card-logo-img {
-    max-width: 210px;
-    height: 42px;
-  }
+@keyframes twinkle {
+  0% { opacity: 0.2; transform: scale(0.8); }
+  100% { opacity: 1; transform: scale(1.2); }
 }

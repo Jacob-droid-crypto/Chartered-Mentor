@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import './Login.css';
-import cmLogo from './assets/logo.png';
-import { CM_LOGO_DATA } from './assets/logoData';
 
 function Login({ onLoginSuccess }) {
   const [userId, setUserId] = useState('');
@@ -19,38 +17,13 @@ function Login({ onLoginSuccess }) {
   const [tempToken, setTempToken] = useState(null);
   const [resetRole, setResetRole] = useState('student');
 
-  // Abstract & Attractive Highlights Extracted from Official Posters (Compact 3-Row Set)
-  const posterHighlights = [
-    {
-      icon: '🎯',
-      title: 'CA Inter & Final Workout Batches',
-      desc: 'The Final Push: Personalised study plans, daily targets & cumulative revision.',
-      badge: 'Admissions Open',
-      badgeClass: 'amber'
-    },
-    {
-      icon: '👨‍💼',
-      title: 'Individual Guidance by Qualified CAs',
-      desc: '360° feedback, expert paper valuation & 1-on-1 doubt clearing.',
-      badge: 'Expert Faculty',
-      badgeClass: 'blue'
-    },
-    {
-      icon: '🪑',
-      title: 'Dedicated Study Cabins & Campus Space',
-      desc: 'Complete silence personal cabins, group study zone & app tracking.',
-      badge: 'Only 30 Seats',
-      badgeClass: 'green'
-    }
-  ];
-
   useEffect(() => {
     // Check if user is clicking a setup link from their email
     const params = new URLSearchParams(window.location.search);
     if (params.get('setup') === 'true') {
-      setView('google_verify');
-      if (params.get('userId')) setUserId(params.get('userId'));
-      setMsg('Welcome! Please verify your identity with Google to set up your account.');
+       setView('google_verify');
+       if (params.get('userId')) setUserId(params.get('userId'));
+       setMsg('Welcome! Please verify your identity with Google to set up your account.');
     }
   }, []);
 
@@ -70,7 +43,7 @@ function Login({ onLoginSuccess }) {
 
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Login failed');
-
+      
       if (data.firstLogin && role === 'student') {
         setView('force_reset');
         setMsg('This is your first login. Please set a new password to continue.');
@@ -85,7 +58,7 @@ function Login({ onLoginSuccess }) {
         userId: data.studentId || userId,
         name: data.name || (role === 'admin' ? 'Admin' : 'Student'),
       });
-
+      
     } catch (err) {
       setError(err.message);
     } finally {
@@ -199,296 +172,227 @@ function Login({ onLoginSuccess }) {
   };
 
   return (
-    <div className="login-split-layout">
-      {/* Left Showcase Hero Panel (PC Only: >= 960px) */}
-      <aside className="login-hero-panel">
-        <div className="login-hero-inner">
-          {/* Top Brand Bar: Official Authentic Logo & Contact */}
-          <div className="login-hero-brand">
-            <img
-              src={cmLogo || CM_LOGO_DATA}
-              alt="Chartered Mentor"
-              className="login-hero-brand-logo"
-              onError={(e) => { e.currentTarget.src = CM_LOGO_DATA; }}
+    <div className="login-container">
+      <div className="sparkle" style={{ top: '20%', left: '15%', animationDelay: '0s' }}></div>
+      <div className="sparkle" style={{ top: '60%', left: '10%', animationDelay: '1.5s' }}></div>
+      <div className="sparkle" style={{ top: '30%', right: '20%', animationDelay: '0.5s' }}></div>
+      <div className="sparkle" style={{ top: '75%', right: '15%', animationDelay: '2s' }}></div>
+      
+      <div className="login-card">
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <img 
+            src="/logo.png" 
+            alt="Chartered Mentor Logo" 
+            style={{ 
+              width: '340px', 
+              height: 'auto', 
+              margin: '0 auto 1.5rem auto', 
+              display: 'block',
+              filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.06))',
+              transition: 'transform 0.3s ease'
+            }} 
+            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+          />
+          <h2>
+            {view === 'login' ? 'Welcome Back ✨' 
+              : view === 'google_verify' ? 'Verify Identity' 
+              : view.startsWith('forgot') ? 'Reset Password' 
+              : 'Set New Password'}
+          </h2>
+          <p>
+            {view === 'login' ? 'Sign in to your beautiful dashboard' 
+              : view === 'google_verify' ? 'Use your registered Google account to verify.' 
+              : view === 'forgot_role_select' ? 'Who are you resetting the password for?'
+              : view === 'forgot_email' ? 'Enter your ID to receive an OTP.'
+              : view === 'forgot_otp' ? 'Enter the OTP sent to your email.'
+              : 'Create a secure password to use for login.'}
+          </p>
+        </div>
+
+        {error && <div className="error-msg">{error}</div>}
+        {msg && <div className="success-msg">{msg}</div>}
+
+        {view === 'login' && (
+          <form onSubmit={handleSubmit}>
+            <div className="role-toggle">
+              <button 
+                type="button"
+                className={`role-btn ${role === 'student' ? 'active' : ''}`}
+                onClick={() => setRole('student')}
+              >Student</button>
+              <button 
+                type="button"
+                className={`role-btn ${role === 'admin' ? 'active' : ''}`}
+                onClick={() => setRole('admin')}
+              >Admin</button>
+            </div>
+
+            <div className="input-group">
+              <label>User ID</label>
+              <input 
+                type="text" 
+                value={userId}
+                onChange={(e) => setUserId(e.target.value)}
+                placeholder={role === 'admin' ? 'e.g. ADMIN001' : 'Student ID'}
+                required
+              />
+            </div>
+
+            <div className="input-group">
+              <label>Password</label>
+              <input 
+                type="password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+              />
+              <div style={{ textAlign: 'right', marginTop: '0.75rem' }}>
+                <button type="button" onClick={() => {
+                  if (role === 'admin') {
+                    setView('forgot_role_select');
+                  } else {
+                    setResetRole('student');
+                    setView('forgot_email');
+                  }
+                }} className="forgot-link">
+                  Forgot Password?
+                </button>
+              </div>
+            </div>
+
+            <button type="submit" className="submit-btn" disabled={loading}>
+              {loading ? 'Signing In...' : 'Sign In'}
+            </button>
+          </form>
+        )}
+
+        {view === 'forgot_role_select' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <button 
+              type="button" 
+              className="submit-btn" 
+              onClick={() => { setResetRole('admin'); setView('forgot_email'); }}
+              style={{ background: '#3b82f6' }}
+            >
+              Reset Admin Password
+            </button>
+            <button 
+              type="button" 
+              className="submit-btn" 
+              onClick={() => { setResetRole('student'); setView('forgot_email'); }}
+            >
+              Reset Student Password
+            </button>
+            <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+              <button type="button" onClick={() => setView('login')} className="forgot-link" style={{ color: '#64748b' }}>
+                Back to Login
+              </button>
+            </div>
+          </div>
+        )}
+
+        {view === 'forgot_email' && (
+          <form onSubmit={handleSendOtp}>
+            <div className="input-group">
+              <label>{resetRole === 'admin' ? 'Admin ID' : 'Student ID'}</label>
+              <input 
+                type="text" 
+                value={userId}
+                onChange={(e) => setUserId(e.target.value)}
+                placeholder="Enter your ID"
+                required
+              />
+            </div>
+            <button type="submit" className="submit-btn" disabled={loading}>
+              {loading ? 'Sending Email...' : 'Send OTP'}
+            </button>
+            <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+              <button type="button" onClick={() => setView('login')} className="forgot-link" style={{ color: '#64748b' }}>
+                Back to Login
+              </button>
+            </div>
+          </form>
+        )}
+
+        {view === 'forgot_otp' && (
+          <form onSubmit={handleVerifyOtpAndReset}>
+            <div className="input-group">
+              <label>6-Digit OTP</label>
+              <input 
+                type="text" 
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+                placeholder="Enter OTP from email"
+                required
+              />
+            </div>
+            <div className="input-group">
+              <label>New Password</label>
+              <input 
+                type="password" 
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+              />
+            </div>
+            <button type="submit" className="submit-btn" disabled={loading}>
+              {loading ? 'Resetting...' : 'Reset Password'}
+            </button>
+            <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+              <button type="button" onClick={() => setView('login')} className="forgot-link" style={{ color: '#64748b' }}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
+
+        {view === 'google_verify' && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', marginTop: '20px' }}>
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => {
+                setError('Google Login Failed. Please try again.');
+              }}
+              useOneTap
+              theme="filled_blue"
+              shape="pill"
+              text="continue_with"
             />
-            <div className="login-hero-contact-pill">
-              <span>📍 Palarivattom, Cochin</span>
-              <span className="contact-divider">•</span>
-              <span>📞 9496540849</span>
+            <div style={{ textAlign: 'center', marginTop: '1.5rem', width: '100%' }}>
+              <button type="button" onClick={() => setView('login')} className="forgot-link" style={{ color: '#64748b' }}>
+                Back to Login
+              </button>
             </div>
           </div>
+        )}
 
-          {/* Headline & Abstract Tag */}
-          <div className="login-hero-headline">
-            <span className="hero-subheading-tag">A STRONGER CA TOMORROW</span>
-            <h1 className="hero-main-title">
-              Personalised Mentorship for CA Inter & Final
-            </h1>
-            <p className="hero-main-desc">
-              Structured workout batches, individual CA guidance, and dedicated study cabins designed to turn aspirations into qualifications.
-            </p>
-          </div>
-
-          {/* 3 Sleek Compact Highlight Rows */}
-          <div className="hero-compact-highlights">
-            {posterHighlights.map((item, idx) => (
-              <div key={idx} className="hero-compact-row">
-                <span className="compact-row-icon">{item.icon}</span>
-                <div className="compact-row-content">
-                  <div className="compact-row-header">
-                    <span className="compact-row-title">{item.title}</span>
-                    <span className={`compact-row-badge ${item.badgeClass}`}>{item.badge}</span>
-                  </div>
-                  <p className="compact-row-desc">{item.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Quick Batch Options Strip */}
-          <div className="hero-batch-strip">
-            <span className="batch-strip-item">🏡 Residential</span>
-            <span className="batch-strip-dot">•</span>
-            <span className="batch-strip-item">💻 Online</span>
-            <span className="batch-strip-dot">•</span>
-            <span className="batch-strip-item">🚶 Dayscholar</span>
-            <span className="batch-strip-dot">•</span>
-            <span className="batch-strip-highlight">⚡ Limited 30 Seats/Batch</span>
-          </div>
-
-          {/* Footer Note */}
-          <div className="login-hero-footer-note">
-            <span>Chartered Mentor Institute</span>
-            <span className="footer-contact">Admissions & Enquiries: 9496540849</span>
-          </div>
-        </div>
-      </aside>
-
-      {/* Right Form Panel (PC & Mobile) */}
-      <main className="login-form-panel">
-        <div className="login-card">
-          <div className="login-card-header">
-            <div className="login-portal-badge">PORTAL ACCESS</div>
-            <div className="login-card-brand">
-              <img
-                src={cmLogo || CM_LOGO_DATA}
-                alt="Chartered Mentor Logo"
-                className="login-card-logo-img"
-                onError={(e) => { e.currentTarget.src = CM_LOGO_DATA; }}
+        {view === 'force_reset' && (
+          <form onSubmit={handleForceResetPassword}>
+            <div className="input-group">
+              <label>New Password</label>
+              <input 
+                type="password" 
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="••••••••"
+                required
               />
             </div>
-            <h2>
-              {view === 'login' ? 'Welcome Back'
-                : view === 'google_verify' ? 'Verify Identity'
-                  : view.startsWith('forgot') ? 'Reset Password'
-                    : 'Set New Password'}
-            </h2>
-            <p>
-              {view === 'login' ? 'Sign in to access your campus dashboard & study records'
-                : view === 'google_verify' ? 'Use your registered Google account to verify.'
-                  : view === 'forgot_role_select' ? 'Who are you resetting the password for?'
-                    : view === 'forgot_email' ? 'Enter your ID to receive an OTP.'
-                      : view === 'forgot_otp' ? 'Enter the OTP sent to your email.'
-                        : 'Create a secure password to use for login.'}
-            </p>
-          </div>
 
-          {error && <div className="error-msg">{error}</div>}
-          {msg && <div className="success-msg">{msg}</div>}
-
-          {view === 'login' && (
-            <form onSubmit={handleSubmit}>
-              <div className="role-toggle">
-                <button
-                  type="button"
-                  className={`role-btn ${role === 'student' ? 'active' : ''}`}
-                  onClick={() => setRole('student')}
-                >
-                  <span>🎓</span> Student
-                </button>
-                <button
-                  type="button"
-                  className={`role-btn ${role === 'admin' ? 'active' : ''}`}
-                  onClick={() => setRole('admin')}
-                >
-                  <span>🛡️</span> Admin
-                </button>
-              </div>
-
-              <div className="input-group">
-                <label>User ID</label>
-                <input
-                  type="text"
-                  value={userId}
-                  onChange={(e) => setUserId(e.target.value)}
-                  placeholder={role === 'admin' ? 'e.g. ADMIN001' : 'Student ID'}
-                  required
-                />
-              </div>
-
-              <div className="input-group">
-                <label>Password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                />
-                <div style={{ textAlign: 'right', marginTop: '0.75rem' }}>
-                  <button type="button" onClick={() => {
-                    if (role === 'admin') {
-                      setView('forgot_role_select');
-                    } else {
-                      setResetRole('student');
-                      setView('forgot_email');
-                    }
-                  }} className="forgot-link">
-                    Forgot Password?
-                  </button>
-                </div>
-              </div>
-
-              <button type="submit" className="submit-btn" disabled={loading}>
-                {loading ? 'Signing In...' : 'Sign In'}
+            <button type="submit" className="submit-btn" disabled={loading}>
+              {loading ? 'Processing...' : 'Save Password'}
+            </button>
+            <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+              <button type="button" onClick={() => setView('login')} className="forgot-link" style={{ color: '#64748b' }}>
+                Back to Login
               </button>
-            </form>
-          )}
-
-          {view === 'forgot_role_select' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <button
-                type="button"
-                className="submit-btn"
-                onClick={() => { setResetRole('admin'); setView('forgot_email'); }}
-                style={{ background: '#3b82f6' }}
-              >
-                Reset Admin Password
-              </button>
-              <button
-                type="button"
-                className="submit-btn"
-                onClick={() => { setResetRole('student'); setView('forgot_email'); }}
-              >
-                Reset Student Password
-              </button>
-              <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-                <button type="button" onClick={() => setView('login')} className="forgot-link" style={{ color: '#64748b' }}>
-                  Back to Login
-                </button>
-              </div>
             </div>
-          )}
-
-          {view === 'forgot_email' && (
-            <form onSubmit={handleSendOtp}>
-              <div className="input-group">
-                <label>{resetRole === 'admin' ? 'Admin ID' : 'Student ID'}</label>
-                <input
-                  type="text"
-                  value={userId}
-                  onChange={(e) => setUserId(e.target.value)}
-                  placeholder="Enter your ID"
-                  required
-                />
-              </div>
-              <button type="submit" className="submit-btn" disabled={loading}>
-                {loading ? 'Sending Email...' : 'Send OTP'}
-              </button>
-              <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-                <button type="button" onClick={() => setView('login')} className="forgot-link" style={{ color: '#64748b' }}>
-                  Back to Login
-                </button>
-              </div>
-            </form>
-          )}
-
-          {view === 'forgot_otp' && (
-            <form onSubmit={handleVerifyOtpAndReset}>
-              <div className="input-group">
-                <label>6-Digit OTP</label>
-                <input
-                  type="text"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  placeholder="Enter OTP from email"
-                  required
-                />
-              </div>
-              <div className="input-group">
-                <label>New Password</label>
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-              <button type="submit" className="submit-btn" disabled={loading}>
-                {loading ? 'Resetting...' : 'Reset Password'}
-              </button>
-              <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-                <button type="button" onClick={() => setView('login')} className="forgot-link" style={{ color: '#64748b' }}>
-                  Cancel
-                </button>
-              </div>
-            </form>
-          )}
-
-          {view === 'google_verify' && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', marginTop: '20px' }}>
-              <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={() => {
-                  setError('Google Login Failed. Please try again.');
-                }}
-                useOneTap
-                theme="filled_blue"
-                shape="pill"
-                text="continue_with"
-              />
-              <div style={{ textAlign: 'center', marginTop: '1.5rem', width: '100%' }}>
-                <button type="button" onClick={() => setView('login')} className="forgot-link" style={{ color: '#64748b' }}>
-                  Back to Login
-                </button>
-              </div>
-            </div>
-          )}
-
-          {view === 'force_reset' && (
-            <form onSubmit={handleForceResetPassword}>
-              <div className="input-group">
-                <label>New Password</label>
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-
-              <button type="submit" className="submit-btn" disabled={loading}>
-                {loading ? 'Processing...' : 'Save Password'}
-              </button>
-              <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
-                <button type="button" onClick={() => setView('login')} className="forgot-link" style={{ color: '#64748b' }}>
-                  Back to Login
-                </button>
-              </div>
-            </form>
-          )}
-
-          {view === 'login' && (
-            <div className="login-card-help-footer">
-              <div className="login-card-help-text">
-                <span>Need help signing in? Contact Campus Desk: <strong>+91 9496540849</strong></span>
-              </div>
-            </div>
-          )}
-        </div>
-      </main>
+          </form>
+        )}
+      </div>
     </div>
   );
 }
