@@ -777,15 +777,18 @@
 }
 
 .header-logo-img {
-  height: 180px;
+  height: 42px;
+  max-height: 44px;
   width: auto;
-  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.12));
-  transition: transform 0.3s ease, filter 0.3s ease;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.08));
+  transition: transform 0.25s ease, filter 0.25s ease;
 }
 
 @media screen and (max-width: 768px) {
   .header-logo-img {
-    height: 90px;
+    height: 34px;
+    max-height: 36px;
   }
 }
 

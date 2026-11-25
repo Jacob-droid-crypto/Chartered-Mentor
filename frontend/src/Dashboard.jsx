@@ -3285,17 +3285,20 @@ function Dashboard({ user, onLogout }) {
                 alt="Chartered Mentor Logo" 
                 className="header-logo-img"
                 style={{ 
+                  height: '42px',
+                  maxHeight: '44px',
                   width: 'auto', 
-                  filter: 'drop-shadow(0 6px 16px rgba(0, 0, 0, 0.12))',
-                  transition: 'transform 0.3s ease, filter 0.3s ease'
+                  objectFit: 'contain',
+                  filter: 'drop-shadow(0 2px 8px rgba(0, 0, 0, 0.08))',
+                  transition: 'transform 0.25s ease, filter 0.25s ease'
                 }} 
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'scale(1.07)';
-                  e.currentTarget.style.filter = 'drop-shadow(0 8px 20px rgba(0,0,0,0.18))';
+                  e.currentTarget.style.transform = 'scale(1.04)';
+                  e.currentTarget.style.filter = 'drop-shadow(0 4px 12px rgba(0,0,0,0.12))';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.transform = 'scale(1)';
-                  e.currentTarget.style.filter = 'drop-shadow(0 6px 16px rgba(0, 0, 0, 0.12))';
+                  e.currentTarget.style.filter = 'drop-shadow(0 2px 8px rgba(0, 0, 0, 0.08))';
                 }}
               />
             </div>
